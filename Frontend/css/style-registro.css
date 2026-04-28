@@ -1,0 +1,9 @@
+/* Registro specific effects */
+.emerald-pulse-gradient:hover {
+    filter: brightness(1.1);
+    box-shadow: 0 0 20px rgba(16, 185, 129, 0.4);
+}
+.glass-panel {
+    backdrop-filter: blur(24px);
+    background-color: rgba(248, 249, 250, 0.8);
+}

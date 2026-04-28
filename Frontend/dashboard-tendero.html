@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html class="light" lang="es">
+
+<head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>Dashboard del Tendero - The Luminous Market</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&amp;display=swap"
+        rel="stylesheet" />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+        rel="stylesheet" />
+    <script src="js/tailwind-config.js"></script>
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="css/style-dashboard.css">
+</head>
+
+<body class="bg-background text-on-surface">
+
+    <header
+        class="bg-[#f8f9fa] dark:bg-gray-950 flex items-center justify-between px-8 py-4 w-full docked full-width top-0 z-40 fixed border-b border-slate-200">
+        <div class="flex items-center gap-4">
+            <h1 class="text-xl font-bold text-[#191c1d] dark:text-white tracking-tighter cursor-pointer"
+                onclick="window.location.href='index.html'">The Luminous Market</h1>
+        </div>
+        <div class="flex items-center gap-6">
+            <div class="flex items-center gap-2 px-4 py-2 bg-surface-container-low rounded-full">
+                <span class="material-symbols-outlined text-primary text-sm">sync</span>
+                <span class="text-xs font-medium text-on-surface-variant">Online</span>
+            </div>
+            <div class="flex items-center gap-4 border-l border-outline-variant pl-6">
+                <div class="text-right">
+                    <p class="text-xs text-on-surface-variant leading-none">Bienvenido,</p>
+                    <p class="text-sm font-bold text-on-surface" id="tendero-name">Cargando...</p>
+                </div>
+                <button onclick="logout()"
+                    class="material-symbols-outlined text-on-surface-variant hover:text-error transition-colors"
+                    title="Cerrar Sesión">logout</button>
+            </div>
+        </div>
+    </header>
+    <div class="flex pt-20">
+
+        <aside
+            class="flex flex-col h-screen fixed left-0 top-0 pt-20 bg-[#f3f4f5] dark:bg-gray-900 w-64 z-30 font-['Inter'] text-sm font-medium border-r border-slate-200">
+            <nav class="flex flex-col mt-4 space-y-1">
+                <a class="flex items-center gap-3 text-[#3c4a42] dark:text-gray-500 px-6 py-3 hover:text-[#006c49] dark:hover:text-[#10b981] hover:bg-[#10b981]/5 transition-all duration-300"
+                    href="#">
+                    <span class="material-symbols-outlined">dashboard</span>
+                    <span>Dashboard</span>
+                </a>
+                <a class="flex items-center gap-3 text-[#006c49] dark:text-[#10b981] font-bold border-r-4 border-[#006c49] dark:border-[#10b981] bg-[#10b981]/5 px-6 py-3 translate-x-1 transition-all duration-300"
+                    href="#">
+                    <span class="material-symbols-outlined">inventory_2</span>
+                    <span>Inventario</span>
+                </a>
+                <a class="flex items-center gap-3 text-[#3c4a42] dark:text-gray-500 px-6 py-3 hover:text-[#006c49] dark:hover:text-[#10b981] hover:bg-[#10b981]/5 transition-all duration-300"
+                    href="#">
+                    <span class="material-symbols-outlined">payments</span>
+                    <span>Ventas</span>
+                </a>
+                <a class="flex items-center gap-3 text-[#3c4a42] dark:text-gray-500 px-6 py-3 hover:text-[#006c49] dark:hover:text-[#10b981] hover:bg-[#10b981]/5 transition-all duration-300"
+                    href="#">
+                    <span class="material-symbols-outlined">storefront</span>
+                    <span>Mi Tienda</span>
+                </a>
+            </nav>
+        </aside>
+
+        <main class="ml-64 w-full p-8 bg-surface">
+
+            <div class="flex flex-col md:flex-row md:items-end justify-between mb-8 gap-4">
+                <div>
+                    <h2 class="text-3xl font-extrabold tracking-tight text-on-surface mb-2">Gestión de Inventario</h2>
+                    <p class="text-on-surface-variant font-medium">Controla tus productos, niveles de stock y precios de
+                        venta.</p>
+                </div>
+                <button
+                    class="emerald-pulse-gradient text-white px-6 py-3 rounded-2xl flex items-center gap-2 font-bold shadow-lg shadow-primary/20 scale-95 hover:scale-100 transition-transform duration-200"
+                    id="btn-add-product">
+                    <span class="material-symbols-outlined" data-icon="add">add</span>
+                    AGREGAR PRODUCTO
+                </button>
+            </div>
+
+
+            <div
+                class="bg-surface-container-lowest rounded-2xl shadow-sm border border-outline-variant/5 overflow-hidden">
+                <div class="px-8 py-6 border-b border-surface-container">
+                    <div class="flex items-center justify-between">
+                        <div class="relative w-full max-w-md">
+                            <span
+                                class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant"
+                                data-icon="search">search</span>
+                            <input
+                                class="w-full pl-10 pr-4 py-2 bg-surface-container-low border-none rounded-xl focus:ring-2 focus:ring-primary/20 text-sm"
+                                placeholder="Buscar por nombre o ID..." type="text" />
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <button
+                                class="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-on-surface-variant hover:bg-surface-container-low rounded-xl transition-colors">
+                                <span class="material-symbols-outlined text-sm" data-icon="download">download</span>
+                                Actualizar Tabla
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-surface-container-low/50">
+                                <th
+                                    class="px-8 py-4 text-xs font-black text-on-surface-variant uppercase tracking-widest">
+                                    ID PRODUCTO</th>
+                                <th
+                                    class="px-8 py-4 text-xs font-black text-on-surface-variant uppercase tracking-widest">
+                                    NOMBRE</th>
+                                <th
+                                    class="px-8 py-4 text-xs font-black text-on-surface-variant uppercase tracking-widest">
+                                    CATEGORÍA</th>
+                                <th
+                                    class="px-8 py-4 text-xs font-black text-on-surface-variant uppercase tracking-widest text-right">
+                                    PRECIO VENTA</th>
+                                <th
+                                    class="px-8 py-4 text-xs font-black text-on-surface-variant uppercase tracking-widest text-center">
+                                    STOCK ACTUAL</th>
+                                <th
+                                    class="px-8 py-4 text-xs font-black text-on-surface-variant uppercase tracking-widest text-center">
+                                    ACCIONES</th>
+                            </tr>
+                        </thead>
+                        <tbody id="inventory-table-body" class="divide-y divide-surface-container">
+
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+
+
+    <div class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
+        id="modal-overlay">
+        <div
+            class="bg-surface-container-lowest w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div class="px-8 py-6 border-b border-surface-container flex items-center justify-between">
+                <h3 class="text-xl font-bold text-on-surface">Agregar Nuevo Producto</h3>
+                <button
+                    class="material-symbols-outlined text-on-surface-variant hover:text-on-surface transition-colors"
+                    data-icon="close" id="btn-close-modal">close</button>
+            </div>
+            <form id="add-product-form" class="p-8 space-y-6">
+                <div class="grid grid-cols-1 gap-6">
+                    <div>
+                        <label class="block text-sm font-bold text-on-surface-variant mb-2">Nombre del Producto</label>
+                        <input id="reg-prod-nombre"
+                            class="w-full px-4 py-3 bg-surface-container-low border-none rounded-xl focus:ring-2 focus:ring-primary text-sm placeholder:text-on-surface-variant/40"
+                            placeholder="Ej. Panela Pulverizada" type="text" required />
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-on-surface-variant mb-2">Marca</label>
+                        <input id="reg-prod-marca"
+                            class="w-full px-4 py-3 bg-surface-container-low border-none rounded-xl focus:ring-2 focus:ring-primary text-sm placeholder:text-on-surface-variant/40"
+                            placeholder="Ej. El Trapiche" type="text" required />
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-on-surface-variant mb-2">Categoría</label>
+                        <select id="reg-prod-categoria"
+                            class="w-full px-4 py-3 bg-surface-container-low border-none rounded-xl focus:ring-2 focus:ring-primary text-sm"
+                            required>
+                            <option value="">Seleccionar categoría...</option>
+                            <option value="alimentos">Alimentos</option>
+                            <option value="artesanias">Artesanías</option>
+                            <option value="dulces">Dulces</option>
+                            <option value="bebidas">Bebidas</option>
+                        </select>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-bold text-on-surface-variant mb-2">Precio de Venta</label>
+                            <div class="relative">
+                                <span
+                                    class="absolute left-4 top-1/2 -translate-y-1/2 text-xs font-bold text-on-surface-variant/60">COP</span>
+                                <input id="reg-prod-precio"
+                                    class="w-full pl-12 pr-4 py-3 bg-surface-container-low border-none rounded-xl focus:ring-2 focus:ring-primary text-sm placeholder:text-on-surface-variant/40"
+                                    placeholder="0.00" type="number" required />
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-on-surface-variant mb-2">Stock Inicial</label>
+                            <input id="reg-prod-stock"
+                                class="w-full px-4 py-3 bg-surface-container-low border-none rounded-xl focus:ring-2 focus:ring-primary text-sm placeholder:text-on-surface-variant/40"
+                                placeholder="0" type="number" required />
+                        </div>
+                    </div>
+                </div>
+                <div class="flex items-center gap-4 pt-4">
+                    <button
+                        class="flex-1 py-3 px-6 rounded-2xl font-bold text-on-surface-variant hover:bg-surface-container-high transition-colors"
+                        id="btn-cancel-modal" type="button">
+                        Cancelar
+                    </button>
+                    <button
+                        class="flex-[2] emerald-pulse-gradient text-white py-3 px-6 rounded-2xl font-bold shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all"
+                        type="submit">
+                        GUARDAR PRODUCTO
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="js/utils.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/dashboard.js"></script>
+</body>
+
+</html>

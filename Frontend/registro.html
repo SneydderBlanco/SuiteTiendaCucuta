@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html class="light" lang="es">
+
+<head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>Registro | The Luminous Market</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap"
+        rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
+        rel="stylesheet" />
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <script src="js/tailwind-config.js"></script>
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="css/style-registro.css">
+</head>
+
+<body class="bg-surface font-body text-on-surface selection:bg-primary-container/30">
+    <div class="min-h-screen flex flex-col items-center justify-center p-4 md:p-8">
+        <header class="mb-8 flex flex-col items-center">
+            <div
+                class="w-12 h-12 mb-3 bg-primary rounded-xl flex items-center justify-center shadow-lg shadow-primary/20">
+                <span class="material-symbols-outlined text-white text-3xl" data-icon="storefront">storefront</span>
+            </div>
+            <h1 class="font-headline font-black text-on-surface tracking-tighter text-2xl">Tienda Digital Cúcuta</h1>
+            <p class="text-on-surface-variant text-sm font-medium opacity-70 mt-1">Tu digital concierge en Cúcuta</p>
+        </header>
+
+        <main class="w-full max-w-[500px] relative">
+            <div
+                class="bg-surface-container-lowest rounded-2xl p-6 md:p-10 shadow-[0_12px_32px_-4px_rgba(25,28,29,0.06)] border-none relative overflow-hidden">
+                <div class="absolute top-6 right-6">
+                    <span
+                        class="inline-flex items-center px-3 py-1 rounded-full bg-primary-container/20 text-primary text-[10px] font-bold tracking-widest uppercase">ACTIVO</span>
+                </div>
+                <div class="mb-10">
+                    <h2 class="text-2xl font-bold text-on-surface tracking-tight mb-2">Crear Cuenta</h2>
+                    <p class="text-on-surface-variant body-lg leading-relaxed">Únete a la red comercial más exclusiva de
+                        la ciudad.</p>
+                </div>
+
+                <div class="flex gap-2 p-1 bg-surface-container-low rounded-xl mb-8">
+                    <button
+                        class="flex-1 py-3 px-4 rounded-lg text-sm font-bold tracking-tight transition-all duration-300 bg-surface-container-lowest text-primary shadow-sm"
+                        id="toggle-consumer" onclick="toggleRole('consumer')">Soy Consumidor</button>
+                    <button
+                        class="flex-1 py-3 px-4 rounded-lg text-sm font-bold tracking-tight transition-all duration-300 text-on-surface-variant hover:bg-surface-container-high"
+                        id="toggle-shopkeeper" onclick="toggleRole('shopkeeper')">Soy Tendero</button>
+                </div>
+
+                <form id="reg-form" class="space-y-5">
+                    <div id="common-fields-top">
+                        <div class="space-y-2">
+                            <label
+                                class="text-[12px] font-bold text-on-surface-variant uppercase tracking-widest ml-1">Nombre
+                                Completo</label>
+                            <input id="reg-nombre" required
+                                class="w-full bg-surface-container-low border-none rounded-lg p-4 text-on-surface focus:ring-2 focus:ring-primary/20 focus:bg-surface-container-lowest transition-all placeholder:text-outline/50"
+                                placeholder="Ej. Juan Pérez" type="text" />
+                        </div>
+                    </div>
+
+                    <div class="hidden space-y-5" id="shopkeeper-only-fields">
+                        <div class="space-y-2">
+                            <label
+                                class="text-[12px] font-bold text-on-surface-variant uppercase tracking-widest ml-1">Nombre
+                                de la Tienda</label>
+                            <input id="reg-tienda"
+                                class="w-full bg-surface-container-low border-none rounded-lg p-4 text-on-surface focus:ring-2 focus:ring-primary/20 focus:bg-surface-container-lowest transition-all placeholder:text-outline/50"
+                                placeholder="Tu establecimiento comercial" type="text" />
+                        </div>
+                    </div>
+
+                    <div class="space-y-2">
+                        <label class="text-[12px] font-bold text-on-surface-variant uppercase tracking-widest ml-1"
+                            id="email-label">Correo Electrónico</label>
+                        <input id="reg-email" required
+                            class="w-full bg-surface-container-low border-none rounded-lg p-4 text-on-surface focus:ring-2 focus:ring-primary/20 focus:bg-surface-container-lowest transition-all placeholder:text-outline/50"
+                            placeholder="email@ejemplo.com" type="email" />
+                    </div>
+
+                    <div class="space-y-2">
+                        <label
+                            class="text-[12px] font-bold text-on-surface-variant uppercase tracking-widest ml-1">Contraseña</label>
+                        <input id="reg-password" required
+                            class="w-full bg-surface-container-low border-none rounded-lg p-4 text-on-surface focus:ring-2 focus:ring-primary/20 focus:bg-surface-container-lowest transition-all placeholder:text-outline/50"
+                            placeholder="••••••••" type="password" />
+                    </div>
+
+                    <div class="hidden space-y-2" id="shopkeeper-invite-field">
+                        <label
+                            class="text-[12px] font-bold text-on-surface-variant uppercase tracking-widest ml-1">Código
+                            de Invitación</label>
+                        <div class="relative">
+                            <span
+                                class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-primary text-xl"
+                                data-icon="verified_user">verified_user</span>
+                            <input id="reg-codigo"
+                                class="w-full bg-surface-container-low border-none rounded-lg p-4 pl-12 text-on-surface focus:ring-2 focus:ring-primary/20 focus:bg-surface-container-lowest transition-all placeholder:text-outline/50"
+                                placeholder="Código de acceso VIP" type="text" />
+                        </div>
+                    </div>
+
+                    <div class="pt-4">
+                        <button
+                            class="w-full emerald-pulse-gradient text-white font-bold py-4 px-6 rounded-lg shadow-xl shadow-primary/10 transition-all duration-300 flex items-center justify-center gap-2 group"
+                            type="submit">
+                            <span>Crear Cuenta</span>
+                            <span class="material-symbols-outlined group-hover:translate-x-1 transition-transform"
+                                data-icon="arrow_forward">arrow_forward</span>
+                        </button>
+                    </div>
+                </form>
+
+                <div class="mt-8 text-center">
+                    <p class="text-on-surface-variant text-sm font-medium">
+                        ¿Ya tienes cuenta? <a
+                            class="text-primary font-bold hover:underline decoration-2 underline-offset-4 transition-all"
+                            href="login.html">Inicia Sesión</a>
+                    </p>
+                </div>
+            </div>
+
+            <div class="mt-8 flex justify-center gap-6 opacity-40">
+                <img class="h-6 grayscale hover:grayscale-0 transition-all cursor-pointer"
+                    data-alt="minimalist logo of a luxury boutique brand in monochrome style"
+                    src="https://lh3.googleusercontent.com/aida-public/AB6AXuD2l3QKpnHkO72ID_hHFHqB2mogxo693QXsD4p8osKrSBgzpgH0P3d6y8mKDKPSxDzqhgPreYFe-P3EFZuGXuf0wu_GFeREFPcmRLLluPQNIfl6YOZ5es4T9fRHW72zT8ulwv2lWc4ZJxF0g7VgnO3WdaK7wrdD0eMe5NvovD89vySrBXzPlF8Ou-hUVXBeVLOF_mdLFbRWFDefnfLulM1B6REJAdAeJiKaQ1kzz3BMvRwKpHbQWBxHEevmBedQM6OkDMC7jWgZO3ca" />
+                <img class="h-6 grayscale hover:grayscale-0 transition-all cursor-pointer"
+                    data-alt="minimalist abstract corporate emblem with geometric clean lines"
+                    src="https://lh3.googleusercontent.com/aida-public/AB6AXuDkQ0eNX3F9AQOCS5JSeV283qTnpdkR0r7OwZqByt-DvP5wTUcOmElYORlL-o985pVjjA4zDxOGShfgRw_4MJSjFw6ccx6wtH2gv7YFF8z5bzzyXqYRx_ub5i3KFKjfsfnHZnBnf9S-r71yy4AmiqEFH5tONr1sHbPYbQIqE28KIvv5vw7xQsAF2cQipNdv-_045Pc5PzfbXxoy1-274pThh75a6ay6HyAIlHn4TeOs0e41C9fkFqgaVLnHfp0hRsJ8HZ1WZ02hEnGV" />
+            </div>
+        </main>
+
+        <footer class="mt-12 text-center max-w-sm px-4">
+            <p
+                class="text-[11px] text-on-surface-variant uppercase tracking-[0.2em] leading-relaxed opacity-50 font-bold">
+                Al registrarte, aceptas nuestros términos de servicio y la política de manejo de datos de Cúcuta
+                Digital.
+            </p>
+        </footer>
+    </div>
+
+    <script src="js/utils.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/registro.js"></script>
+</body>
+
+</html>
