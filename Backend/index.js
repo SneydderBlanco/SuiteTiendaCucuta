@@ -232,6 +232,72 @@ app.post('/api/actualizar-password', async (req, res) => {
     }
 });
 
+// Endpoint: Buscar Clientes
+app.get('/api/clientes/buscar', async (req, res) => {
+    const { q } = req.query;
+    try {
+        if (!q) return res.json([]);
+        const text = 'SELECT id_cliente, nombre, email FROM cliente WHERE nombre ILIKE $1 OR email ILIKE $1 LIMIT 5';
+        const { rows } = await db.query(text, [`%${q}%`]);
+        res.json(rows);
+    } catch (err) {
+        console.error('Error buscando clientes:', err.message);
+        res.status(500).json({ error: 'Error interno buscando clientes' });
+    }
+});
+
+// Endpoint: Crear Cliente Express
+app.post('/api/clientes', async (req, res) => {
+    const { nombre, email } = req.body;
+    const genericPassword = hashPassword('123456'); // Hash genérico
+    try {
+        const text = 'INSERT INTO cliente (nombre, email, password) VALUES ($1, $2, $3) RETURNING id_cliente, nombre, email';
+        const { rows } = await db.query(text, [nombre, email, genericPassword]);
+        res.json({ success: true, cliente: rows[0] });
+    } catch (err) {
+        console.error('Error creando cliente:', err.message);
+        res.status(500).json({ error: 'Error interno creando cliente' });
+    }
+});
+
+// Endpoint: Obtener Detalles de Venta
+app.get('/api/ventas/:id/detalles', async (req, res) => {
+    const { id } = req.params;
+    try {
+        const headerQuery = `
+            SELECT v.id_venta, v.fecha, v.tipo_pago, v.total, c.nombre AS nombre_cliente
+            FROM venta v
+            LEFT JOIN cliente c ON v.id_cliente = c.id_cliente
+            WHERE v.id_venta = $1
+        `;
+        const headerRes = await db.query(headerQuery, [id]);
+        
+        if (headerRes.rows.length === 0) {
+            return res.status(404).json({ error: 'Venta no encontrada' });
+        }
+        
+        const venta = headerRes.rows[0];
+
+        const itemsQuery = `
+            SELECT d.cantidad, d.precio_unitario_en_momento, p.nombre
+            FROM detalle_venta d
+            JOIN productos p ON d.id_producto = p.id_producto
+            WHERE d.id_venta = $1
+        `;
+        const itemsRes = await db.query(itemsQuery, [id]);
+        
+        res.json({
+            success: true,
+            venta: venta,
+            items: itemsRes.rows
+        });
+
+    } catch (err) {
+        console.error('Error obteniendo detalles de venta:', err.message);
+        res.status(500).json({ error: 'Error interno obteniendo detalles de venta' });
+    }
+});
+
 // Endpoint: Registrar Venta y Descontar Stock
 app.post('/api/ventas', async (req, res) => {
     // Nota: mapeamos id_tendero a id_tienda y asumimos que el frontend envía id_tienda o lo usamos como default 1 si no viene.
@@ -273,6 +339,85 @@ app.post('/api/ventas', async (req, res) => {
 
 // --- ENDPOINTS PARA REPORTES ---
 
+app.get('/api/ventas/historial/:id_tendero', async (req, res) => {
+    const { id_tendero } = req.params;
+    const { q, fechaInicio, fechaFin, page = 1, limit = 10 } = req.query;
+    
+    try {
+        let whereClauses = ['v.id_tienda = $1'];
+        let values = [id_tendero];
+        let paramCount = 2;
+
+        if (q) {
+            const isNumeric = !isNaN(q) && q.trim() !== '';
+            if (isNumeric) {
+                whereClauses.push(`(v.id_venta = $${paramCount} OR c.nombre ILIKE $${paramCount + 1} OR v.tipo_pago ILIKE $${paramCount + 1})`);
+                values.push(parseInt(q), `%${q}%`);
+                paramCount += 2;
+            } else {
+                whereClauses.push(`(c.nombre ILIKE $${paramCount} OR v.tipo_pago ILIKE $${paramCount})`);
+                values.push(`%${q}%`);
+                paramCount += 1;
+            }
+        }
+
+        if (fechaInicio) {
+            whereClauses.push(`DATE(v.fecha) >= $${paramCount}`);
+            values.push(fechaInicio);
+            paramCount += 1;
+        }
+
+        if (fechaFin) {
+            whereClauses.push(`DATE(v.fecha) <= $${paramCount}`);
+            values.push(fechaFin);
+            paramCount += 1;
+        }
+
+        const whereString = whereClauses.join(' AND ');
+
+        const countQuery = `
+            SELECT COUNT(*)
+            FROM venta v
+            LEFT JOIN cliente c ON v.id_cliente = c.id_cliente
+            WHERE ${whereString}
+        `;
+        const countRes = await db.query(countQuery, values);
+        const totalItems = parseInt(countRes.rows[0].count);
+        const totalPages = Math.ceil(totalItems / limit);
+        const offset = (page - 1) * limit;
+
+        const dataQuery = `
+            SELECT 
+                v.id_venta, 
+                v.fecha, 
+                v.tipo_pago, 
+                v.total, 
+                c.nombre AS nombre_cliente
+            FROM venta v
+            LEFT JOIN cliente c ON v.id_cliente = c.id_cliente
+            WHERE ${whereString}
+            ORDER BY v.fecha DESC
+            LIMIT $${paramCount} OFFSET $${paramCount + 1}
+        `;
+        
+        const dataValues = [...values, limit, offset];
+        const { rows } = await db.query(dataQuery, dataValues);
+
+        res.json({
+            data: rows,
+            pagination: {
+                totalItems,
+                totalPages: totalPages === 0 ? 1 : totalPages,
+                currentPage: parseInt(page),
+                limit: parseInt(limit)
+            }
+        });
+
+    } catch (err) {
+        console.error('Error obteniendo historial de ventas:', err.message);
+        res.status(500).json({ error: 'Error obteniendo historial de ventas' });
+    }
+});
 app.get('/api/reportes/kpis/:id_tendero', async (req, res) => {
     const { id_tendero } = req.params;
     try {

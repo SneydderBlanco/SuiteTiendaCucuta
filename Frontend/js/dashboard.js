@@ -19,16 +19,18 @@ document.addEventListener("DOMContentLoaded", () => {
     const navInventario = document.getElementById("nav-inventario");
     const navReportes = document.getElementById("nav-reportes");
     const navVentas = document.getElementById("nav-ventas");
+    const navHistorial = document.getElementById("nav-historial");
     const vistaInventario = document.getElementById("vista-inventario");
     const vistaReportes = document.getElementById("vista-reportes");
     const vistaVentas = document.getElementById("vista-ventas");
+    const vistaHistorial = document.getElementById("vista-historial");
 
     const activeClasses = ['text-[#006c49]', 'dark:text-[#10b981]', 'font-bold', 'border-r-4', 'border-[#006c49]', 'dark:border-[#10b981]', 'bg-[#10b981]/5', 'translate-x-1'];
     const inactiveClasses = ['text-[#3c4a42]', 'dark:text-gray-500'];
 
     function switchTabTo(activeNav, activeView) {
-        const allNavs = [navInventario, navReportes, navVentas];
-        const allViews = [vistaInventario, vistaReportes, vistaVentas];
+        const allNavs = [navInventario, navReportes, navVentas, navHistorial];
+        const allViews = [vistaInventario, vistaReportes, vistaVentas, vistaHistorial];
 
         allNavs.forEach(nav => {
             if (!nav) return;
@@ -57,13 +59,19 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
-    if (navInventario && navReportes && navVentas) {
+    if (navInventario && navReportes && navVentas && navHistorial) {
         navInventario.addEventListener("click", () => switchTabTo(navInventario, vistaInventario));
         navReportes.addEventListener("click", () => {
             switchTabTo(navReportes, vistaReportes);
             loadReportes(userId);
         });
         navVentas.addEventListener("click", () => switchTabTo(navVentas, vistaVentas));
+        navHistorial.addEventListener("click", () => {
+            switchTabTo(navHistorial, vistaHistorial);
+            if (typeof cargarHistorialVentas === 'function') {
+                cargarHistorialVentas(userId);
+            }
+        });
     }
 
     // Modal Control Logic
@@ -484,6 +492,8 @@ async function loadReportes(tenderoId) {
                 bar.title = `Total: ${Utils.formatCurrency(dayTotal)}`; 
             });
         }
+
+        // Eliminada la llamada a cargarHistorialVentas, ahora se llama desde el tab
     } catch (e) {
         console.error("Error cargando reportes:", e);
     }

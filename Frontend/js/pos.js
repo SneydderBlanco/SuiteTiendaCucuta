@@ -4,6 +4,7 @@ let products = [];
 let cart = [];
 let categoriaActual = 'Todos';
 let textoBusqueda = '';
+let clienteActual = 1;
 
 document.addEventListener('DOMContentLoaded', () => {
     // Verificar autenticación
@@ -43,7 +44,95 @@ function setupEventListeners() {
             filtrarCatalogo();
         });
     }
+
+    setupClientEvents();
 }
+
+function setupClientEvents() {
+    const searchCliente = document.getElementById('pos-search-cliente');
+    const dropdownClientes = document.getElementById('dropdown-clientes');
+    
+    if (searchCliente) {
+        searchCliente.addEventListener('input', async (e) => {
+            const q = e.target.value.trim();
+            if (q.length < 2) {
+                dropdownClientes.classList.add('hidden');
+                return;
+            }
+            try {
+                const res = await fetch(`http://localhost:3000/api/clientes/buscar?q=${encodeURIComponent(q)}`);
+                const clientes = await res.json();
+                
+                if (clientes.length > 0) {
+                    dropdownClientes.innerHTML = clientes.map(c => `
+                        <div class="px-4 py-2 hover:bg-surface-container-low cursor-pointer border-b border-outline-variant/10" onclick="seleccionarCliente(${c.id_cliente}, '${c.nombre.replace(/'/g, "\\'")}')">
+                            <p class="text-xs font-bold text-on-surface">${c.nombre}</p>
+                            <p class="text-[10px] text-on-surface-variant">${c.email}</p>
+                        </div>
+                    `).join('');
+                    dropdownClientes.classList.remove('hidden');
+                } else {
+                    dropdownClientes.innerHTML = '<div class="px-4 py-3 text-xs text-on-surface-variant font-medium flex items-center gap-2"><span class="material-symbols-outlined text-sm">info</span> Cliente no encontrado. Haz clic en el botón [+] para crearlo</div>';
+                    dropdownClientes.classList.remove('hidden');
+                }
+            } catch (err) {
+                console.error('Error buscando clientes:', err);
+            }
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!searchCliente.contains(e.target) && dropdownClientes && !dropdownClientes.contains(e.target)) {
+                dropdownClientes.classList.add('hidden');
+            }
+        });
+    }
+
+    const btnAddCliente = document.getElementById('btn-add-cliente');
+    const modalCliente = document.getElementById('client-modal-overlay');
+    const btnCloseModal = document.getElementById('btn-close-client-modal');
+    const formCliente = document.getElementById('add-client-form');
+
+    if (btnAddCliente && modalCliente) {
+        btnAddCliente.addEventListener('click', () => modalCliente.classList.remove('hidden'));
+        btnCloseModal.addEventListener('click', () => modalCliente.classList.add('hidden'));
+        
+        formCliente.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const nombre = document.getElementById('new-client-name').value;
+            const email = document.getElementById('new-client-email').value;
+            
+            try {
+                const res = await fetch('http://localhost:3000/api/clientes', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ nombre, email })
+                });
+                const data = await res.json();
+                
+                if (data.success) {
+                    seleccionarCliente(data.cliente.id_cliente, data.cliente.nombre);
+                    modalCliente.classList.add('hidden');
+                    formCliente.reset();
+                } else {
+                    alert('Error creando cliente');
+                }
+            } catch (err) {
+                console.error(err);
+                alert('Error al crear cliente');
+            }
+        });
+    }
+}
+
+window.seleccionarCliente = function(id, nombre) {
+    clienteActual = id;
+    const lblCliente = document.getElementById('lbl-cliente-actual');
+    if (lblCliente) {
+        lblCliente.innerHTML = `Cliente / Facturar a: <span class="text-primary bg-primary/10 px-2 py-0.5 rounded-md ml-1 border border-primary/20">${nombre}</span>`;
+    }
+    document.getElementById('pos-search-cliente').value = '';
+    document.getElementById('dropdown-clientes').classList.add('hidden');
+};
 
 async function loadPosProducts(merchantId) {
     try {
@@ -153,7 +242,7 @@ function addToCart(productId) {
         if (existingItem.quantity < product.stock) {
             existingItem.quantity += 1;
         } else {
-            alert('No hay suficiente stock disponible.');
+            alert(`¡Stock insuficiente! Solo quedan ${product.stock} unidades disponibles.`);
             return;
         }
     } else {
@@ -180,7 +269,7 @@ function updateQuantity(productId, delta) {
     } else {
         const product = products.find(p => p.id_producto === productId);
         if (newQuantity > product.stock) {
-            alert('No hay suficiente stock disponible.');
+            alert(`¡Stock insuficiente! Solo quedan ${product.stock} unidades disponibles.`);
             return;
         }
         item.quantity = newQuantity;
@@ -262,68 +351,86 @@ function processCheckout() {
         return;
     }
 
-    const modal = document.getElementById('billing-modal');
+    const modal = document.getElementById('modal-factura');
     if (!modal) {
         alert('Error: Modal de factura no encontrado en el DOM.');
         return;
     }
 
-    // Calcular totales
-    const subtotal = cart.reduce((sum, item) => sum + (item.precio_venta * item.quantity), 0);
-    const tax = 0; // Opcional IVA
-    const total = subtotal + tax;
+    // Cabecera
+    const ticketIdStr = `TKT-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`;
+    const elTicketId = document.getElementById('ticket-id');
+    if (elTicketId) elTicketId.textContent = ticketIdStr;
+    
+    const now = new Date();
+    const dateStr = `${now.getDate().toString().padStart(2, '0')}/${(now.getMonth() + 1).toString().padStart(2, '0')}/${now.getFullYear()} ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+    const elTicketDate = document.getElementById('ticket-date');
+    if (elTicketDate) elTicketDate.textContent = dateStr;
+    
+    const elTicketCashier = document.getElementById('ticket-cashier');
+    if (elTicketCashier) elTicketCashier.textContent = 'Caja Principal';
+    
+    // Extraer nombre del cliente del UI
+    const lblNode = document.getElementById('lbl-cliente-actual');
+    let clienteName = 'Consumidor Final';
+    if (lblNode && lblNode.querySelector('span')) {
+        clienteName = lblNode.querySelector('span').textContent;
+    } else if (lblNode) {
+        clienteName = lblNode.textContent.replace('Cliente / Facturar a:', '').trim();
+    }
+    const elTicketCustomer = document.getElementById('ticket-customer');
+    if (elTicketCustomer) elTicketCustomer.textContent = clienteName;
 
-    // Inyectar ítems del carrito en el ticket
-    const itemsContainer = modal.querySelector('.space-y-2.border-t.border-b');
+    // Items
+    const itemsContainer = document.getElementById('ticket-items');
     if (itemsContainer) {
         itemsContainer.innerHTML = '';
         cart.forEach(item => {
             itemsContainer.innerHTML += `
-                <div class="flex justify-between text-xs">
-                    <span class="text-on-surface-variant">${item.quantity}x ${item.nombre}</span>
+                <div class="flex justify-between">
+                    <span>${item.nombre} x${item.quantity}</span>
                     <span class="font-bold">${Utils.formatCurrency(item.precio_venta * item.quantity)}</span>
                 </div>
             `;
         });
     }
 
-    // Actualizar subtotales y total
-    const totalsContainer = modal.querySelector('.space-y-1');
-    if (totalsContainer) {
-        totalsContainer.innerHTML = `
-            <div class="flex justify-between text-xs font-medium">
-                <span>Subtotal:</span>
-                <span>${Utils.formatCurrency(subtotal)}</span>
-            </div>
-            <div class="flex justify-between text-xs font-medium">
-                <span>IVA (0%):</span>
-                <span>${Utils.formatCurrency(tax)}</span>
-            </div>
-            <div class="flex justify-between items-end mt-4 pt-4 border-t-2 border-dashed border-emerald-200">
-                <span class="font-black text-emerald-900">TOTAL:</span>
-                <span class="text-3xl font-black text-emerald-600">${Utils.formatCurrency(total)}</span>
-            </div>
-        `;
+    // Totales
+    const subtotal = cart.reduce((sum, item) => sum + (item.precio_venta * item.quantity), 0);
+    const tax = 0; // Opcional IVA
+    const total = subtotal + tax;
+
+    const elSubtotal = document.getElementById('ticket-subtotal');
+    if (elSubtotal) elSubtotal.textContent = Utils.formatCurrency(subtotal);
+    
+    const elTax = document.getElementById('ticket-tax');
+    if (elTax) elTax.textContent = Utils.formatCurrency(tax);
+    
+    const elTotal = document.getElementById('ticket-total');
+    if (elTotal) elTotal.textContent = Utils.formatCurrency(total);
+
+    // Configurar eventos de cierre y pago
+    const paymentContainer = modal.querySelector('.space-y-3.pt-2') || modal.querySelector('.payment-btn')?.parentElement;
+    if (paymentContainer) paymentContainer.classList.remove('hidden');
+
+    const closeBtn = modal.querySelector('.close-modal-btn');
+    if (closeBtn) {
+        const newCloseBtn = closeBtn.cloneNode(true);
+        closeBtn.parentNode.replaceChild(newCloseBtn, closeBtn);
+        newCloseBtn.textContent = '✕ CANCELAR OPERACIÓN';
+        newCloseBtn.addEventListener('click', () => modal.classList.add('hidden'));
     }
 
-    // Asignar eventos de pago y cierre
-    const modalButtons = modal.querySelectorAll('button');
-    modalButtons.forEach(btn => {
+    const paymentBtns = modal.querySelectorAll('.payment-btn');
+    paymentBtns.forEach(btn => {
         const text = btn.textContent.trim().toUpperCase();
-        // Remove previous listeners
-        const btnClone = btn.cloneNode(true);
-        btn.parentNode.replaceChild(btnClone, btn);
+        const newBtn = btn.cloneNode(true);
+        btn.parentNode.replaceChild(newBtn, btn);
         
         if (text.includes('EFECTIVO')) {
-            btnClone.addEventListener('click', () => processVentaReal('efectivo', btnClone));
-        } else if (text.includes('TARJETA')) {
-            btnClone.addEventListener('click', () => processVentaReal('tarjeta', btnClone));
-        } else if (text.includes('TRANSFERENCIA')) {
-            btnClone.addEventListener('click', () => processVentaReal('transferencia', btnClone));
-        } else if (text.includes('CANCELAR OPERACIÓN') || text.includes('CLOSE')) {
-            btnClone.addEventListener('click', () => modal.classList.add('hidden'));
-        } else if (btnClone.querySelector('.material-symbols-outlined') && btnClone.querySelector('.material-symbols-outlined').textContent.trim() === 'close') {
-            btnClone.addEventListener('click', () => modal.classList.add('hidden'));
+            newBtn.addEventListener('click', () => processVentaReal('efectivo', newBtn));
+        } else if (text.includes('TARJETA') || text.includes('NEQUI')) {
+            newBtn.addEventListener('click', () => processVentaReal('tarjeta', newBtn));
         }
     });
 
@@ -338,11 +445,10 @@ async function processVentaReal(metodoPago, buttonEl) {
 
     const merchantId = localStorage.getItem('userId');
     const total = cart.reduce((sum, item) => sum + (item.precio_venta * item.quantity), 0);
-    const idClienteSeleccionado = document.getElementById('selector-cliente')?.value || 'consumidor';
 
     const payload = {
         id_tienda: merchantId ? parseInt(merchantId) : 1,
-        id_cliente: idClienteSeleccionado === 'consumidor' ? null : 1, // Lógica simple temporal para cliente
+        id_cliente: clienteActual,
         tipo_pago: metodoPago,
         total: total,
         items: cart.map(item => ({
@@ -356,16 +462,29 @@ async function processVentaReal(metodoPago, buttonEl) {
         const response = await API.procesarVenta(payload);
 
         if (response.status === 200 && response.data.success) {
-            alert('Venta procesada exitosamente.');
-            document.getElementById('billing-modal').classList.add('hidden');
+            alert('Venta registrada con éxito');
+            document.getElementById('modal-factura').classList.add('hidden');
             cart = [];
             updateCartUI();
             
-            // Recargar inventario actual y reportes
-            loadPosProducts(merchantId); 
-            if (typeof loadReportes === 'function') {
-                loadReportes(merchantId);
+            // Reset de Cliente
+            clienteActual = 1;
+            const lblCliente = document.getElementById('pos-customer-label');
+            if (lblCliente) {
+                lblCliente.innerHTML = `Cliente / Facturar a: <span class="text-primary bg-primary/10 px-2 py-0.5 rounded-md ml-1 border border-primary/20">Consumidor Final</span>`;
             }
+            const posSearchCliente = document.getElementById('pos-search-cliente');
+            if (posSearchCliente) {
+                posSearchCliente.value = '';
+            }
+            
+            // Recargar inventario actual y reportes
+            setTimeout(() => {
+                loadPosProducts(merchantId); 
+                if (typeof loadReportes === 'function') {
+                    loadReportes(merchantId);
+                }
+            }, 300);
         } else {
             alert('Error al procesar la venta: ' + (response.data.error || 'Desconocido'));
         }
@@ -378,3 +497,219 @@ async function processVentaReal(metodoPago, buttonEl) {
     }
 }
 
+let historyState = {
+    page: 1,
+    limit: 10,
+    q: '',
+    fechaInicio: '',
+    fechaFin: ''
+};
+let historyDebounceTimer = null;
+
+window.cargarHistorialVentas = async function(tenderoId = null) {
+    if (!tenderoId) tenderoId = localStorage.getItem('userId');
+    const tbody = document.getElementById('tabla-historial-ventas');
+    if (!tbody) return;
+
+    tbody.innerHTML = '<tr><td colspan="6" class="px-6 py-4 text-center text-slate-500">Cargando historial...</td></tr>';
+
+    try {
+        const queryParams = new URLSearchParams({
+            page: historyState.page,
+            limit: historyState.limit
+        });
+        if (historyState.q) queryParams.append('q', historyState.q);
+        if (historyState.fechaInicio) queryParams.append('fechaInicio', historyState.fechaInicio);
+        if (historyState.fechaFin) queryParams.append('fechaFin', historyState.fechaFin);
+
+        const response = await fetch(`http://localhost:3000/api/ventas/historial/${tenderoId}?${queryParams.toString()}`);
+        if (response.ok) {
+            const result = await response.json();
+            const ventas = result.data || [];
+            const pagination = result.pagination || { totalPages: 1, currentPage: 1 };
+            
+            if (ventas.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="px-6 py-4 text-center text-slate-500">No hay transacciones registradas aún.</td></tr>';
+                updateHistoryPagination(pagination);
+                return;
+            }
+
+            tbody.innerHTML = '';
+            ventas.forEach(v => {
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-surface-container-low/30 transition-colors group';
+                
+                const d = new Date(v.fecha);
+                const fechaFormat = `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}/${d.getFullYear()} ${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
+                
+                const nombreCliente = v.nombre_cliente || 'Consumidor Final';
+                
+                tr.innerHTML = `
+                    <td class="px-6 py-4 font-mono text-xs text-on-surface-variant font-bold">#TKT-${v.id_venta}</td>
+                    <td class="px-6 py-4 text-xs text-on-surface">${fechaFormat}</td>
+                    <td class="px-6 py-4 text-xs font-bold text-emerald-800">${nombreCliente}</td>
+                    <td class="px-6 py-4 text-xs uppercase text-slate-500 font-medium">${v.tipo_pago}</td>
+                    <td class="px-6 py-4 text-sm font-black text-emerald-700 text-right">${Utils.formatCurrency(v.total)}</td>
+                    <td class="px-6 py-4 text-center">
+                        <button class="text-primary text-[10px] font-bold uppercase tracking-widest hover:underline" onclick="verDetalleFactura(${v.id_venta})">
+                            Detalles
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            updateHistoryPagination(pagination);
+        } else {
+            console.error('Error fetching historial:', response.status);
+            tbody.innerHTML = '<tr><td colspan="6" class="px-6 py-4 text-center text-error">Error al cargar el historial.</td></tr>';
+        }
+    } catch (error) {
+        console.error('Error cargando historial de ventas:', error);
+        tbody.innerHTML = '<tr><td colspan="6" class="px-6 py-4 text-center text-error">Error de red cargando el historial.</td></tr>';
+    }
+}
+
+function updateHistoryPagination(pagination) {
+    const info = document.getElementById('historial-page-info');
+    const btnPrev = document.getElementById('historial-btn-prev');
+    const btnNext = document.getElementById('historial-btn-next');
+
+    if (info) info.textContent = `Página ${pagination.currentPage} de ${pagination.totalPages}`;
+    
+    if (btnPrev) {
+        btnPrev.disabled = pagination.currentPage <= 1;
+        btnPrev.onclick = () => { historyState.page--; cargarHistorialVentas(); };
+    }
+    
+    if (btnNext) {
+        btnNext.disabled = pagination.currentPage >= pagination.totalPages;
+        btnNext.onclick = () => { historyState.page++; cargarHistorialVentas(); };
+    }
+}
+
+// Setup Event Listeners for Filters
+document.addEventListener('DOMContentLoaded', () => {
+    const inputSearch = document.getElementById('historial-search');
+    const inputFrom = document.getElementById('historial-date-from');
+    const inputTo = document.getElementById('historial-date-to');
+    const btnClear = document.getElementById('historial-btn-clear');
+
+    if (inputSearch) {
+        inputSearch.addEventListener('input', (e) => {
+            clearTimeout(historyDebounceTimer);
+            historyDebounceTimer = setTimeout(() => {
+                historyState.q = e.target.value;
+                historyState.page = 1;
+                cargarHistorialVentas();
+            }, 400);
+        });
+    }
+
+    if (inputFrom) {
+        inputFrom.addEventListener('change', (e) => {
+            historyState.fechaInicio = e.target.value;
+            historyState.page = 1;
+            cargarHistorialVentas();
+        });
+    }
+
+    if (inputTo) {
+        inputTo.addEventListener('change', (e) => {
+            historyState.fechaFin = e.target.value;
+            historyState.page = 1;
+            cargarHistorialVentas();
+        });
+    }
+
+    if (btnClear) {
+        btnClear.addEventListener('click', () => {
+            if (inputSearch) inputSearch.value = '';
+            if (inputFrom) inputFrom.value = '';
+            if (inputTo) inputTo.value = '';
+            historyState = {
+                page: 1,
+                limit: 10,
+                q: '',
+                fechaInicio: '',
+                fechaFin: ''
+            };
+            cargarHistorialVentas();
+        });
+    }
+});
+
+window.verDetalleFactura = async function(idVenta) {
+    try {
+        const response = await fetch(`http://localhost:3000/api/ventas/${idVenta}/detalles`);
+        if (!response.ok) throw new Error('Network response was not ok');
+        const data = await response.json();
+
+        if (data.success && data.venta) {
+            const modal = document.getElementById('modal-factura');
+            if (!modal) return;
+
+            const elTicketId = document.getElementById('ticket-id');
+            if (elTicketId) elTicketId.textContent = `TKT-${data.venta.id_venta.toString().padStart(4, '0')}`;
+            
+            const elTicketDate = document.getElementById('ticket-date');
+            if (elTicketDate) {
+                const d = new Date(data.venta.fecha);
+                elTicketDate.textContent = `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}/${d.getFullYear()} ${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
+            }
+            
+            const elTicketCashier = document.getElementById('ticket-cashier');
+            if (elTicketCashier) elTicketCashier.textContent = 'Caja Principal';
+            
+            const elTicketCustomer = document.getElementById('ticket-customer');
+            if (elTicketCustomer) elTicketCustomer.textContent = data.venta.nombre_cliente || 'Consumidor Final';
+
+            const itemsContainer = document.getElementById('ticket-items');
+            if (itemsContainer) {
+                itemsContainer.innerHTML = '';
+                data.items.forEach(item => {
+                    itemsContainer.innerHTML += `
+                        <div class="flex justify-between">
+                            <span>${item.nombre} x${item.cantidad}</span>
+                            <span class="font-bold">${Utils.formatCurrency(item.precio_unitario_en_momento * item.cantidad)}</span>
+                        </div>
+                    `;
+                });
+            }
+
+            const subtotal = data.venta.total;
+            const tax = 0;
+
+            const elSubtotal = document.getElementById('ticket-subtotal');
+            if (elSubtotal) elSubtotal.textContent = Utils.formatCurrency(subtotal);
+            
+            const elTax = document.getElementById('ticket-tax');
+            if (elTax) elTax.textContent = Utils.formatCurrency(tax);
+            
+            const elTotal = document.getElementById('ticket-total');
+            if (elTotal) elTotal.textContent = Utils.formatCurrency(subtotal + tax);
+
+            const paymentContainer = modal.querySelector('.space-y-3.pt-2') || modal.querySelector('.payment-btn')?.parentElement;
+            if (paymentContainer) paymentContainer.classList.add('hidden');
+
+            const closeBtn = modal.querySelector('.close-modal-btn');
+            if (closeBtn) {
+                const newCloseBtn = closeBtn.cloneNode(true);
+                closeBtn.parentNode.replaceChild(newCloseBtn, closeBtn);
+                newCloseBtn.textContent = '✕ CERRAR TICKET';
+                newCloseBtn.addEventListener('click', () => modal.classList.add('hidden'));
+            }
+
+            modal.classList.remove('hidden');
+        } else {
+            alert('No se pudieron cargar los detalles de la venta.');
+        }
+    } catch (error) {
+        console.error('Error fetching details:', error);
+        alert('Error obteniendo detalles de la venta.');
+    }
+};
+
+window.imprimirTicket = function() {
+    window.print();
+};

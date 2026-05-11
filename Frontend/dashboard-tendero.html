@@ -57,6 +57,10 @@
                     <span class="material-symbols-outlined">payments</span>
                     <span>Ventas</span>
                 </a>
+                <a id="nav-historial" class="flex items-center gap-3 text-[#3c4a42] dark:text-gray-500 px-6 py-3 hover:text-[#006c49] dark:hover:text-[#10b981] hover:bg-[#10b981]/5 transition-all duration-300 cursor-pointer">
+                    <span class="material-symbols-outlined">receipt_long</span>
+                    <span>Historial</span>
+                </a>
                 <a id="nav-reportes" class="flex items-center gap-3 text-[#3c4a42] dark:text-gray-500 px-6 py-3 hover:text-[#006c49] dark:hover:text-[#10b981] hover:bg-[#10b981]/5 transition-all duration-300 cursor-pointer">
                     <span class="material-symbols-outlined">analytics</span>
                     <span>Reportes</span>
@@ -285,6 +289,64 @@
                 </table>
                 </div>
                 </section>
+
+            </section>
+
+            <section id="vista-historial" class="hidden flex-1 p-6 overflow-y-auto flex flex-col gap-6">
+                <!-- Historial de Transacciones -->
+                <div class="w-full bg-white rounded-2xl shadow-sm p-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-lg font-bold tracking-tight">Historial de Transacciones</h3>
+                    </div>
+
+                    <!-- Filtros de Historial -->
+                    <div class="flex flex-col md:flex-row gap-4 mb-6">
+                        <div class="flex-1 relative">
+                            <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant/50">search</span>
+                            <input type="text" id="historial-search" placeholder="Buscar ticket (ej. 12), cliente o pago..." class="w-full pl-10 pr-4 py-2 bg-surface-container-lowest border border-outline-variant/30 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all">
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <input type="date" id="historial-date-from" class="px-3 py-2 bg-surface-container-lowest border border-outline-variant/30 rounded-xl text-sm text-on-surface-variant focus:outline-none focus:ring-2 focus:ring-primary/50" title="Desde">
+                            <span class="text-on-surface-variant text-sm">-</span>
+                            <input type="date" id="historial-date-to" class="px-3 py-2 bg-surface-container-lowest border border-outline-variant/30 rounded-xl text-sm text-on-surface-variant focus:outline-none focus:ring-2 focus:ring-primary/50" title="Hasta">
+                        </div>
+                        <button id="historial-btn-clear" class="px-4 py-2 bg-surface-container hover:bg-surface-container-high text-on-surface-variant rounded-xl text-sm font-bold transition-colors flex items-center gap-2">
+                            <span class="material-symbols-outlined text-[18px]">clear_all</span>
+                            Limpiar
+                        </button>
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left">
+                            <thead>
+                                <tr class="text-slate-400 text-xs font-bold uppercase tracking-widest bg-surface-container-low/50">
+                                    <th class="px-6 py-4">Ticket</th>
+                                    <th class="px-6 py-4">Fecha</th>
+                                    <th class="px-6 py-4">Cliente</th>
+                                    <th class="px-6 py-4">Método de Pago</th>
+                                    <th class="px-6 py-4 text-right">Total</th>
+                                    <th class="px-6 py-4 text-center">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-surface-container" id="tabla-historial-ventas">
+                                <tr><td colspan="6" class="px-6 py-4 text-center text-slate-500">Cargando historial...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Paginación -->
+                    <div class="flex items-center justify-between mt-6 pt-4 border-t border-surface-container">
+                        <p class="text-xs text-on-surface-variant font-medium" id="historial-page-info">Página 1 de 1</p>
+                        <div class="flex items-center gap-2">
+                            <button id="historial-btn-prev" class="px-3 py-1.5 bg-surface-container hover:bg-surface-container-high text-on-surface-variant rounded-lg text-xs font-bold transition-colors flex items-center disabled:opacity-50 disabled:cursor-not-allowed">
+                                <span class="material-symbols-outlined text-[16px] mr-1">chevron_left</span> Anterior
+                            </button>
+                            <button id="historial-btn-next" class="px-3 py-1.5 bg-surface-container hover:bg-surface-container-high text-on-surface-variant rounded-lg text-xs font-bold transition-colors flex items-center disabled:opacity-50 disabled:cursor-not-allowed">
+                                Siguiente <span class="material-symbols-outlined text-[16px] ml-1">chevron_right</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
             </section>
 
             <section id="vista-ventas" class="hidden flex-1 flex overflow-hidden p-4 gap-4 h-full w-full">
@@ -330,12 +392,18 @@
                     <div class="px-4 py-3 bg-emerald-50/50 border-b border-outline-variant/10 p-3">
                         <div class="flex items-center gap-2 mb-2">
                             <span class="material-symbols-outlined text-primary text-sm">person</span>
-                            <span class="text-[11px] font-bold text-emerald-800 uppercase tracking-wider">Cliente / Facturar a:</span>
+                            <span class="text-[11px] font-bold text-emerald-800 uppercase tracking-wider" id="lbl-cliente-actual">Cliente / Facturar a: Consumidor Final</span>
                         </div>
-                        <div class="flex gap-2">
+                        <div class="flex gap-2 relative">
                             <div class="flex-1 relative">
                                 <span class="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-on-surface-variant/50 text-base">search</span>
-                                <input class="w-full pl-9 pr-3 py-2 bg-white border border-outline-variant/30 rounded-lg text-xs focus:ring-1 focus:ring-primary focus:border-primary placeholder:text-on-surface-variant/40" placeholder="Buscar cliente o NIT..." type="text"/>
+                                <input id="pos-search-cliente" class="w-full pl-9 pr-3 py-2 bg-white border border-outline-variant/30 rounded-lg text-xs focus:ring-1 focus:ring-primary focus:border-primary placeholder:text-on-surface-variant/40" placeholder="Buscar cliente..." type="text" autocomplete="off"/>
+                            </div>
+                            <button id="btn-add-cliente" class="bg-primary text-white p-2 rounded-lg hover:bg-emerald-700 transition-all shadow-sm flex items-center justify-center">
+                                <span class="material-symbols-outlined text-base">person_add</span>
+                            </button>
+                            <!-- Dropdown -->
+                            <div id="dropdown-clientes" class="absolute top-full left-0 w-full mt-1 bg-white border border-outline-variant/20 rounded-lg shadow-xl z-50 hidden max-h-48 overflow-y-auto">
                             </div>
                         </div>
                     </div>
@@ -531,57 +599,114 @@
         </div>
     </div>
 
-    <!-- Billing Modal (Hidden by Default) -->
-    <div class="hidden fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" id="billing-modal">
-        <div class="bg-white w-full max-w-md rounded-3xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
-            <!-- Modal Header -->
-            <div class="bg-emerald-600 p-6 text-white flex justify-between items-center">
-                <div class="flex items-center gap-3">
-                    <span class="material-symbols-outlined">receipt_long</span>
-                    <h3 class="text-xl font-black">Resumen de Pago</h3>
+    <!-- Factura Modal -->
+    <style>
+        @media print {
+            body { margin: 0; padding: 0; background: white; }
+            body > *:not(#modal-factura) { display: none !important; }
+            #modal-factura {
+                display: block !important;
+                position: static !important;
+                width: 80mm !important;
+                background: white !important;
+            }
+            #modal-factura > div {
+                max-height: none !important;
+                box-shadow: none !important;
+            }
+            .payment-btn, .space-y-3.pt-2, .close-modal-btn, .print-btn, .bg-zinc-50 {
+                display: none !important;
+            }
+        }
+    </style>
+    <div class="hidden fixed inset-0 z-[100] flex items-center justify-center bg-zinc-950/80 backdrop-blur-sm p-4" id="modal-factura">
+        <div class="bg-white dark:bg-zinc-100 w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] transform transition-all animate-in fade-in zoom-in duration-300 relative">
+            <button onclick="imprimirTicket()" class="print-btn absolute top-4 right-4 w-8 h-8 flex items-center justify-center bg-zinc-200 text-zinc-700 hover:bg-zinc-300 rounded-full transition-colors z-10" title="Imprimir Ticket">
+                <span class="material-symbols-outlined text-[16px]">print</span>
+            </button>
+            <div class="flex-1 overflow-y-auto p-6 pt-10 font-mono text-sm text-zinc-900 relative">
+                <div class="absolute top-0 left-0 w-full h-1 bg-[radial-gradient(circle,transparent_70%,#e4e4e7_70%)] bg-[length:8px_8px]"></div>
+                
+                <div class="text-center mb-6">
+                    <h2 class="font-black text-xl tracking-tighter uppercase mb-0.5">Tiendas Cúcuta</h2>
+                    <p class="text-[9px] text-zinc-500 uppercase leading-none mb-1">El Mercado Luminoso • NIT: 900.123.456-1</p>
+                    <p class="text-[9px] text-zinc-400">Calle 10 #5-20, Centro, Cúcuta</p>
+                    
+                    <div class="mt-4 pt-3 border-t border-dashed border-zinc-300 text-left space-y-0.5 text-[10px] text-zinc-600">
+                        <div class="flex justify-between"><span>TICKET:</span> <span class="font-bold" id="ticket-id">TKT-0000</span></div>
+                        <div class="flex justify-between"><span>FECHA:</span> <span id="ticket-date">00/00/0000 00:00</span></div>
+                        <div class="flex justify-between"><span>CAJERO:</span> <span id="ticket-cashier">Caja Principal</span></div>
+                        <div class="flex justify-between"><span>CLIENTE:</span> <span class="font-bold" id="ticket-customer">...</span></div>
+                    </div>
                 </div>
-                <button class="material-symbols-outlined hover:bg-white/20 p-1 rounded-full">close</button>
-            </div>
-            <!-- Receipt Content -->
-            <div class="flex-1 overflow-y-auto p-6 flex flex-col items-center">
-                <div class="w-full border-2 border-dashed border-emerald-100 p-4 rounded-2xl bg-emerald-50/30 mb-6">
-                    <div class="flex flex-col items-center text-center mb-4">
-                        <h4 class="font-black text-emerald-900 text-lg uppercase tracking-tighter">Tienda Cúcuta</h4>
-                        <p class="text-[10px] text-on-surface-variant uppercase">NIT: 123.456.789-0</p>
-                        <p class="text-[10px] text-on-surface-variant">Calle 10 #5-20, Centro, Cúcuta</p>
+
+                <div class="space-y-2 mb-6 border-y border-dashed border-zinc-300 py-4" id="ticket-items">
+                </div>
+
+                <div class="mb-8">
+                    <div class="flex justify-between text-xs mb-1">
+                        <span>SUBTOTAL</span>
+                        <span id="ticket-subtotal">$0</span>
                     </div>
-                    <div class="space-y-2 border-t border-b border-emerald-200/50 py-4 mb-4">
-                        <!-- Dynamic items -->
+                    <div class="flex justify-between text-xs mb-3">
+                        <span>IVA (0%)</span>
+                        <span id="ticket-tax">$0</span>
                     </div>
-                    <div class="space-y-1">
-                        <!-- Dynamic totals -->
+                    <div class="flex justify-between items-end pt-2 border-t-2 border-zinc-900">
+                        <span class="font-bold text-xs uppercase">TOTAL</span>
+                        <span class="text-3xl font-black text-emerald-700 tracking-tighter" id="ticket-total">$0</span>
                     </div>
                 </div>
-                <!-- Payment Methods -->
-                <div class="w-full flex flex-col gap-3">
-                    <p class="text-xs font-bold text-center text-on-surface-variant uppercase tracking-widest">Seleccione Método de Pago</p>
-                    <div class="grid grid-cols-2 gap-3">
-                        <button class="flex flex-col items-center justify-center p-4 bg-emerald-50 border-2 border-emerald-600/20 rounded-2xl hover:bg-emerald-600 hover:text-white hover:border-emerald-600 transition-all group">
-                            <span class="material-symbols-outlined text-3xl mb-1">payments</span>
-                            <span class="text-xs font-black">EFECTIVO</span>
-                        </button>
-                        <button class="flex flex-col items-center justify-center p-4 bg-emerald-50 border-2 border-emerald-600/20 rounded-2xl hover:bg-emerald-600 hover:text-white hover:border-emerald-600 transition-all group">
-                            <span class="material-symbols-outlined text-3xl mb-1">credit_card</span>
-                            <span class="text-xs font-black">TARJETA</span>
-                        </button>
-                    </div>
-                    <button class="flex items-center justify-center gap-3 p-4 bg-slate-100 border-2 border-slate-200 rounded-2xl hover:bg-primary hover:text-white hover:border-primary transition-all">
-                        <span class="material-symbols-outlined">account_balance_wallet</span>
-                        <span class="text-xs font-black uppercase">Transferencia (Nequi/Daviplata)</span>
+
+                <div class="space-y-3 pt-2">
+                    <label class="block text-[10px] font-bold text-zinc-400 uppercase tracking-widest text-center mb-2">Seleccione Medio de Pago</label>
+                    <button class="payment-btn w-full flex items-center justify-between bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-4 px-6 rounded-xl transition-all active:scale-95 shadow-lg shadow-emerald-200">
+                        <div class="flex items-center gap-3">
+                            <span class="text-xl">💵</span>
+                            <span>EFECTIVO</span>
+                        </div>
+                        <span class="material-symbols-outlined">chevron_right</span>
+                    </button>
+                    <button class="payment-btn w-full flex items-center justify-between bg-zinc-900 hover:bg-black text-white font-bold py-4 px-6 rounded-xl transition-all active:scale-95">
+                        <div class="flex items-center gap-3">
+                            <span class="text-xl">💳</span>
+                            <span>TARJETA / NEQUI</span>
+                        </div>
+                        <span class="material-symbols-outlined">chevron_right</span>
                     </button>
                 </div>
             </div>
-            <!-- Modal Footer -->
-            <div class="p-6 pt-0">
-                <button class="w-full py-4 bg-on-surface text-white rounded-2xl font-black tracking-widest shadow-xl hover:bg-black transition-all">
-                    CANCELAR OPERACIÓN
+
+            <div class="p-4 bg-zinc-50 border-t border-zinc-200 text-center">
+                <button class="close-modal-btn text-zinc-400 hover:text-red-500 text-[10px] font-black uppercase tracking-[0.2em] py-2 transition-colors">
+                    ✕ CANCELAR OPERACIÓN
                 </button>
             </div>
+        </div>
+    </div>
+
+    <!-- Client Quick Create Modal -->
+    <div class="hidden fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" id="client-modal-overlay">
+        <div class="bg-surface-container-lowest w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div class="px-6 py-5 border-b border-surface-container flex items-center justify-between">
+                <h3 class="text-lg font-bold text-on-surface">Nuevo Cliente</h3>
+                <button class="material-symbols-outlined text-on-surface-variant hover:text-on-surface transition-colors" id="btn-close-client-modal">close</button>
+            </div>
+            <form id="add-client-form" class="p-6 space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-on-surface-variant mb-1">Nombre Completo</label>
+                    <input id="new-client-name" class="w-full px-3 py-2 bg-surface-container-low border-none rounded-lg focus:ring-2 focus:ring-primary text-sm" placeholder="Ej. Juan Pérez" type="text" required />
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-on-surface-variant mb-1">Correo Electrónico</label>
+                    <input id="new-client-email" class="w-full px-3 py-2 bg-surface-container-low border-none rounded-lg focus:ring-2 focus:ring-primary text-sm" placeholder="Ej. juan@gmail.com" type="email" required />
+                </div>
+                <div class="pt-2">
+                    <button class="w-full emerald-pulse-gradient text-white py-3 rounded-xl font-bold shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all" type="submit">
+                        CREAR CLIENTE
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 
