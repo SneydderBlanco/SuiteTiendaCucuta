@@ -44,9 +44,11 @@ document.addEventListener("DOMContentLoaded", async () => {
         const card = document.createElement("div");
         card.className = "group bg-white rounded-xl p-4 product-card shadow-sm border border-slate-100";
 
+        const imgUrl = prod.imagen_url ? (prod.imagen_url.startsWith('http') ? prod.imagen_url : `http://localhost:3000${prod.imagen_url}`) : 'https://placehold.co/400x300/e2e8f0/475569?text=Sin+Imagen';
+
         card.innerHTML = `
-            <div class="relative aspect-square overflow-hidden rounded-lg mb-6 bg-slate-100">
-                <img src="https://via.placeholder.com/300?text=${prod.nombre}" alt="${prod.nombre}" class="object-cover w-full h-full">
+            <div class="relative aspect-square overflow-hidden rounded-lg mb-6 bg-slate-100 flex items-center justify-center">
+                <img src="${imgUrl}" alt="${prod.nombre}" class="object-cover w-full h-full">
                 <div class="absolute top-3 left-3">
                     <span class="bg-emerald-100 text-emerald-800 text-xs font-bold px-3 py-1 rounded-full uppercase">
                         ${prod.marca || 'Local'}

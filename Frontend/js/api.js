@@ -42,9 +42,47 @@ window.API = {
     createProducto: async (payload) => {
         const response = await fetch(`${API_URL}/api/productos`, {
             method: "POST",
-            headers: {"Content-Type": "application/json"},
-            body: JSON.stringify(payload)
+            body: payload
         });
+        return { status: response.status, data: await response.json() };
+    },
+
+    deleteProducto: async (id) => {
+        const response = await fetch(`${API_URL}/api/productos/${id}`, {
+            method: "DELETE"
+        });
+        return { status: response.status, data: await response.json() };
+    },
+
+    updateProducto: async (id, payload) => {
+        const response = await fetch(`${API_URL}/api/productos/${id}`, {
+            method: "PUT",
+            body: payload
+        });
+        return { status: response.status, data: await response.json() };
+    },
+
+    getReportesKpis: async (tenderoId) => {
+        const response = await fetch(`${API_URL}/api/reportes/kpis/${tenderoId}`);
+        if (!response.ok) throw new Error("Fallo al obtener KPIs");
+        return { status: response.status, data: await response.json() };
+    },
+
+    getReportesTopProductos: async (tenderoId) => {
+        const response = await fetch(`${API_URL}/api/reportes/top-productos/${tenderoId}`);
+        if (!response.ok) throw new Error("Fallo al obtener top productos");
+        return { status: response.status, data: await response.json() };
+    },
+
+    getReportesAlertasStock: async (tenderoId) => {
+        const response = await fetch(`${API_URL}/api/reportes/alertas-stock/${tenderoId}`);
+        if (!response.ok) throw new Error("Fallo al obtener alertas de stock");
+        return { status: response.status, data: await response.json() };
+    },
+
+    getReportesGrafico: async (tenderoId) => {
+        const response = await fetch(`${API_URL}/api/reportes/grafico/${tenderoId}`);
+        if (!response.ok) throw new Error("Fallo al obtener datos del grafico");
         return { status: response.status, data: await response.json() };
     },
 
@@ -71,6 +109,20 @@ window.API = {
             return { status: response.status, data: await response.json() };
         } catch {
             return { status: 500, data: { error: "Error procesando actualización." }};
+        }
+    },
+
+    procesarVenta: async (payload) => {
+        try {
+            const response = await fetch(`${API_URL}/api/ventas`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
+            return { status: response.status, data: await response.json() };
+        } catch (error) {
+            console.error("Error en API procesarVenta:", error);
+            return { status: 500, data: { error: "Error de red" } };
         }
     }
 };

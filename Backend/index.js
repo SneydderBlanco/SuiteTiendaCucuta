@@ -3,6 +3,23 @@ const express = require('express');
 const cors = require('cors');
 const db = require('./db');
 const crypto = require('crypto');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
+
+const storage = multer.diskStorage({
+    destination: function (req, file, cb) {
+        if (!fs.existsSync('uploads/')) {
+            fs.mkdirSync('uploads/');
+        }
+        cb(null, 'uploads/')
+    },
+    filename: function (req, file, cb) {
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        cb(null, uniqueSuffix + path.extname(file.originalname));
+    }
+});
+const upload = multer({ storage: storage });
 
 function hashPassword(password) {
     return crypto.createHash('sha256').update(password).digest('hex');
@@ -14,12 +31,13 @@ const port = process.env.PORT || 3000;
 // Middlewares
 app.use(cors());
 app.use(express.json());
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Routes
 // Endpoint solicitado por el frontend para cargar los productos globales
 app.get('/productos', async (req, res) => {
     try {
-        const text = 'SELECT nombre, marca, precio_venta, categoria, stock FROM productos';
+        const text = 'SELECT nombre, marca, precio_venta, categoria, stock, imagen_url FROM productos';
         const { rows } = await db.query(text);
         res.json(rows);
     } catch (err) {
@@ -42,16 +60,73 @@ app.get('/api/productos/:id_tendero', async (req, res) => {
 });
 
 // Endpoint para INSERTAR mediante Modal un producto al tendero individual
-app.post('/api/productos', async (req, res) => {
+app.post('/api/productos', upload.single('imagen'), async (req, res) => {
     const { id_tendero, nombre, marca, categoria, precio_venta, stock } = req.body;
+    const imagen_url = req.file ? `/uploads/${req.file.filename}` : null;
     try {
-        const text = 'INSERT INTO productos(id_tendero, nombre, marca, categoria, precio_venta, stock) VALUES($1, $2, $3, $4, $5, $6) RETURNING *';
-        const values = [id_tendero, nombre, marca, categoria, parseFloat(precio_venta), parseInt(stock, 10)];
+        await db.query('ALTER TABLE productos ADD COLUMN IF NOT EXISTS imagen_url TEXT');
+        const text = 'INSERT INTO productos(id_tendero, nombre, marca, categoria, precio_venta, stock, imagen_url) VALUES($1, $2, $3, $4, $5, $6, $7) RETURNING *';
+        const values = [id_tendero, nombre, marca, categoria, parseFloat(precio_venta), parseInt(stock, 10), imagen_url];
         const result = await db.query(text, values);
         res.json({ success: true, producto: result.rows[0] });
     } catch (err) {
         console.error('Error inserting prod:', err.message);
         res.status(500).json({ error: 'Error al reservar en BD. Posible causa: Tabla `productos` no se encuentra estructurada.' });
+    }
+});
+
+// Endpoint para ELIMINAR un producto
+app.delete('/api/productos/:id', async (req, res) => {
+    const { id } = req.params;
+    try {
+        const text = 'DELETE FROM productos WHERE id_producto = $1 RETURNING *';
+        const { rows } = await db.query(text, [id]);
+        if (rows.length > 0) {
+            res.json({ success: true, message: 'Producto eliminado correctamente' });
+        } else {
+            res.status(404).json({ error: 'Producto no encontrado' });
+        }
+    } catch (err) {
+        console.error('Error deleting prod:', err.message);
+        res.status(500).json({ error: 'Error al eliminar en BD.' });
+    }
+});
+
+// Endpoint para ACTUALIZAR un producto
+app.put('/api/productos/:id', upload.single('imagen'), async (req, res) => {
+    const { id } = req.params;
+    const { nombre, marca, categoria, precio_venta, stock } = req.body;
+    try {
+        await db.query('ALTER TABLE productos ADD COLUMN IF NOT EXISTS imagen_url TEXT');
+        let text, values;
+        if (req.file) {
+            const imagen_url = `/uploads/${req.file.filename}`;
+            text = `
+                UPDATE productos 
+                SET nombre = $1, marca = $2, categoria = $3, precio_venta = $4, stock = $5, imagen_url = $6 
+                WHERE id_producto = $7 
+                RETURNING *
+            `;
+            values = [nombre, marca, categoria, parseFloat(precio_venta), parseInt(stock, 10), imagen_url, id];
+        } else {
+            text = `
+                UPDATE productos 
+                SET nombre = $1, marca = $2, categoria = $3, precio_venta = $4, stock = $5 
+                WHERE id_producto = $6 
+                RETURNING *
+            `;
+            values = [nombre, marca, categoria, parseFloat(precio_venta), parseInt(stock, 10), id];
+        }
+        const result = await db.query(text, values);
+        
+        if (result.rows.length > 0) {
+            res.json({ success: true, producto: result.rows[0] });
+        } else {
+            res.status(404).json({ error: 'Producto no encontrado' });
+        }
+    } catch (err) {
+        console.error('Error updating prod:', err.message);
+        res.status(500).json({ error: 'Error al actualizar producto en BD.' });
     }
 });
 
@@ -154,6 +229,137 @@ app.post('/api/actualizar-password', async (req, res) => {
     } catch (err) {
         console.error('Error actualizando contraseña:', err.message);
         res.status(500).json({ error: 'Error interno al actualizar la contraseña' });
+    }
+});
+
+// Endpoint: Registrar Venta y Descontar Stock
+app.post('/api/ventas', async (req, res) => {
+    // Nota: mapeamos id_tendero a id_tienda y asumimos que el frontend envía id_tienda o lo usamos como default 1 si no viene.
+    const { id_tienda, id_cliente, tipo_pago, total, items } = req.body;
+    
+    try {
+        await db.query('BEGIN');
+
+        // Insertar venta (Paso 1)
+        const tiendaIdFinal = id_tienda ? id_tienda : 1;
+        const insertVentaText = 'INSERT INTO venta (id_tienda, id_cliente, tipo_pago, total, fecha) VALUES ($1, $2, $3, $4, NOW()) RETURNING id_venta';
+        // temporalmente usamos null para id_cliente si no viene, o un valor por defecto.
+        const ventaRes = await db.query(insertVentaText, [tiendaIdFinal, id_cliente || null, tipo_pago || 'efectivo', total]);
+        const id_venta = ventaRes.rows[0].id_venta;
+
+        for (let item of items) {
+            // Descontar stock (Paso 3)
+            const updateStockText = 'UPDATE productos SET stock = stock - $1 WHERE id_producto = $2 AND stock >= $1';
+            const stockRes = await db.query(updateStockText, [item.cantidad, item.id_producto]);
+            if (stockRes.rowCount === 0) {
+                await db.query('ROLLBACK');
+                return res.status(400).json({ error: `Stock insuficiente para el producto ID ${item.id_producto}` });
+            }
+
+            // Insertar detalle_venta (Paso 2 modificado con precio_unitario_en_momento)
+            const insertDetalleText = 'INSERT INTO detalle_venta (id_venta, id_producto, cantidad, precio_unitario_en_momento) VALUES ($1, $2, $3, $4)';
+            await db.query(insertDetalleText, [id_venta, item.id_producto, item.cantidad, item.precio_unitario]);
+        }
+
+        await db.query('COMMIT');
+        res.status(200).json({ success: true, message: 'Venta registrada exitosamente', id_venta });
+
+    } catch (err) {
+        await db.query('ROLLBACK');
+        console.error('Error procesando venta:', err.message);
+        res.status(500).json({ error: 'Error interno al procesar la venta' });
+    }
+});
+
+// --- ENDPOINTS PARA REPORTES ---
+
+app.get('/api/reportes/kpis/:id_tendero', async (req, res) => {
+    const { id_tendero } = req.params;
+    try {
+        const kpis = {
+            ventas_hoy: 0,
+            ventas_mes: 0,
+            total_productos: 0,
+            total_pedidos: 0
+        };
+
+        const resHoy = await db.query(`SELECT COALESCE(SUM(total), 0) as total FROM venta WHERE id_tienda = $1 AND DATE(fecha) = CURRENT_DATE`, [id_tendero]);
+        kpis.ventas_hoy = parseFloat(resHoy.rows[0].total);
+
+        const resMes = await db.query(`SELECT COALESCE(SUM(total), 0) as total FROM venta WHERE id_tienda = $1 AND date_trunc('month', fecha) = date_trunc('month', CURRENT_DATE)`, [id_tendero]);
+        kpis.ventas_mes = parseFloat(resMes.rows[0].total);
+
+        const resPedidos = await db.query(`SELECT COUNT(*) as total FROM venta WHERE id_tienda = $1`, [id_tendero]);
+        kpis.total_pedidos = parseInt(resPedidos.rows[0].total);
+
+        const resProds = await db.query(`
+            SELECT COALESCE(SUM(dv.cantidad), 0) as total 
+            FROM detalle_venta dv
+            JOIN venta v ON v.id_venta = dv.id_venta
+            WHERE v.id_tienda = $1
+        `, [id_tendero]);
+        kpis.total_productos = parseInt(resProds.rows[0].total);
+
+        res.json(kpis);
+    } catch (err) {
+        console.error('Error detallado obteniendo KPIs:', err.message);
+        res.status(500).json({ error: 'Error obteniendo KPIs' });
+    }
+});
+
+app.get('/api/reportes/top-productos/:id_tendero', async (req, res) => {
+    const { id_tendero } = req.params;
+    try {
+        const query = `
+            SELECT p.id_producto, p.nombre, p.imagen_url, p.categoria, SUM(dv.cantidad) as cantidad_vendida
+            FROM detalle_venta dv
+            JOIN venta v ON v.id_venta = dv.id_venta
+            JOIN productos p ON p.id_producto = dv.id_producto
+            WHERE v.id_tienda = $1
+            GROUP BY p.id_producto, p.nombre, p.imagen_url, p.categoria
+            ORDER BY cantidad_vendida DESC
+            LIMIT 5
+        `;
+        const { rows } = await db.query(query, [id_tendero]);
+        res.json(rows);
+    } catch (err) {
+        console.error('Error detallado obteniendo top productos:', err.message);
+        res.status(500).json({ error: 'Error obteniendo top productos' });
+    }
+});
+
+app.get('/api/reportes/alertas-stock/:id_tendero', async (req, res) => {
+    const { id_tendero } = req.params;
+    try {
+        const query = `
+            SELECT id_producto, nombre, categoria, stock, marca 
+            FROM productos 
+            WHERE id_tendero = $1 AND stock <= 15 
+            ORDER BY stock ASC
+        `;
+        const { rows } = await db.query(query, [id_tendero]);
+        res.json(rows);
+    } catch (err) {
+        console.error('Error detallado obteniendo alertas de stock:', err.message);
+        res.status(500).json({ error: 'Error obteniendo alertas de stock' });
+    }
+});
+
+app.get('/api/reportes/grafico/:id_tendero', async (req, res) => {
+    const { id_tendero } = req.params;
+    try {
+        const query = `
+            SELECT EXTRACT(ISODOW FROM fecha) as dia_semana, SUM(total) as total_recaudado
+            FROM venta
+            WHERE id_tienda = $1 AND fecha >= date_trunc('week', CURRENT_DATE)
+            GROUP BY EXTRACT(ISODOW FROM fecha)
+            ORDER BY dia_semana
+        `;
+        const { rows } = await db.query(query, [id_tendero]);
+        res.json(rows);
+    } catch (err) {
+        console.error('Error detallado obteniendo datos del gráfico:', err.message);
+        res.status(500).json({ error: 'Error obteniendo datos del gráfico' });
     }
 });
 
