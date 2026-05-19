@@ -15,13 +15,17 @@ document.addEventListener("DOMContentLoaded", () => {
     loadProducts(userId);
     highlightCurrentDay();
     loadStoreSettings(userId);
+    loadDashboard(userId);
 
     // Tab Navigation Logic
+    const navDashboard = document.getElementById("nav-dashboard");
     const navInventario = document.getElementById("nav-inventario");
     const navReportes = document.getElementById("nav-reportes");
     const navVentas = document.getElementById("nav-ventas");
     const navHistorial = document.getElementById("nav-historial");
     const navMiTienda = document.getElementById("nav-mi-tienda");
+    
+    const vistaDashboard = document.getElementById("vista-dashboard");
     const vistaInventario = document.getElementById("vista-inventario");
     const vistaReportes = document.getElementById("vista-reportes");
     const vistaVentas = document.getElementById("vista-ventas");
@@ -32,8 +36,8 @@ document.addEventListener("DOMContentLoaded", () => {
     const inactiveClasses = ['text-[#3c4a42]', 'dark:text-gray-500'];
 
     function switchTabTo(activeNav, activeView) {
-        const allNavs = [navInventario, navReportes, navVentas, navHistorial, navMiTienda];
-        const allViews = [vistaInventario, vistaReportes, vistaVentas, vistaHistorial, vistaMiTienda];
+        const allNavs = [navDashboard, navInventario, navReportes, navVentas, navHistorial, navMiTienda];
+        const allViews = [vistaDashboard, vistaInventario, vistaReportes, vistaVentas, vistaHistorial, vistaMiTienda];
 
         allNavs.forEach(nav => {
             if (!nav) return;
@@ -62,7 +66,8 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
-    if (navInventario && navReportes && navVentas && navHistorial && navMiTienda) {
+    if (navDashboard && navInventario && navReportes && navVentas && navHistorial && navMiTienda) {
+        navDashboard.addEventListener("click", () => switchTabTo(navDashboard, vistaDashboard));
         navInventario.addEventListener("click", () => switchTabTo(navInventario, vistaInventario));
         navReportes.addEventListener("click", () => {
             switchTabTo(navReportes, vistaReportes);
@@ -511,7 +516,8 @@ async function loadReportes(tenderoId) {
             updateChartUI(chartResp.data);
         }
 
-        // Eliminada la llamada a cargarHistorialVentas, ahora se llama desde el tab
+        // Inicializar en dashboard
+        switchTabTo(navDashboard, vistaDashboard);
     } catch (e) {
         console.error("Error cargando reportes:", e);
     }
@@ -574,6 +580,10 @@ function renderStorefrontGrid(products) {
     const grid = document.getElementById("storefront-grid");
     grid.innerHTML = "";
     
+    // Update product metric
+    const metricProductos = document.getElementById("tienda-metric-productos");
+    if(metricProductos) metricProductos.textContent = products.length;
+    
     if(products.length === 0) {
         grid.innerHTML = '<div class="col-span-full text-center py-12 text-slate-500 font-medium">No hay productos disponibles.</div>';
         return;
@@ -583,25 +593,33 @@ function renderStorefrontGrid(products) {
         const imgUrl = p.imagen_url ? (p.imagen_url.startsWith('http') ? p.imagen_url : `http://localhost:3000${p.imagen_url}`) : 'https://placehold.co/400x400/e2e8f0/475569?text=Producto';
         
         const card = document.createElement('div');
-        card.className = "bg-white rounded-xl shadow-sm border border-outline-variant/10 overflow-hidden hover:shadow-md transition-all group flex flex-col relative";
+        card.className = "bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-outline-variant/10 overflow-hidden hover:shadow-xl transition-all duration-300 group flex flex-col relative";
         card.setAttribute('data-id', p.id || p.id_producto);
         card.innerHTML = `
             <div class="aspect-square bg-surface-container overflow-hidden relative">
-                <img src="${imgUrl}" alt="${p.nombre}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"/>
+                <img src="${imgUrl}" alt="${p.nombre}" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"/>
                 
-                <div class="absolute top-2 left-2">
-                    <span class="px-2 py-0.5 bg-black/40 backdrop-blur-md text-white text-[9px] font-bold uppercase tracking-wider rounded-md">${p.categoria}</span>
+                <div class="absolute top-3 left-3">
+                    <span class="px-2.5 py-1 bg-black/60 backdrop-blur-md text-white text-[10px] font-bold uppercase tracking-wider rounded-lg">${p.categoria}</span>
                 </div>
 
-                <button class="absolute bottom-2 right-2 w-9 h-9 rounded-full bg-emerald-600 text-white hover:bg-emerald-500 hover:scale-110 active:scale-95 transition-all flex items-center justify-center shadow-lg shadow-emerald-600/30 z-10">
-                    <span class="material-symbols-outlined text-[20px]">add</span>
+                <div class="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300"></div>
+
+                <button class="absolute bottom-3 right-3 w-10 h-10 rounded-full bg-emerald-600 text-white opacity-0 group-hover:opacity-100 translate-y-4 group-hover:translate-y-0 hover:bg-emerald-500 hover:scale-110 active:scale-95 transition-all duration-300 flex items-center justify-center shadow-lg shadow-emerald-600/30 z-10" title="Agregar al carrito">
+                    <span class="material-symbols-outlined text-[22px]">add</span>
                 </button>
             </div>
-            <div class="p-3 flex flex-col flex-1">
-                <span class="text-[10px] text-slate-400 uppercase tracking-wider font-semibold mb-0.5">${p.marca || 'Genérico'}</span>
-                <h3 class="font-bold text-on-surface text-sm leading-tight mb-2 line-clamp-2">${p.nombre}</h3>
+            <div class="p-4 flex flex-col flex-1">
+                <div class="flex justify-between items-start gap-2 mb-1">
+                    <h3 class="font-black text-on-surface text-base leading-tight line-clamp-2">${p.nombre}</h3>
+                    <button class="text-slate-400 hover:text-red-500 transition-colors">
+                        <span class="material-symbols-outlined text-[20px]">favorite_border</span>
+                    </button>
+                </div>
+                <span class="text-xs text-slate-400 font-semibold mb-3">${p.marca || 'Sin marca'}</span>
+                
                 <div class="mt-auto flex items-center">
-                    <span class="text-base font-black text-on-surface tracking-tight">${Utils.formatCurrency(p.precio_venta)}</span>
+                    <span class="text-lg font-black text-emerald-600 tracking-tight">${Utils.formatCurrency(p.precio_venta)}</span>
                 </div>
             </div>
         `;
@@ -644,12 +662,57 @@ function setupStorefrontFilters() {
     });
 }
 
-// --- STORE SETTINGS LOGIC ---
-// Make loadStoreSettings globally accessible so DOMContentLoaded can call it
+// --- DASHBOARD LOGIC ---
+async function loadDashboard(tenderoId) {
+    const resp = await API.getDashboardData(tenderoId);
+    if (resp.status === 200 && resp.data && resp.data.data) {
+        const { ingresos_hoy, facturas_hoy, clientes_hoy, alertas_stock } = resp.data.data;
+        
+        // Actualizar KPIs
+        const elIngresos = document.getElementById('dash-ingresos-hoy');
+        const elFacturas = document.getElementById('dash-facturas-hoy');
+        const elClientes = document.getElementById('dash-clientes-hoy');
+        
+        if (elIngresos) elIngresos.textContent = Utils.formatCurrency(ingresos_hoy);
+        if (elFacturas) elFacturas.textContent = facturas_hoy;
+        if (elClientes) elClientes.textContent = clientes_hoy;
+        
+        // Actualizar tabla de Alertas de Stock
+        const tbodyStock = document.getElementById('dash-alertas-stock');
+        if (tbodyStock) {
+            tbodyStock.innerHTML = '';
+            if (alertas_stock.length === 0) {
+                tbodyStock.innerHTML = '<tr><td colspan="3" class="px-6 py-4 text-center text-slate-500 font-medium">No hay productos con stock crítico.</td></tr>';
+            } else {
+                alertas_stock.forEach(prod => {
+                    const statusClass = prod.stock === 0 ? 'bg-red-100 text-red-700' : 'bg-orange-100 text-orange-700';
+                    const statusText = prod.stock === 0 ? 'Agotado' : 'Crítico';
+                    
+                    const tr = document.createElement('tr');
+                    tr.className = 'hover:bg-surface-container/50 transition-colors';
+                    tr.innerHTML = `
+                        <td class="px-6 py-4">
+                            <span class="font-bold text-on-surface">${prod.nombre}</span>
+                        </td>
+                        <td class="px-6 py-4">
+                            <span class="text-sm font-bold text-slate-600">${prod.stock} unid.</span>
+                        </td>
+                        <td class="px-6 py-4">
+                            <span class="px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider rounded-lg ${statusClass}">${statusText}</span>
+                        </td>
+                    `;
+                    tbodyStock.appendChild(tr);
+                });
+            }
+        }
+    }
+}
+
+// --- PRODUCTOS E INVENTARIO ---
 window.loadStoreSettings = async function(tenderoId) {
     const resp = await API.getStoreSettings(tenderoId);
-    if (resp.status === 200 && resp.data) {
-        const { nombre, nombre_tienda, descripcion, ubicacion, logo_url } = resp.data;
+    if (resp.status === 200 && resp.data && resp.data.data) {
+        const { nombre, nombre_tienda, descripcion, ubicacion, logo_url } = resp.data.data;
         
         const inputNombre = document.getElementById("input-nombre-tienda");
         const inputDueno = document.getElementById("input-dueno-tienda");
@@ -661,7 +724,7 @@ window.loadStoreSettings = async function(tenderoId) {
         if(inputDesc) inputDesc.value = descripcion || '';
         if(inputUbicacion) inputUbicacion.value = ubicacion || '';
         
-        updateStoreDOM(resp.data);
+        updateStoreDOM(resp.data.data);
     }
 };
 
@@ -673,6 +736,13 @@ function updateStoreDOM(settings) {
         const tenderoNameEl = document.getElementById("tendero-name");
         if (tenderoNameEl) tenderoNameEl.textContent = settings.nombre;
         localStorage.setItem("userName", settings.nombre);
+        document.querySelectorAll('.dueno-tienda-dinamico').forEach(el => el.textContent = settings.nombre);
+    }
+    if (settings.descripcion) {
+        document.querySelectorAll('.bio-tienda-dinamico').forEach(el => el.textContent = settings.descripcion);
+    }
+    if (settings.ubicacion) {
+        document.querySelectorAll('.ubicacion-tienda-dinamico').forEach(el => el.textContent = settings.ubicacion);
     }
     if (settings.logo_url) {
         const fullUrl = settings.logo_url.startsWith('http') ? settings.logo_url : `http://localhost:3000${settings.logo_url}`;
@@ -682,6 +752,10 @@ function updateStoreDOM(settings) {
             preview.src = fullUrl;
             preview.classList.remove("hidden");
         }
+    }
+    if (settings.totalClientes !== undefined) {
+        const clientMetric = document.getElementById("contador-clientes-real");
+        if (clientMetric) clientMetric.textContent = settings.totalClientes;
     }
 }
 
@@ -767,4 +841,36 @@ document.addEventListener("DOMContentLoaded", () => {
     if (btnCloseStoreSettings) btnCloseStoreSettings.addEventListener("click", toggleStoreSettings);
     if (storeSettingsOverlay) storeSettingsOverlay.addEventListener("click", toggleStoreSettings);
     if (btnSaveStoreSettings) btnSaveStoreSettings.addEventListener("click", saveStoreSettings);
+
+    // PDF Download Logic
+    const btnDownloadPdf = document.getElementById("btn-download-pdf");
+    if (btnDownloadPdf) {
+        btnDownloadPdf.addEventListener("click", () => {
+            const reportsContainer = document.getElementById("vista-reportes");
+            if (!reportsContainer) return;
+            
+            const originalText = btnDownloadPdf.innerHTML;
+            btnDownloadPdf.innerHTML = '<span class="material-symbols-outlined animate-spin text-sm" style="animation: spin 1s linear infinite;">sync</span> Generando...';
+            btnDownloadPdf.disabled = true;
+
+            const dateStr = new Date().toISOString().split('T')[0];
+            const opt = {
+                margin:       [0.5, 0.5, 0.5, 0.5],
+                filename:     `Reporte_Semanal_DavenStore_${dateStr}.pdf`,
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { scale: 2, useCORS: true, backgroundColor: '#f8f9fa' },
+                jsPDF:        { unit: 'in', format: 'a4', orientation: 'portrait' }
+            };
+
+            html2pdf().set(opt).from(reportsContainer).save().then(() => {
+                btnDownloadPdf.innerHTML = originalText;
+                btnDownloadPdf.disabled = false;
+            }).catch(err => {
+                console.error("Error generando PDF", err);
+                btnDownloadPdf.innerHTML = originalText;
+                btnDownloadPdf.disabled = false;
+                alert("Ocurrió un error al generar el PDF.");
+            });
+        });
+    }
 });

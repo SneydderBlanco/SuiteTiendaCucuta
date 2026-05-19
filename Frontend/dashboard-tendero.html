@@ -8,9 +8,10 @@
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&amp;display=swap"
         rel="stylesheet" />
-    <link
-        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
-        rel="stylesheet" />
+    <!-- Material Icons -->
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+    <!-- html2pdf -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <script src="js/tailwind-config.js"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <link rel="stylesheet" href="css/styles.css">
@@ -46,7 +47,7 @@
         <aside
             class="flex flex-col h-screen fixed left-0 top-0 pt-20 bg-[#f3f4f5] dark:bg-gray-900 w-64 z-30 font-['Inter'] text-sm font-medium border-r border-slate-200">
             <nav class="flex flex-col mt-4 space-y-1">
-                <a class="flex items-center gap-3 text-[#3c4a42] dark:text-gray-500 px-6 py-3 hover:text-[#006c49] dark:hover:text-[#10b981] hover:bg-[#10b981]/5 transition-all duration-300" href="#">
+                <a id="nav-dashboard" class="flex items-center gap-3 text-[#3c4a42] dark:text-gray-500 px-6 py-3 hover:text-[#006c49] dark:hover:text-[#10b981] hover:bg-[#10b981]/5 transition-all duration-300 cursor-pointer" href="#">
                     <span class="material-symbols-outlined">dashboard</span>
                     <span>Dashboard</span>
                 </a>
@@ -78,6 +79,67 @@
         </aside>
 
         <main class="ml-64 w-full bg-surface h-[calc(100vh-80px)] overflow-y-auto relative">
+            <section id="vista-dashboard" class="p-8 hidden">
+                <div class="mb-8">
+                    <h2 class="text-3xl font-extrabold tracking-tight text-on-surface mb-2">Torre de Control</h2>
+                    <p class="text-on-surface-variant font-medium">Monitorea la operación de tu tienda en tiempo real (Resultados de HOY).</p>
+                </div>
+                
+                <!-- KPIs Grid -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                    <div class="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-outline-variant/10 p-6 flex flex-col justify-between hover:shadow-md transition-shadow">
+                        <div class="flex items-center gap-3 mb-4">
+                            <div class="w-10 h-10 rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+                                <span class="material-symbols-outlined">payments</span>
+                            </div>
+                            <span class="text-sm font-bold text-slate-500 uppercase tracking-wider">Ingresos de Hoy</span>
+                        </div>
+                        <span class="text-3xl font-black text-on-surface tracking-tight" id="dash-ingresos-hoy">$0</span>
+                    </div>
+
+                    <div class="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-outline-variant/10 p-6 flex flex-col justify-between hover:shadow-md transition-shadow">
+                        <div class="flex items-center gap-3 mb-4">
+                            <div class="w-10 h-10 rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+                                <span class="material-symbols-outlined">receipt_long</span>
+                            </div>
+                            <span class="text-sm font-bold text-slate-500 uppercase tracking-wider">Facturas Emitidas</span>
+                        </div>
+                        <span class="text-3xl font-black text-on-surface tracking-tight" id="dash-facturas-hoy">0</span>
+                    </div>
+
+                    <div class="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-outline-variant/10 p-6 flex flex-col justify-between hover:shadow-md transition-shadow">
+                        <div class="flex items-center gap-3 mb-4">
+                            <div class="w-10 h-10 rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+                                <span class="material-symbols-outlined">group</span>
+                            </div>
+                            <span class="text-sm font-bold text-slate-500 uppercase tracking-wider">Clientes Atendidos</span>
+                        </div>
+                        <span class="text-3xl font-black text-on-surface tracking-tight" id="dash-clientes-hoy">0</span>
+                    </div>
+                </div>
+
+                <!-- Stock Crítico -->
+                <div class="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-outline-variant/10 overflow-hidden">
+                    <div class="px-6 py-5 border-b border-outline-variant/10 flex items-center gap-2">
+                        <span class="material-symbols-outlined text-red-500">warning</span>
+                        <h3 class="text-lg font-bold text-on-surface">Alertas de Stock Crítico (≤ 5 unidades)</h3>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="bg-surface-container-lowest border-b border-outline-variant/10 text-xs font-bold text-slate-500 uppercase tracking-wider">
+                                    <th class="px-6 py-4">Producto</th>
+                                    <th class="px-6 py-4">Stock Disponible</th>
+                                    <th class="px-6 py-4">Estado</th>
+                                </tr>
+                            </thead>
+                            <tbody id="dash-alertas-stock" class="divide-y divide-outline-variant/5">
+                                <tr><td colspan="3" class="px-6 py-8 text-center text-slate-500 font-medium">Cargando alertas...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
             <section id="vista-inventario" class="p-8">
             <div class="flex flex-col md:flex-row md:items-end justify-between mb-8 gap-4">
                 <div>
@@ -162,8 +224,8 @@
                     </button>
                     <input type="text" id="filtro-fecha-grafica" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" style="background: transparent; color: transparent; border: none; outline: none;">
                 </div>
-                <button class="emerald-pulse text-white px-5 py-2.5 rounded-lg font-medium text-sm transition-all hover:opacity-90 active:scale-95 shadow-lg shadow-primary/20">
-                                        Download PDF
+                <button id="btn-download-pdf" class="emerald-pulse text-white px-5 py-2.5 rounded-lg font-medium text-sm transition-all hover:opacity-90 active:scale-95 shadow-lg shadow-primary/20">
+                                        Descargar PDF
                                     </button>
                 </div>
                 </section>
@@ -222,11 +284,11 @@
                 <div class="flex items-center gap-4">
                 <div class="flex items-center gap-2">
                 <span class="w-3 h-3 rounded-full bg-primary"></span>
-                <span class="text-xs font-medium text-slate-600">Current</span>
+                <span class="text-xs font-medium text-slate-600">Esta Semana</span>
                 </div>
                 <div class="flex items-center gap-2">
                 <span class="w-3 h-3 rounded-full bg-slate-200"></span>
-                <span class="text-xs font-medium text-slate-600">Previous</span>
+                <span class="text-xs font-medium text-slate-600">Semana Anterior</span>
                 </div>
                 </div>
                 </div>
@@ -449,36 +511,78 @@
             </section>
 
             <section id="vista-mi-tienda" class="hidden flex-1 overflow-y-auto w-full bg-[#f8f9fa] dark:bg-gray-950 pb-20 relative">
-                <!-- Sticky Top Bar (Search & Categories) -->
-                <div class="sticky top-0 z-20 bg-[#f8f9fa]/90 dark:bg-gray-950/90 backdrop-blur-md border-b border-outline-variant/10 px-4 py-3 lg:px-8 shadow-sm">
-                    <div class="max-w-6xl mx-auto flex flex-col gap-3">
-                        <!-- Store Title & Search -->
-                        <div class="flex items-center justify-between gap-4">
-                            <div class="flex items-center gap-2 shrink-0">
-                                <h2 class="text-xl font-extrabold text-on-surface tracking-tight truncate nombre-tienda-dinamico">Mi Tienda</h2>
-                                <button id="btn-edit-store" class="w-8 h-8 rounded-full bg-surface-container hover:bg-emerald-100 hover:text-emerald-700 text-on-surface-variant transition-colors flex items-center justify-center" title="Administrar Perfil">
-                                    <span class="material-symbols-outlined text-[18px]">settings</span>
-                                </button>
+                
+                <!-- Social Profile Header -->
+                <div class="w-full bg-white dark:bg-gray-900 border-b border-outline-variant/10 pb-6 shadow-sm">
+                    <!-- Cover Banner -->
+                    <div class="h-40 md:h-56 w-full bg-gradient-to-r from-[#0d0d0d] via-emerald-950 to-[#0d0d0d] relative">
+                    </div>
+                    
+                    <div class="max-w-4xl mx-auto px-4 sm:px-8">
+                        <div class="flex flex-col sm:flex-row sm:items-end gap-4 sm:gap-6 -mt-16 sm:-mt-20 relative z-10">
+                            <!-- Profile Picture -->
+                            <div class="w-32 h-32 sm:w-40 sm:h-40 rounded-full border-4 border-white dark:border-gray-900 bg-surface-container overflow-hidden shrink-0 shadow-lg relative bg-emerald-50">
+                                <img src="https://placehold.co/400x400/10b981/ffffff?text=Logo" alt="Logo Tienda" class="w-full h-full object-cover logo-tienda-dinamico" id="header-logo-tienda">
                             </div>
-                            <div class="relative w-full max-w-md shrink-1">
-                                <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-lg">search</span>
-                                <input id="storefront-search" class="w-full pl-9 pr-3 py-1.5 bg-surface-container-low border-none rounded-xl focus:ring-2 focus:ring-emerald-500/30 text-sm transition-all" placeholder="Buscar productos..." type="text">
+                            
+                            <!-- Main Info & Actions -->
+                            <div class="flex-1 flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 sm:pb-4">
+                                <div>
+                                    <div class="flex items-center gap-3 mb-1">
+                                        <h2 class="text-2xl sm:text-3xl font-black text-on-surface tracking-tight nombre-tienda-dinamico">Mi Tienda</h2>
+                                        <button id="btn-edit-store" class="w-9 h-9 rounded-full bg-surface-container-low hover:bg-emerald-100 hover:text-emerald-700 text-on-surface-variant transition-colors flex items-center justify-center shadow-sm" title="Administrar Perfil">
+                                            <span class="material-symbols-outlined text-[20px]">settings</span>
+                                        </button>
+                                    </div>
+                                    <p class="text-sm font-semibold text-slate-500 flex items-center gap-1.5 dueno-tienda-dinamico">Dueño de Tienda</p>
+                                </div>
+                                
+                                <!-- Metrics -->
+                                <div class="flex items-center gap-6 sm:px-4">
+                                    <div class="text-center sm:text-left">
+                                        <span class="block text-xl font-black text-on-surface leading-tight" id="contador-clientes-real">0</span>
+                                        <span class="text-[10px] sm:text-xs font-bold text-slate-400 uppercase tracking-widest">Clientes</span>
+                                    </div>
+                                    <div class="text-center sm:text-left">
+                                        <span class="block text-xl font-black text-on-surface leading-tight" id="tienda-metric-productos">0</span>
+                                        <span class="text-[10px] sm:text-xs font-bold text-slate-400 uppercase tracking-widest">Productos</span>
+                                    </div>
+                                </div>
                             </div>
                         </div>
-                        <!-- Categories -->
-                        <div id="storefront-categories" class="flex gap-2 overflow-x-auto w-full hide-scrollbar pb-1">
-                            <button class="storefront-cat-btn active px-4 py-1.5 rounded-xl bg-emerald-600 text-white text-xs font-bold shadow-sm shadow-emerald-600/20 transition-all whitespace-nowrap" data-cat="all">Todos</button>
-                            <button class="storefront-cat-btn px-4 py-1.5 rounded-xl bg-surface-container text-on-surface-variant text-xs font-semibold hover:bg-emerald-50 hover:text-emerald-700 transition-all whitespace-nowrap" data-cat="alimentos">Alimentos</button>
-                            <button class="storefront-cat-btn px-4 py-1.5 rounded-xl bg-surface-container text-on-surface-variant text-xs font-semibold hover:bg-emerald-50 hover:text-emerald-700 transition-all whitespace-nowrap" data-cat="artesanias">Artesanías</button>
-                            <button class="storefront-cat-btn px-4 py-1.5 rounded-xl bg-surface-container text-on-surface-variant text-xs font-semibold hover:bg-emerald-50 hover:text-emerald-700 transition-all whitespace-nowrap" data-cat="dulces">Dulces</button>
-                            <button class="storefront-cat-btn px-4 py-1.5 rounded-xl bg-surface-container text-on-surface-variant text-xs font-semibold hover:bg-emerald-50 hover:text-emerald-700 transition-all whitespace-nowrap" data-cat="bebidas">Bebidas</button>
+                        
+                        <!-- Bio & Location -->
+                        <div class="mt-4 sm:mt-6">
+                            <p class="text-sm font-medium text-on-surface leading-relaxed max-w-2xl bio-tienda-dinamico whitespace-pre-line">
+                                Todo lo que necesitas, a la vuelta de tu casa.
+                            </p>
+                            <div class="flex items-center gap-1.5 mt-3 text-sm text-emerald-600 font-semibold">
+                                <span class="material-symbols-outlined text-[18px]">location_on</span>
+                                <span class="ubicacion-tienda-dinamico">Sin ubicación registrada</span>
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Product Grid -->
-                <div class="max-w-6xl mx-auto px-4 lg:px-8 pt-4">
-                    <div id="storefront-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
+                <!-- Feed Area -->
+                <div class="max-w-4xl mx-auto mt-6 px-4 sm:px-8">
+                    <!-- Filters and Search Bar -->
+                    <div class="sticky top-[80px] z-20 bg-[#f8f9fa]/95 dark:bg-gray-950/95 backdrop-blur-md py-4 mb-4 border-b border-outline-variant/10 shadow-sm flex flex-col sm:flex-row items-center gap-4 justify-between rounded-xl px-4">
+                        <div id="storefront-categories" class="flex gap-2 overflow-x-auto w-full sm:w-auto hide-scrollbar pb-1">
+                            <button class="storefront-cat-btn active px-4 py-2 rounded-xl bg-emerald-600 text-white text-xs font-bold shadow-md shadow-emerald-600/20 transition-all whitespace-nowrap" data-cat="all">Todos</button>
+                            <button class="storefront-cat-btn px-4 py-2 rounded-xl bg-surface-container text-on-surface-variant text-xs font-semibold hover:bg-emerald-50 hover:text-emerald-700 transition-all whitespace-nowrap" data-cat="alimentos">Alimentos</button>
+                            <button class="storefront-cat-btn px-4 py-2 rounded-xl bg-surface-container text-on-surface-variant text-xs font-semibold hover:bg-emerald-50 hover:text-emerald-700 transition-all whitespace-nowrap" data-cat="artesanias">Artesanías</button>
+                            <button class="storefront-cat-btn px-4 py-2 rounded-xl bg-surface-container text-on-surface-variant text-xs font-semibold hover:bg-emerald-50 hover:text-emerald-700 transition-all whitespace-nowrap" data-cat="dulces">Dulces</button>
+                            <button class="storefront-cat-btn px-4 py-2 rounded-xl bg-surface-container text-on-surface-variant text-xs font-semibold hover:bg-emerald-50 hover:text-emerald-700 transition-all whitespace-nowrap" data-cat="bebidas">Bebidas</button>
+                        </div>
+                        <div class="relative w-full sm:max-w-xs shrink-0">
+                            <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-lg">search</span>
+                            <input id="storefront-search" class="w-full pl-9 pr-3 py-2 bg-white dark:bg-gray-900 border border-outline-variant/20 rounded-xl focus:ring-2 focus:ring-emerald-500/30 text-sm transition-all shadow-sm" placeholder="Buscar productos..." type="text">
+                        </div>
+                    </div>
+
+                    <!-- Product Grid (Instagram Style) -->
+                    <div id="storefront-grid" class="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 lg:gap-6">
                         <!-- Cards will be injected here -->
                     </div>
                 </div>

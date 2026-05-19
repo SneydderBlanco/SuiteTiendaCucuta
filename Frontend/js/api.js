@@ -128,6 +128,17 @@ window.API = {
         }
     },
 
+    getDashboardData: async (tenderoId) => {
+        try {
+            const response = await fetch(`${API_URL}/api/dashboard/${tenderoId}`);
+            if (!response.ok) throw new Error("Fallo al obtener datos del dashboard");
+            return { status: response.status, data: await response.json() };
+        } catch (error) {
+            console.error("Error en API getDashboardData:", error);
+            return { status: 500, data: { error: "Error de red" } };
+        }
+    },
+
     getStoreSettings: async (tenderoId) => {
         try {
             const response = await fetch(`${API_URL}/api/tienda/configurar/${tenderoId}`);

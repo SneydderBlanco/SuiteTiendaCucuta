@@ -236,20 +236,25 @@ app.post('/api/actualizar-password', async (req, res) => {
 app.get('/api/tienda/configurar/:id_tendero', async (req, res) => {
     const { id_tendero } = req.params;
     try {
+        await db.query('ALTER TABLE tendero ADD COLUMN IF NOT EXISTS descripcion TEXT, ADD COLUMN IF NOT EXISTS ubicacion TEXT, ADD COLUMN IF NOT EXISTS logo_url TEXT');
         const text = 'SELECT nombre, nombre_tienda, descripcion, ubicacion, logo_url FROM tendero WHERE id_tendero = $1';
         const { rows } = await db.query(text, [id_tendero]);
         if (rows.length > 0) {
-            res.json({ success: true, data: rows[0] });
+            // Obtener el conteo de clientes únicos para este tendero
+            const clientQuery = 'SELECT COUNT(DISTINCT id_cliente) AS total_clientes FROM venta WHERE id_tienda = $1 AND id_cliente IS NOT NULL';
+            const clientRes = await db.query(clientQuery, [id_tendero]);
+            const totalClientes = parseInt(clientRes.rows[0].total_clientes) || 0;
+            
+            const storeData = rows[0];
+            storeData.totalClientes = totalClientes;
+
+            res.json({ success: true, data: storeData });
         } else {
             res.status(404).json({ error: 'Tendero no encontrado' });
         }
     } catch (err) {
-        if (err.code === '42703') { // undefined column
-            res.json({ success: true, data: { nombre: '', nombre_tienda: '', descripcion: '', ubicacion: '', logo_url: null } });
-        } else {
-            console.error('Error fetching store settings:', err.message);
-            res.status(500).json({ error: 'Error interno obteniendo configuración' });
-        }
+        console.error('Error fetching store settings:', err.message);
+        res.status(500).json({ error: 'Error interno obteniendo configuración' });
     }
 });
 
@@ -500,6 +505,39 @@ app.get('/api/reportes/kpis/:id_tendero', async (req, res) => {
     } catch (err) {
         console.error('Error detallado obteniendo KPIs:', err.message);
         res.status(500).json({ error: 'Error obteniendo KPIs' });
+    }
+});
+
+app.get('/api/dashboard/:id_tendero', async (req, res) => {
+    const { id_tendero } = req.params;
+    try {
+        const dashboardData = {
+            ingresos_hoy: 0,
+            facturas_hoy: 0,
+            clientes_hoy: 0,
+            alertas_stock: []
+        };
+
+        // 1. Ingresos de hoy
+        const resIngresos = await db.query(`SELECT COALESCE(SUM(total), 0) as total FROM venta WHERE id_tienda = $1 AND DATE(fecha) = CURRENT_DATE`, [id_tendero]);
+        dashboardData.ingresos_hoy = parseFloat(resIngresos.rows[0].total);
+
+        // 2. Facturas de hoy
+        const resFacturas = await db.query(`SELECT COUNT(*) as total FROM venta WHERE id_tienda = $1 AND DATE(fecha) = CURRENT_DATE`, [id_tendero]);
+        dashboardData.facturas_hoy = parseInt(resFacturas.rows[0].total);
+
+        // 3. Clientes únicos hoy
+        const resClientes = await db.query(`SELECT COUNT(DISTINCT id_cliente) as total FROM venta WHERE id_tienda = $1 AND DATE(fecha) = CURRENT_DATE AND id_cliente IS NOT NULL`, [id_tendero]);
+        dashboardData.clientes_hoy = parseInt(resClientes.rows[0].total);
+
+        // 4. Alertas de stock crítico (<= 5)
+        const resStock = await db.query(`SELECT nombre, stock FROM productos WHERE id_tendero = $1 AND stock <= 5 ORDER BY stock ASC LIMIT 5`, [id_tendero]);
+        dashboardData.alertas_stock = resStock.rows;
+
+        res.json({ success: true, data: dashboardData });
+    } catch (err) {
+        console.error('Error obteniendo dashboard data:', err.message);
+        res.status(500).json({ error: 'Error obteniendo datos del dashboard' });
     }
 });
 
