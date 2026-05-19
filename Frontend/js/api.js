@@ -80,8 +80,10 @@ window.API = {
         return { status: response.status, data: await response.json() };
     },
 
-    getReportesGrafico: async (tenderoId) => {
-        const response = await fetch(`${API_URL}/api/reportes/grafico/${tenderoId}`);
+    getReportesGrafico: async (tenderoId, fecha) => {
+        let url = `${API_URL}/api/reportes/semana/${tenderoId}`;
+        if (fecha) url += `?fecha=${fecha}`;
+        const response = await fetch(url);
         if (!response.ok) throw new Error("Fallo al obtener datos del grafico");
         return { status: response.status, data: await response.json() };
     },
@@ -122,6 +124,30 @@ window.API = {
             return { status: response.status, data: await response.json() };
         } catch (error) {
             console.error("Error en API procesarVenta:", error);
+            return { status: 500, data: { error: "Error de red" } };
+        }
+    },
+
+    getStoreSettings: async (tenderoId) => {
+        try {
+            const response = await fetch(`${API_URL}/api/tienda/configurar/${tenderoId}`);
+            if (!response.ok) throw new Error("Fallo al obtener configuración");
+            return { status: response.status, data: await response.json() };
+        } catch (error) {
+            console.error("Error en API getStoreSettings:", error);
+            return { status: 500, data: { error: "Error de red" } };
+        }
+    },
+
+    updateStoreSettings: async (tenderoId, payload) => {
+        try {
+            const response = await fetch(`${API_URL}/api/tienda/configurar/${tenderoId}`, {
+                method: "PUT",
+                body: payload
+            });
+            return { status: response.status, data: await response.json() };
+        } catch (error) {
+            console.error("Error en API updateStoreSettings:", error);
             return { status: 500, data: { error: "Error de red" } };
         }
     }

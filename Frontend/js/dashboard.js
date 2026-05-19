@@ -14,23 +14,26 @@ document.addEventListener("DOMContentLoaded", () => {
     // Load API Resources
     loadProducts(userId);
     highlightCurrentDay();
+    loadStoreSettings(userId);
 
     // Tab Navigation Logic
     const navInventario = document.getElementById("nav-inventario");
     const navReportes = document.getElementById("nav-reportes");
     const navVentas = document.getElementById("nav-ventas");
     const navHistorial = document.getElementById("nav-historial");
+    const navMiTienda = document.getElementById("nav-mi-tienda");
     const vistaInventario = document.getElementById("vista-inventario");
     const vistaReportes = document.getElementById("vista-reportes");
     const vistaVentas = document.getElementById("vista-ventas");
     const vistaHistorial = document.getElementById("vista-historial");
+    const vistaMiTienda = document.getElementById("vista-mi-tienda");
 
     const activeClasses = ['text-[#006c49]', 'dark:text-[#10b981]', 'font-bold', 'border-r-4', 'border-[#006c49]', 'dark:border-[#10b981]', 'bg-[#10b981]/5', 'translate-x-1'];
     const inactiveClasses = ['text-[#3c4a42]', 'dark:text-gray-500'];
 
     function switchTabTo(activeNav, activeView) {
-        const allNavs = [navInventario, navReportes, navVentas, navHistorial];
-        const allViews = [vistaInventario, vistaReportes, vistaVentas, vistaHistorial];
+        const allNavs = [navInventario, navReportes, navVentas, navHistorial, navMiTienda];
+        const allViews = [vistaInventario, vistaReportes, vistaVentas, vistaHistorial, vistaMiTienda];
 
         allNavs.forEach(nav => {
             if (!nav) return;
@@ -59,7 +62,7 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
-    if (navInventario && navReportes && navVentas && navHistorial) {
+    if (navInventario && navReportes && navVentas && navHistorial && navMiTienda) {
         navInventario.addEventListener("click", () => switchTabTo(navInventario, vistaInventario));
         navReportes.addEventListener("click", () => {
             switchTabTo(navReportes, vistaReportes);
@@ -70,6 +73,49 @@ document.addEventListener("DOMContentLoaded", () => {
             switchTabTo(navHistorial, vistaHistorial);
             if (typeof cargarHistorialVentas === 'function') {
                 cargarHistorialVentas(userId);
+            }
+        });
+        navMiTienda.addEventListener("click", () => {
+            switchTabTo(navMiTienda, vistaMiTienda);
+            loadStorefront(userId);
+        });
+    }
+
+    // Chart Date Filter Logic
+    const filtroFecha = document.getElementById("filtro-fecha-grafica");
+    if (filtroFecha) {
+        flatpickr("#filtro-fecha-grafica", {
+            locale: "es",
+            dateFormat: "Y-m-d",
+            disableMobile: "true",
+            onChange: async function(selectedDates, dateStr) {
+                if (!dateStr) return;
+                
+                const dateObj = new Date(dateStr + 'T00:00:00');
+                const day = dateObj.getDay();
+                const diffToMonday = dateObj.getDate() - day + (day === 0 ? -6 : 1);
+                const monday = new Date(dateObj.setDate(diffToMonday));
+                
+                const sunday = new Date(monday);
+                sunday.setDate(monday.getDate() + 6);
+                
+                const formatOptions = { day: '2-digit', month: '2-digit' };
+                const strMonday = monday.toLocaleDateString('es-ES', formatOptions);
+                const strSunday = sunday.toLocaleDateString('es-ES', formatOptions);
+                
+                const btnLabel = document.getElementById("btn-fecha-label");
+                if (btnLabel) {
+                    btnLabel.textContent = `Semana ${strMonday} al ${strSunday}`;
+                }
+                
+                try {
+                    const chartResp = await API.getReportesGrafico(userId, dateStr);
+                    if (chartResp.status === 200) {
+                        updateChartUI(chartResp.data);
+                    }
+                } catch(err) {
+                    console.error("Error al actualizar la grafica:", err);
+                }
             }
         });
     }
@@ -462,35 +508,7 @@ async function loadReportes(tenderoId) {
         // Load Chart Data
         const chartResp = await API.getReportesGrafico(tenderoId);
         if (chartResp.status === 200) {
-            const chartData = chartResp.data || []; 
-            const totalsByDay = {};
-            let maxTotal = 0;
-            
-            chartData.forEach(row => {
-                let day = parseInt(row.dia_semana);
-                if (day === 7) day = 0; // Convert Sunday from 7 to 0 (JS standard for our HTML data-day)
-                
-                const total = parseFloat(row.total_recaudado) || 0;
-                totalsByDay[day] = total;
-                if (total > maxTotal) maxTotal = total;
-            });
-
-            if (maxTotal === 0) maxTotal = 1; // Prevent division by zero
-
-            const bars = document.querySelectorAll('.chart-bar');
-            bars.forEach(bar => {
-                const day = parseInt(bar.getAttribute('data-day'));
-                const dayTotal = totalsByDay[day] || 0;
-                let heightPct = 0;
-                
-                if (dayTotal > 0) {
-                    heightPct = (dayTotal / maxTotal) * 100;
-                    if (heightPct < 5) heightPct = 5; // Minimum visible height if there are sales
-                }
-                
-                bar.style.height = `${heightPct}%`;
-                bar.title = `Total: ${Utils.formatCurrency(dayTotal)}`; 
-            });
+            updateChartUI(chartResp.data);
         }
 
         // Eliminada la llamada a cargarHistorialVentas, ahora se llama desde el tab
@@ -498,3 +516,255 @@ async function loadReportes(tenderoId) {
         console.error("Error cargando reportes:", e);
     }
 }
+
+function updateChartUI(chartData) {
+    chartData = chartData || []; 
+    const totalsByDay = {};
+    let maxTotal = 0;
+    
+    chartData.forEach(row => {
+        let day = parseInt(row.dia_semana);
+        if (day === 7) day = 0; // Convert Sunday from 7 to 0
+        
+        const total = parseFloat(row.total_recaudado) || 0;
+        totalsByDay[day] = total;
+        if (total > maxTotal) maxTotal = total;
+    });
+
+    if (maxTotal === 0) maxTotal = 1; 
+
+    const bars = document.querySelectorAll('.chart-bar');
+    bars.forEach(bar => {
+        const day = parseInt(bar.getAttribute('data-day'));
+        const dayTotal = totalsByDay[day] || 0;
+        let heightPct = 0;
+        
+        if (dayTotal > 0) {
+            heightPct = (dayTotal / maxTotal) * 100;
+            if (heightPct < 5) heightPct = 5; 
+        }
+        
+        bar.style.height = `${heightPct}%`;
+        bar.title = `Total: ${Utils.formatCurrency(dayTotal)}`; 
+    });
+}
+
+// --- MI TIENDA STOREFRONT LOGIC ---
+let storefrontProducts = [];
+
+async function loadStorefront(tenderoId) {
+    const grid = document.getElementById("storefront-grid");
+    grid.innerHTML = '<div class="col-span-full text-center py-12"><p class="text-slate-500 font-bold">Cargando vitrina...</p></div>';
+    
+    try {
+        const resp = await API.getProductosTendero(tenderoId);
+        if (resp.status === 200) {
+            storefrontProducts = resp.data;
+            renderStorefrontGrid(storefrontProducts);
+            setupStorefrontFilters();
+        } else {
+            grid.innerHTML = '<div class="col-span-full text-center py-12 text-error font-bold">Error cargando productos.</div>';
+        }
+    } catch(e) {
+        grid.innerHTML = '<div class="col-span-full text-center py-12 text-error font-bold">Error de conexión.</div>';
+    }
+}
+
+function renderStorefrontGrid(products) {
+    const grid = document.getElementById("storefront-grid");
+    grid.innerHTML = "";
+    
+    if(products.length === 0) {
+        grid.innerHTML = '<div class="col-span-full text-center py-12 text-slate-500 font-medium">No hay productos disponibles.</div>';
+        return;
+    }
+
+    products.forEach(p => {
+        const imgUrl = p.imagen_url ? (p.imagen_url.startsWith('http') ? p.imagen_url : `http://localhost:3000${p.imagen_url}`) : 'https://placehold.co/400x400/e2e8f0/475569?text=Producto';
+        
+        const card = document.createElement('div');
+        card.className = "bg-white rounded-xl shadow-sm border border-outline-variant/10 overflow-hidden hover:shadow-md transition-all group flex flex-col relative";
+        card.setAttribute('data-id', p.id || p.id_producto);
+        card.innerHTML = `
+            <div class="aspect-square bg-surface-container overflow-hidden relative">
+                <img src="${imgUrl}" alt="${p.nombre}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"/>
+                
+                <div class="absolute top-2 left-2">
+                    <span class="px-2 py-0.5 bg-black/40 backdrop-blur-md text-white text-[9px] font-bold uppercase tracking-wider rounded-md">${p.categoria}</span>
+                </div>
+
+                <button class="absolute bottom-2 right-2 w-9 h-9 rounded-full bg-emerald-600 text-white hover:bg-emerald-500 hover:scale-110 active:scale-95 transition-all flex items-center justify-center shadow-lg shadow-emerald-600/30 z-10">
+                    <span class="material-symbols-outlined text-[20px]">add</span>
+                </button>
+            </div>
+            <div class="p-3 flex flex-col flex-1">
+                <span class="text-[10px] text-slate-400 uppercase tracking-wider font-semibold mb-0.5">${p.marca || 'Genérico'}</span>
+                <h3 class="font-bold text-on-surface text-sm leading-tight mb-2 line-clamp-2">${p.nombre}</h3>
+                <div class="mt-auto flex items-center">
+                    <span class="text-base font-black text-on-surface tracking-tight">${Utils.formatCurrency(p.precio_venta)}</span>
+                </div>
+            </div>
+        `;
+        grid.appendChild(card);
+    });
+}
+
+function setupStorefrontFilters() {
+    const searchInput = document.getElementById("storefront-search");
+    const categoryBtns = document.querySelectorAll(".storefront-cat-btn");
+    
+    function applyFilters() {
+        const searchTerm = searchInput.value.toLowerCase();
+        const activeBtn = document.querySelector(".storefront-cat-btn.active");
+        const category = activeBtn ? activeBtn.getAttribute("data-cat") : "all";
+        
+        const filtered = storefrontProducts.filter(p => {
+            const matchesSearch = p.nombre.toLowerCase().includes(searchTerm) || (p.marca && p.marca.toLowerCase().includes(searchTerm));
+            const matchesCategory = category === "all" || p.categoria.toLowerCase() === category;
+            return matchesSearch && matchesCategory;
+        });
+        
+        renderStorefrontGrid(filtered);
+    }
+    
+    searchInput.addEventListener("input", applyFilters);
+    
+    categoryBtns.forEach(btn => {
+        btn.addEventListener("click", () => {
+            categoryBtns.forEach(b => {
+                b.classList.remove("active", "bg-emerald-600", "text-white", "shadow-emerald-600/20");
+                b.classList.add("bg-surface-container", "text-on-surface-variant");
+            });
+            
+            btn.classList.add("active", "bg-emerald-600", "text-white", "shadow-emerald-600/20");
+            btn.classList.remove("bg-surface-container", "text-on-surface-variant");
+            
+            applyFilters();
+        });
+    });
+}
+
+// --- STORE SETTINGS LOGIC ---
+// Make loadStoreSettings globally accessible so DOMContentLoaded can call it
+window.loadStoreSettings = async function(tenderoId) {
+    const resp = await API.getStoreSettings(tenderoId);
+    if (resp.status === 200 && resp.data) {
+        const { nombre, nombre_tienda, descripcion, ubicacion, logo_url } = resp.data;
+        
+        const inputNombre = document.getElementById("input-nombre-tienda");
+        const inputDueno = document.getElementById("input-dueno-tienda");
+        const inputDesc = document.getElementById("input-descripcion-tienda");
+        const inputUbicacion = document.getElementById("input-ubicacion-tienda");
+
+        if(inputNombre) inputNombre.value = nombre_tienda || '';
+        if(inputDueno) inputDueno.value = nombre || '';
+        if(inputDesc) inputDesc.value = descripcion || '';
+        if(inputUbicacion) inputUbicacion.value = ubicacion || '';
+        
+        updateStoreDOM(resp.data);
+    }
+};
+
+function updateStoreDOM(settings) {
+    if (settings.nombre_tienda) {
+        document.querySelectorAll('.nombre-tienda-dinamico').forEach(el => el.textContent = settings.nombre_tienda);
+    }
+    if (settings.nombre) {
+        const tenderoNameEl = document.getElementById("tendero-name");
+        if (tenderoNameEl) tenderoNameEl.textContent = settings.nombre;
+        localStorage.setItem("userName", settings.nombre);
+    }
+    if (settings.logo_url) {
+        const fullUrl = settings.logo_url.startsWith('http') ? settings.logo_url : `http://localhost:3000${settings.logo_url}`;
+        document.querySelectorAll('.logo-tienda-dinamico').forEach(el => el.src = fullUrl);
+        const preview = document.getElementById("preview-store-logo");
+        if (preview) {
+            preview.src = fullUrl;
+            preview.classList.remove("hidden");
+        }
+    }
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+    const btnEditStore = document.getElementById("btn-edit-store");
+    const btnCloseStoreSettings = document.getElementById("btn-close-store-settings");
+    const storeSettingsPanel = document.getElementById("store-settings-panel");
+    const storeSettingsOverlay = document.getElementById("store-settings-overlay");
+    const btnSaveStoreSettings = document.getElementById("btn-save-store-settings");
+
+    function toggleStoreSettings() {
+        if (!storeSettingsPanel || !storeSettingsOverlay) return;
+        
+        const isOpen = !storeSettingsPanel.classList.contains("translate-x-full");
+        
+        if (isOpen) {
+            storeSettingsPanel.classList.add("translate-x-full");
+            storeSettingsOverlay.classList.remove("opacity-100");
+            storeSettingsOverlay.classList.add("opacity-0");
+            setTimeout(() => {
+                storeSettingsOverlay.classList.add("hidden");
+            }, 300);
+        } else {
+            storeSettingsOverlay.classList.remove("hidden");
+            setTimeout(() => {
+                storeSettingsOverlay.classList.remove("opacity-0");
+                storeSettingsOverlay.classList.add("opacity-100");
+                storeSettingsPanel.classList.remove("translate-x-full");
+            }, 10);
+        }
+    }
+
+    async function saveStoreSettings() {
+        const tenderoId = localStorage.getItem("userId");
+        if (!tenderoId) return;
+
+        const originalText = btnSaveStoreSettings.innerHTML;
+        btnSaveStoreSettings.innerHTML = '<span class="material-symbols-outlined animate-spin text-[18px]">sync</span> Guardando...';
+        btnSaveStoreSettings.disabled = true;
+
+        const fileInput = document.getElementById("input-logo-tienda");
+        const formData = new FormData();
+        formData.append("nombre_tienda", document.getElementById("input-nombre-tienda").value);
+        formData.append("nombre", document.getElementById("input-dueno-tienda").value);
+        formData.append("descripcion", document.getElementById("input-descripcion-tienda").value);
+        formData.append("ubicacion", document.getElementById("input-ubicacion-tienda").value);
+        
+        if (fileInput.files[0]) {
+            formData.append("logo", fileInput.files[0]);
+        }
+
+        const resp = await API.updateStoreSettings(tenderoId, formData);
+        
+        btnSaveStoreSettings.innerHTML = originalText;
+        btnSaveStoreSettings.disabled = false;
+
+        if (resp.status === 200 && resp.data && resp.data.success) {
+            updateStoreDOM(resp.data.data);
+            toggleStoreSettings();
+            alert('Configuración actualizada correctamente');
+        } else {
+            alert('Error al guardar configuración');
+        }
+    }
+
+    // Image preview logic
+    const fileInput = document.getElementById("input-logo-tienda");
+    if (fileInput) {
+        fileInput.addEventListener("change", function() {
+            if (this.files && this.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const preview = document.getElementById("preview-store-logo");
+                    preview.src = e.target.result;
+                    preview.classList.remove("hidden");
+                }
+                reader.readAsDataURL(this.files[0]);
+            }
+        });
+    }
+
+    if (btnEditStore) btnEditStore.addEventListener("click", toggleStoreSettings);
+    if (btnCloseStoreSettings) btnCloseStoreSettings.addEventListener("click", toggleStoreSettings);
+    if (storeSettingsOverlay) storeSettingsOverlay.addEventListener("click", toggleStoreSettings);
+    if (btnSaveStoreSettings) btnSaveStoreSettings.addEventListener("click", saveStoreSettings);
+});

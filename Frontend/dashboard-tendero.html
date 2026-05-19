@@ -12,6 +12,7 @@
         href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
         rel="stylesheet" />
     <script src="js/tailwind-config.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <link rel="stylesheet" href="css/styles.css">
     <link rel="stylesheet" href="css/style-dashboard.css">
 </head>
@@ -65,7 +66,7 @@
                     <span class="material-symbols-outlined">analytics</span>
                     <span>Reportes</span>
                 </a>
-                <a class="flex items-center gap-3 text-[#3c4a42] dark:text-gray-500 px-6 py-3 hover:text-[#006c49] dark:hover:text-[#10b981] hover:bg-[#10b981]/5 transition-all duration-300" href="#">
+                <a id="nav-mi-tienda" class="flex items-center gap-3 text-[#3c4a42] dark:text-gray-500 px-6 py-3 hover:text-[#006c49] dark:hover:text-[#10b981] hover:bg-[#10b981]/5 transition-all duration-300 cursor-pointer">
                     <span class="material-symbols-outlined">storefront</span>
                     <span>Mi Tienda</span>
                 </a>
@@ -154,10 +155,13 @@
                 <h2 class="text-4xl font-extrabold tracking-tight text-on-surface mt-1">Market Insights</h2>
                 </div>
                 <div class="flex items-center gap-3">
-                <button class="flex items-center gap-2 px-5 py-2.5 bg-surface-container-highest text-on-surface rounded-lg font-medium text-sm transition-all hover:bg-surface-dim active:scale-95">
-                <span class="material-symbols-outlined text-lg" data-icon="calendar_today">calendar_today</span>
-                                        This Month
-                                    </button>
+                <div class="relative flex items-center">
+                    <button id="btn-texto-fecha" class="relative flex items-center gap-2 px-5 py-2.5 bg-surface-container-highest text-on-surface rounded-lg font-medium text-sm transition-all hover:bg-surface-dim active:scale-95 overflow-hidden w-full">
+                        <span class="material-symbols-outlined text-lg pointer-events-none" data-icon="calendar_today">calendar_today</span>
+                        <span id="btn-fecha-label" class="pointer-events-none">Seleccionar Fecha</span>
+                    </button>
+                    <input type="text" id="filtro-fecha-grafica" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" style="background: transparent; color: transparent; border: none; outline: none;">
+                </div>
                 <button class="emerald-pulse text-white px-5 py-2.5 rounded-lg font-medium text-sm transition-all hover:opacity-90 active:scale-95 shadow-lg shadow-primary/20">
                                         Download PDF
                                     </button>
@@ -443,6 +447,110 @@
                     </div>
                 </aside>
             </section>
+
+            <section id="vista-mi-tienda" class="hidden flex-1 overflow-y-auto w-full bg-[#f8f9fa] dark:bg-gray-950 pb-20 relative">
+                <!-- Sticky Top Bar (Search & Categories) -->
+                <div class="sticky top-0 z-20 bg-[#f8f9fa]/90 dark:bg-gray-950/90 backdrop-blur-md border-b border-outline-variant/10 px-4 py-3 lg:px-8 shadow-sm">
+                    <div class="max-w-6xl mx-auto flex flex-col gap-3">
+                        <!-- Store Title & Search -->
+                        <div class="flex items-center justify-between gap-4">
+                            <div class="flex items-center gap-2 shrink-0">
+                                <h2 class="text-xl font-extrabold text-on-surface tracking-tight truncate nombre-tienda-dinamico">Mi Tienda</h2>
+                                <button id="btn-edit-store" class="w-8 h-8 rounded-full bg-surface-container hover:bg-emerald-100 hover:text-emerald-700 text-on-surface-variant transition-colors flex items-center justify-center" title="Administrar Perfil">
+                                    <span class="material-symbols-outlined text-[18px]">settings</span>
+                                </button>
+                            </div>
+                            <div class="relative w-full max-w-md shrink-1">
+                                <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-lg">search</span>
+                                <input id="storefront-search" class="w-full pl-9 pr-3 py-1.5 bg-surface-container-low border-none rounded-xl focus:ring-2 focus:ring-emerald-500/30 text-sm transition-all" placeholder="Buscar productos..." type="text">
+                            </div>
+                        </div>
+                        <!-- Categories -->
+                        <div id="storefront-categories" class="flex gap-2 overflow-x-auto w-full hide-scrollbar pb-1">
+                            <button class="storefront-cat-btn active px-4 py-1.5 rounded-xl bg-emerald-600 text-white text-xs font-bold shadow-sm shadow-emerald-600/20 transition-all whitespace-nowrap" data-cat="all">Todos</button>
+                            <button class="storefront-cat-btn px-4 py-1.5 rounded-xl bg-surface-container text-on-surface-variant text-xs font-semibold hover:bg-emerald-50 hover:text-emerald-700 transition-all whitespace-nowrap" data-cat="alimentos">Alimentos</button>
+                            <button class="storefront-cat-btn px-4 py-1.5 rounded-xl bg-surface-container text-on-surface-variant text-xs font-semibold hover:bg-emerald-50 hover:text-emerald-700 transition-all whitespace-nowrap" data-cat="artesanias">Artesanías</button>
+                            <button class="storefront-cat-btn px-4 py-1.5 rounded-xl bg-surface-container text-on-surface-variant text-xs font-semibold hover:bg-emerald-50 hover:text-emerald-700 transition-all whitespace-nowrap" data-cat="dulces">Dulces</button>
+                            <button class="storefront-cat-btn px-4 py-1.5 rounded-xl bg-surface-container text-on-surface-variant text-xs font-semibold hover:bg-emerald-50 hover:text-emerald-700 transition-all whitespace-nowrap" data-cat="bebidas">Bebidas</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Product Grid -->
+                <div class="max-w-6xl mx-auto px-4 lg:px-8 pt-4">
+                    <div id="storefront-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
+                        <!-- Cards will be injected here -->
+                    </div>
+                </div>
+
+                <!-- Store Settings Side Panel Overlay -->
+                <div id="store-settings-overlay" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-[60] hidden opacity-0 transition-opacity duration-300"></div>
+
+                <!-- Store Settings Side Panel -->
+                <div id="store-settings-panel" class="fixed top-0 right-0 h-full w-full max-w-md bg-white shadow-2xl z-[70] transform translate-x-full transition-transform duration-300 flex flex-col overflow-hidden">
+                    <div class="px-6 py-5 border-b border-outline-variant/10 flex items-center justify-between bg-surface-container-lowest">
+                        <h3 class="text-xl font-extrabold text-on-surface tracking-tight">Administrar Perfil</h3>
+                        <button id="btn-close-store-settings" class="w-8 h-8 rounded-full bg-surface-container hover:bg-surface-container-high transition-colors flex items-center justify-center text-on-surface-variant">
+                            <span class="material-symbols-outlined text-[20px]">close</span>
+                        </button>
+                    </div>
+
+                    <div class="flex-1 overflow-y-auto p-6 space-y-6">
+                        <!-- Profile Image Upload -->
+                        <div class="flex flex-col items-center gap-3">
+                            <div class="w-24 h-24 rounded-full bg-emerald-50 border-2 border-emerald-200 border-dashed flex items-center justify-center relative group cursor-pointer overflow-hidden">
+                                <img src="" alt="Logo Tienda" id="preview-store-logo" class="w-full h-full object-cover hidden">
+                                <span class="material-symbols-outlined text-emerald-600 text-3xl group-hover:scale-110 transition-transform">add_a_photo</span>
+                                <input type="file" id="input-logo-tienda" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer">
+                            </div>
+                            <span class="text-xs font-semibold text-emerald-600 uppercase tracking-widest">Cambiar Logo</span>
+                        </div>
+
+                        <!-- Form Fields -->
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-1.5">Nombre de la Tienda</label>
+                                <input type="text" id="input-nombre-tienda" placeholder="Ej. Supermercado Central" class="w-full px-4 py-3 bg-surface-container-lowest border border-outline-variant/30 rounded-xl focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 outline-none transition-all text-sm font-medium text-on-surface">
+                            </div>
+
+                            <div>
+                                <label class="block text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-1.5">Nombre del Dueño</label>
+                                <input type="text" id="input-dueno-tienda" placeholder="Ej. Juan Pérez" class="w-full px-4 py-3 bg-surface-container-lowest border border-outline-variant/30 rounded-xl focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 outline-none transition-all text-sm font-medium text-on-surface">
+                            </div>
+
+                            <div>
+                                <label class="block text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-1.5">Descripción (Lema / Bio)</label>
+                                <textarea id="input-descripcion-tienda" rows="3" placeholder="Todo lo que necesitas, a la vuelta de tu casa." class="w-full px-4 py-3 bg-surface-container-lowest border border-outline-variant/30 rounded-xl focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 outline-none transition-all text-sm font-medium text-on-surface resize-none"></textarea>
+                            </div>
+
+                            <div>
+                                <label class="block text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-1.5">Ubicación / Dirección</label>
+                                <input type="text" id="input-ubicacion-tienda" placeholder="Ej. Calle 10 #4-20, Centro" class="w-full px-4 py-3 bg-surface-container-lowest border border-outline-variant/30 rounded-xl focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 outline-none transition-all text-sm font-medium text-on-surface">
+                            </div>
+                        </div>
+
+                        <!-- Metrics -->
+                        <div class="bg-emerald-50 rounded-2xl p-4 flex items-center justify-between border border-emerald-100">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center">
+                                    <span class="material-symbols-outlined text-emerald-600">group</span>
+                                </div>
+                                <div>
+                                    <span class="block text-[10px] font-bold text-emerald-700 uppercase tracking-widest">Clientes Registrados</span>
+                                    <span class="block text-xl font-black text-emerald-800 leading-tight">1,248</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="p-6 border-t border-outline-variant/10 bg-surface-container-lowest">
+                        <button id="btn-save-store-settings" class="w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold text-sm tracking-wide shadow-lg shadow-emerald-600/30 transition-all active:scale-[0.98] flex items-center justify-center gap-2">
+                            <span class="material-symbols-outlined text-[18px]">save</span>
+                            Guardar Cambios
+                        </button>
+                    </div>
+                </div>
+            </section>
         </main>
     </div>
 
@@ -600,25 +708,6 @@
     </div>
 
     <!-- Factura Modal -->
-    <style>
-        @media print {
-            body { margin: 0; padding: 0; background: white; }
-            body > *:not(#modal-factura) { display: none !important; }
-            #modal-factura {
-                display: block !important;
-                position: static !important;
-                width: 80mm !important;
-                background: white !important;
-            }
-            #modal-factura > div {
-                max-height: none !important;
-                box-shadow: none !important;
-            }
-            .payment-btn, .space-y-3.pt-2, .close-modal-btn, .print-btn, .bg-zinc-50 {
-                display: none !important;
-            }
-        }
-    </style>
     <div class="hidden fixed inset-0 z-[100] flex items-center justify-center bg-zinc-950/80 backdrop-blur-sm p-4" id="modal-factura">
         <div class="bg-white dark:bg-zinc-100 w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] transform transition-all animate-in fade-in zoom-in duration-300 relative">
             <button onclick="imprimirTicket()" class="print-btn absolute top-4 right-4 w-8 h-8 flex items-center justify-center bg-zinc-200 text-zinc-700 hover:bg-zinc-300 rounded-full transition-colors z-10" title="Imprimir Ticket">
@@ -710,6 +799,8 @@
         </div>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/es.js"></script>
     <script src="js/utils.js"></script>
     <script src="js/api.js"></script>
     <script src="js/auth.js"></script>

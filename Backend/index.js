@@ -232,6 +232,57 @@ app.post('/api/actualizar-password', async (req, res) => {
     }
 });
 
+// Endpoint: Store Settings - GET
+app.get('/api/tienda/configurar/:id_tendero', async (req, res) => {
+    const { id_tendero } = req.params;
+    try {
+        const text = 'SELECT nombre, nombre_tienda, descripcion, ubicacion, logo_url FROM tendero WHERE id_tendero = $1';
+        const { rows } = await db.query(text, [id_tendero]);
+        if (rows.length > 0) {
+            res.json({ success: true, data: rows[0] });
+        } else {
+            res.status(404).json({ error: 'Tendero no encontrado' });
+        }
+    } catch (err) {
+        if (err.code === '42703') { // undefined column
+            res.json({ success: true, data: { nombre: '', nombre_tienda: '', descripcion: '', ubicacion: '', logo_url: null } });
+        } else {
+            console.error('Error fetching store settings:', err.message);
+            res.status(500).json({ error: 'Error interno obteniendo configuración' });
+        }
+    }
+});
+
+// Endpoint: Store Settings - PUT
+app.put('/api/tienda/configurar/:id_tendero', upload.single('logo'), async (req, res) => {
+    const { id_tendero } = req.params;
+    const { nombre, nombre_tienda, descripcion, ubicacion } = req.body;
+    
+    try {
+        await db.query('ALTER TABLE tendero ADD COLUMN IF NOT EXISTS descripcion TEXT, ADD COLUMN IF NOT EXISTS ubicacion TEXT, ADD COLUMN IF NOT EXISTS logo_url TEXT');
+        
+        let text, values;
+        if (req.file) {
+            const logo_url = `/uploads/${req.file.filename}`;
+            text = 'UPDATE tendero SET nombre = $1, nombre_tienda = $2, descripcion = $3, ubicacion = $4, logo_url = $5 WHERE id_tendero = $6 RETURNING nombre, nombre_tienda, descripcion, ubicacion, logo_url';
+            values = [nombre, nombre_tienda, descripcion, ubicacion, logo_url, id_tendero];
+        } else {
+            text = 'UPDATE tendero SET nombre = $1, nombre_tienda = $2, descripcion = $3, ubicacion = $4 WHERE id_tendero = $5 RETURNING nombre, nombre_tienda, descripcion, ubicacion, logo_url';
+            values = [nombre, nombre_tienda, descripcion, ubicacion, id_tendero];
+        }
+        
+        const { rows } = await db.query(text, values);
+        if (rows.length > 0) {
+            res.json({ success: true, message: 'Configuración actualizada', data: rows[0] });
+        } else {
+            res.status(404).json({ error: 'Tendero no encontrado' });
+        }
+    } catch (err) {
+        console.error('Error updating store settings:', err.message);
+        res.status(500).json({ error: 'Error interno actualizando configuración' });
+    }
+});
+
 // Endpoint: Buscar Clientes
 app.get('/api/clientes/buscar', async (req, res) => {
     const { q } = req.query;
@@ -490,17 +541,37 @@ app.get('/api/reportes/alertas-stock/:id_tendero', async (req, res) => {
     }
 });
 
-app.get('/api/reportes/grafico/:id_tendero', async (req, res) => {
+app.get('/api/reportes/semana/:id_tendero', async (req, res) => {
     const { id_tendero } = req.params;
+    const { fecha } = req.query;
     try {
-        const query = `
-            SELECT EXTRACT(ISODOW FROM fecha) as dia_semana, SUM(total) as total_recaudado
-            FROM venta
-            WHERE id_tienda = $1 AND fecha >= date_trunc('week', CURRENT_DATE)
-            GROUP BY EXTRACT(ISODOW FROM fecha)
-            ORDER BY dia_semana
-        `;
-        const { rows } = await db.query(query, [id_tendero]);
+        let query;
+        let values = [id_tendero];
+        
+        if (fecha) {
+            query = `
+                SELECT EXTRACT(ISODOW FROM fecha) as dia_semana, SUM(total) as total_recaudado
+                FROM venta
+                WHERE id_tienda = $1 
+                  AND fecha >= date_trunc('week', $2::date)
+                  AND fecha < date_trunc('week', $2::date) + interval '7 days'
+                GROUP BY EXTRACT(ISODOW FROM fecha)
+                ORDER BY dia_semana
+            `;
+            values.push(fecha);
+        } else {
+            query = `
+                SELECT EXTRACT(ISODOW FROM fecha) as dia_semana, SUM(total) as total_recaudado
+                FROM venta
+                WHERE id_tienda = $1 
+                  AND fecha >= date_trunc('week', CURRENT_DATE)
+                  AND fecha < date_trunc('week', CURRENT_DATE) + interval '7 days'
+                GROUP BY EXTRACT(ISODOW FROM fecha)
+                ORDER BY dia_semana
+            `;
+        }
+        
+        const { rows } = await db.query(query, values);
         res.json(rows);
     } catch (err) {
         console.error('Error detallado obteniendo datos del gráfico:', err.message);
