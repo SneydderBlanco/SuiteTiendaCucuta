@@ -4,14 +4,17 @@ const { Pool } = require('pg');
 let pool;
 
 if (process.env.DATABASE_URL) {
-    // Conexión usando String de conexión (ej. en Neon) con SSL requerido
+    const dbUrl = process.env.DATABASE_URL.trim();
+    const dbMatch = dbUrl.match(/@([^/]+)\/([^?]+)/);
+    const dbHost = dbMatch ? dbMatch[1] : 'unknown-host';
+    const dbName = dbMatch ? dbMatch[2] : 'unknown-db';
+    console.log(`--- Conectándose a base de datos en host [${dbHost}] y base de datos [${dbName}] ---`);
     pool = new Pool({
-        connectionString: process.env.DATABASE_URL.trim(),
+        connectionString: dbUrl,
         ssl: {
             rejectUnauthorized: false
         }
     });
-    console.log(`--- Conectándose a base de datos usando Connection String ---`);
 } else {
     // Conexión local usando variables individuales
     pool = new Pool({
@@ -23,6 +26,16 @@ if (process.env.DATABASE_URL) {
     });
     console.log(`--- Conectándose a base de datos local [${(process.env.DB_NAME || 'tienda_cucuta_db').trim()}] ---`);
 }
+
+// Diagnóstico inmediato de tablas al iniciar
+(async () => {
+    try {
+        const res = await pool.query("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'");
+        console.log("Tablas visibles desde el servidor:", res.rows.map(r => r.table_name));
+    } catch (err) {
+        console.error("Error al listar tablas en inicio:", err.message);
+    }
+})();
 
 pool.on('error', (err, client) => {
     console.error('Error inesperado en PostgreSQL:', err);
