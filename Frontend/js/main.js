@@ -1,4 +1,4 @@
-// Al cargar la página, ejecutar la carga de productos y verificar login
+// Al cargar la página, ejecutar la carga de tiendas y verificar login
 document.addEventListener("DOMContentLoaded", async () => {
     
     // Verificación de Autenticación
@@ -26,44 +26,140 @@ document.addEventListener("DOMContentLoaded", async () => {
         });
     }
 
-    const grid = document.getElementById("product-grid");
+    const grid = document.getElementById("tiendas-grid");
+    const searchInput = document.getElementById("search-input");
 
-    // 1. Llamar al Backend
-    const productos = await API.getProductos();
+    // Inicializar mapa de Leaflet centrado en Cúcuta
+    const map = L.map('mapa-marketplace').setView([7.8939, -72.5078], 13);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+    }).addTo(map);
+    const markerGroup = L.layerGroup().addTo(map);
 
-    // 2. Limpiar el mensaje de "Cargando"
-    grid.innerHTML = "";
+    // 1. Llamar al Backend para obtener tiendas
+    const tiendas = await API.getTiendas();
 
-    if (productos.length === 0) {
-        grid.innerHTML = "<p>No se encontraron productos disponibles en este momento.</p>";
-        return;
+    // 2. Función para renderizar tiendas
+    function renderTiendas(tiendasList) {
+        grid.innerHTML = "";
+
+        // Limpiar y cargar marcadores reactivos en el mapa
+        markerGroup.clearLayers();
+        tiendasList.forEach(tienda => {
+            if (tienda.latitud && tienda.longitud) {
+                const lat = parseFloat(tienda.latitud);
+                const lng = parseFloat(tienda.longitud);
+                if (!isNaN(lat) && !isNaN(lng)) {
+                    const logoUrl = tienda.logo_url 
+                        ? (tienda.logo_url.startsWith('http') ? tienda.logo_url : `${window.API_URL}${tienda.logo_url}`)
+                        : `https://placehold.co/100x100/10b981/ffffff?text=${encodeURIComponent(tienda.nombre_tienda.substring(0,2).toUpperCase())}`;
+
+                    const popupHTML = `
+                        <div class="p-1 text-slate-800 font-sans min-w-[180px] flex flex-col items-center">
+                            <div class="w-12 h-12 rounded-full border border-emerald-500 overflow-hidden shadow-sm mb-2 bg-white flex items-center justify-center">
+                                <img src="${logoUrl}" class="w-full h-full object-cover" alt="${tienda.nombre_tienda}" onerror="this.src='https://placehold.co/100x100/10b981/ffffff?text=${encodeURIComponent(tienda.nombre_tienda.substring(0,2).toUpperCase())}'">
+                            </div>
+                            <h4 class="font-bold text-sm text-emerald-800 text-center leading-tight mb-1">${tienda.nombre_tienda}</h4>
+                            <p class="text-[11px] text-slate-500 text-center leading-normal mb-2 line-clamp-2">${tienda.descripcion || '¡Bienvenido a nuestra tienda!'}</p>
+                            <a href="tienda.html?id=${tienda.id_tendero}" class="inline-flex items-center justify-center gap-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs px-2.5 py-1.5 rounded-lg transition-all w-full shadow-sm text-center" style="text-decoration: none !important; color: white !important;">
+                                <span>🛒 Visitar Tienda</span>
+                            </a>
+                        </div>
+                    `;
+                    const marker = L.marker([lat, lng]).bindPopup(popupHTML);
+                    markerGroup.addLayer(marker);
+                }
+            }
+        });
+
+        if (tiendasList.length === 0) {
+            grid.innerHTML = `
+                <div class="col-span-full py-12 text-center text-slate-500">
+                    <span class="material-symbols-outlined text-5xl mb-3 text-slate-300">search_off</span>
+                    <p class="font-medium">No se encontraron tiendas que coincidan con tu búsqueda.</p>
+                </div>
+            `;
+            return;
+        }
+
+        tiendasList.forEach(tienda => {
+            const card = document.createElement("div");
+            card.className = "group bg-white rounded-3xl overflow-hidden shadow-md hover:shadow-xl hover:-translate-y-1 transition-all duration-300 border border-slate-100 flex flex-col cursor-pointer";
+            card.addEventListener("click", () => {
+                window.location.href = `tienda.html?id=${tienda.id_tendero}`;
+            });
+
+            // Formatear imágenes
+            const fullLogoUrl = tienda.logo_url 
+                ? (tienda.logo_url.startsWith('http') ? tienda.logo_url : `${window.API_URL}${tienda.logo_url}`)
+                : `https://placehold.co/100x100/10b981/ffffff?text=${encodeURIComponent(tienda.nombre_tienda.substring(0,2).toUpperCase())}`;
+
+            const fullBannerUrl = tienda.banner_url
+                ? (tienda.banner_url.startsWith('http') ? tienda.banner_url : `${window.API_URL}${tienda.banner_url}`)
+                : null;
+
+            card.innerHTML = `
+                <!-- Banner Section -->
+                <div class="h-32 w-full relative overflow-hidden bg-gradient-to-r from-emerald-500 to-teal-600">
+                    ${fullBannerUrl 
+                        ? `<img src="${fullBannerUrl}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt="Banner ${tienda.nombre_tienda}">` 
+                        : `<div class="absolute inset-0 bg-gradient-to-tr from-emerald-600/10 via-teal-700/20 to-cyan-500/10 backdrop-blur-[1px]"></div>`
+                    }
+                </div>
+                
+                <!-- Profile & Content Section -->
+                <div class="px-6 pb-6 relative flex-1 flex flex-col">
+                    <!-- Logo circular pisándolo -->
+                    <div class="absolute -top-10 left-6 w-20 h-20 rounded-full border-4 border-white shadow-md bg-white overflow-hidden flex items-center justify-center">
+                        <img src="${fullLogoUrl}" class="w-full h-full object-cover" alt="Logo ${tienda.nombre_tienda}" onerror="this.src='https://placehold.co/100x100/10b981/ffffff?text=${encodeURIComponent(tienda.nombre_tienda.substring(0,2).toUpperCase())}'">
+                    </div>
+                    
+                    <!-- Store Name and details -->
+                    <div class="mt-12 flex-grow">
+                        <h3 class="text-xl font-bold text-slate-800 group-hover:text-emerald-600 transition-colors tracking-tight flex items-center gap-1.5">
+                            ${tienda.nombre_tienda}
+                            <span class="material-symbols-outlined text-emerald-500 text-lg fill-current">verified</span>
+                        </h3>
+                        
+                        <p class="text-xs text-slate-400 font-semibold flex items-center gap-1 mt-1">
+                            <span class="material-symbols-outlined text-[14px]">location_on</span>
+                            ${tienda.ubicacion || 'Cúcuta, Colombia'}
+                        </p>
+                        
+                        <p class="text-slate-600 text-sm mt-3 line-clamp-2 leading-relaxed">
+                            ${tienda.descripcion || '¡Bienvenido a nuestra tienda! Explora nuestros productos de alta calidad y disfruta de la mejor atención.'}
+                        </p>
+                    </div>
+                    
+                    <!-- Card Action Footer -->
+                    <div class="mt-5 pt-4 border-t border-slate-100 flex justify-between items-center text-xs">
+                        <span class="text-slate-400 font-medium">Por: ${tienda.nombre}</span>
+                        <span class="text-emerald-600 font-bold flex items-center gap-0.5 group-hover:translate-x-1 transition-transform">
+                            Visitar tienda
+                            <span class="material-symbols-outlined text-xs">arrow_forward</span>
+                        </span>
+                    </div>
+                </div>
+            `;
+            grid.appendChild(card);
+        });
     }
 
-    // 3. Crear las tarjetas dinámicamente
-    productos.forEach(prod => {
-        const card = document.createElement("div");
-        card.className = "group bg-white rounded-xl p-4 product-card shadow-sm border border-slate-100";
+    // Inicializar renderizado
+    renderTiendas(tiendas);
 
-        const imgUrl = prod.imagen_url ? (prod.imagen_url.startsWith('http') ? prod.imagen_url : `http://localhost:3000${prod.imagen_url}`) : 'https://placehold.co/400x300/e2e8f0/475569?text=Sin+Imagen';
-
-        card.innerHTML = `
-            <div class="relative aspect-square overflow-hidden rounded-lg mb-6 bg-slate-100 flex items-center justify-center">
-                <img src="${imgUrl}" alt="${prod.nombre}" class="object-cover w-full h-full">
-                <div class="absolute top-3 left-3">
-                    <span class="bg-emerald-100 text-emerald-800 text-xs font-bold px-3 py-1 rounded-full uppercase">
-                        ${prod.marca || 'Local'}
-                    </span>
-                </div>
-            </div>
-            <div class="space-y-1 mb-6">
-                <h3 class="text-xl font-bold text-slate-800 tracking-tight">${prod.nombre}</h3>
-                <p class="text-slate-500 text-sm font-medium">Precio: ${Utils.formatCurrency(prod.precio_venta)}</p>
-                <p class="text-emerald-600 text-xs font-bold uppercase">${prod.categoria || 'Local'}</p>
-            </div>
-            <button class="w-full py-3 px-4 rounded-lg border border-emerald-600 text-emerald-600 font-bold hover:bg-emerald-50 transition-colors">
-                Ver Detalles
-            </button>
-        `;
-        grid.appendChild(card);
-    });
+    // 3. Filtrado reactivo en tiempo real
+    if (searchInput) {
+        searchInput.addEventListener("input", (e) => {
+            const query = e.target.value.toLowerCase().trim();
+            const filtered = tiendas.filter(tienda => {
+                const nameMatch = tienda.nombre_tienda.toLowerCase().includes(query);
+                const descMatch = (tienda.descripcion || '').toLowerCase().includes(query);
+                const ownerMatch = tienda.nombre.toLowerCase().includes(query);
+                const locMatch = (tienda.ubicacion || '').toLowerCase().includes(query);
+                return nameMatch || descMatch || ownerMatch || locMatch;
+            });
+            renderTiendas(filtered);
+        });
+    }
 });

@@ -1,2 +1,4 @@
 node_modules/
 .env
+Backend/scratch_db.js
+Backend/uploads/*

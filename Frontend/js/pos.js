@@ -60,7 +60,7 @@ function setupClientEvents() {
                 return;
             }
             try {
-                const res = await fetch(`http://localhost:3000/api/clientes/buscar?q=${encodeURIComponent(q)}`);
+                const res = await fetch(`${window.API_URL}/api/clientes/buscar?q=${encodeURIComponent(q)}`);
                 const clientes = await res.json();
                 
                 if (clientes.length > 0) {
@@ -102,7 +102,7 @@ function setupClientEvents() {
             const email = document.getElementById('new-client-email').value;
             
             try {
-                const res = await fetch('http://localhost:3000/api/clientes', {
+                const res = await fetch(`${window.API_URL}/api/clientes`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ nombre, email })
@@ -136,7 +136,7 @@ window.seleccionarCliente = function(id, nombre) {
 
 async function loadPosProducts(merchantId) {
     try {
-        const response = await fetch(`http://localhost:3000/api/productos/${merchantId}`);
+        const response = await fetch(`${window.API_URL}/api/productos/${merchantId}`);
         if (response.ok) {
             const data = await response.json();
             products = data;
@@ -211,7 +211,7 @@ function renderProducts(productsToRender) {
         card.className = 'bg-surface-container-lowest p-3 rounded-2xl shadow-sm hover:shadow-md transition-all group relative overflow-hidden flex flex-col gap-2';
         
         // Determinar imagen o placeholder si no hay url
-        const imgUrl = product.imagen_url ? (product.imagen_url.startsWith('http') ? product.imagen_url : `http://localhost:3000${product.imagen_url}`) : 'https://lh3.googleusercontent.com/aida-public/AB6AXuAr10KCyGCkqfP9WN4CmMVk2hmOhaT45pcS1KclTR4-VIoCSvDRF_W0zvTZg1fKrRj8n1Ap7U931BmbM1kBeW2r9Kfx0wgpohY0wvq80siQ9TZk-m83P_rJm5ChsitKgcFxSjwxsbcSQ9ys7vEEBAbGo3FL4SJ2IwO9XMEXJecPEyOMqmeMnTVzbNfKJAd_CusC6FCCVTqHIKGdsUGQY2gpjPacSMNEsT8N1kTm7cRdTKuM3IpbzuUj2Lvg_76ZLfzsvQEEBUsbjFpP';
+        const imgUrl = product.imagen_url ? (product.imagen_url.startsWith('http') ? product.imagen_url : `${window.API_URL}${product.imagen_url}`) : 'https://lh3.googleusercontent.com/aida-public/AB6AXuAr10KCyGCkqfP9WN4CmMVk2hmOhaT45pcS1KclTR4-VIoCSvDRF_W0zvTZg1fKrRj8n1Ap7U931BmbM1kBeW2r9Kfx0wgpohY0wvq80siQ9TZk-m83P_rJm5ChsitKgcFxSjwxsbcSQ9ys7vEEBAbGo3FL4SJ2IwO9XMEXJecPEyOMqmeMnTVzbNfKJAd_CusC6FCCVTqHIKGdsUGQY2gpjPacSMNEsT8N1kTm7cRdTKuM3IpbzuUj2Lvg_76ZLfzsvQEEBUsbjFpP';
 
         card.innerHTML = `
             <div class="h-28 w-full rounded-xl bg-slate-100 overflow-hidden">
@@ -302,7 +302,7 @@ function updateCartUI() {
         const div = document.createElement('div');
         div.className = 'p-3 bg-surface-container-low rounded-xl flex items-center gap-3';
         
-        const imgUrl = item.imagen_url ? (item.imagen_url.startsWith('http') ? item.imagen_url : `http://localhost:3000${item.imagen_url}`) : 'https://lh3.googleusercontent.com/aida-public/AB6AXuAr10KCyGCkqfP9WN4CmMVk2hmOhaT45pcS1KclTR4-VIoCSvDRF_W0zvTZg1fKrRj8n1Ap7U931BmbM1kBeW2r9Kfx0wgpohY0wvq80siQ9TZk-m83P_rJm5ChsitKgcFxSjwxsbcSQ9ys7vEEBAbGo3FL4SJ2IwO9XMEXJecPEyOMqmeMnTVzbNfKJAd_CusC6FCCVTqHIKGdsUGQY2gpjPacSMNEsT8N1kTm7cRdTKuM3IpbzuUj2Lvg_76ZLfzsvQEEBUsbjFpP';
+        const imgUrl = item.imagen_url ? (item.imagen_url.startsWith('http') ? item.imagen_url : `${window.API_URL}${item.imagen_url}`) : 'https://lh3.googleusercontent.com/aida-public/AB6AXuAr10KCyGCkqfP9WN4CmMVk2hmOhaT45pcS1KclTR4-VIoCSvDRF_W0zvTZg1fKrRj8n1Ap7U931BmbM1kBeW2r9Kfx0wgpohY0wvq80siQ9TZk-m83P_rJm5ChsitKgcFxSjwxsbcSQ9ys7vEEBAbGo3FL4SJ2IwO9XMEXJecPEyOMqmeMnTVzbNfKJAd_CusC6FCCVTqHIKGdsUGQY2gpjPacSMNEsT8N1kTm7cRdTKuM3IpbzuUj2Lvg_76ZLfzsvQEEBUsbjFpP';
 
         div.innerHTML = `
             <div class="w-12 h-12 rounded-lg overflow-hidden bg-white shrink-0">
@@ -522,7 +522,7 @@ window.cargarHistorialVentas = async function(tenderoId = null) {
         if (historyState.fechaInicio) queryParams.append('fechaInicio', historyState.fechaInicio);
         if (historyState.fechaFin) queryParams.append('fechaFin', historyState.fechaFin);
 
-        const response = await fetch(`http://localhost:3000/api/ventas/historial/${tenderoId}?${queryParams.toString()}`);
+        const response = await fetch(`${window.API_URL}/api/ventas/historial/${tenderoId}?${queryParams.toString()}`);
         if (response.ok) {
             const result = await response.json();
             const ventas = result.data || [];
@@ -641,7 +641,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 window.verDetalleFactura = async function(idVenta) {
     try {
-        const response = await fetch(`http://localhost:3000/api/ventas/${idVenta}/detalles`);
+        const response = await fetch(`${window.API_URL}/api/ventas/${idVenta}/detalles`);
         if (!response.ok) throw new Error('Network response was not ok');
         const data = await response.json();
 

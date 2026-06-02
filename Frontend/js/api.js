@@ -1,4 +1,10 @@
-const API_URL = "http://localhost:3000";
+// Determinar dinámicamente la URL del servidor API backend
+const API_URL = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
+    ? "http://localhost:3000"
+    : (localStorage.getItem("API_URL") || "https://suite-tienda-cucuta-backend.onrender.com");
+
+// Exponer globalmente para otros scripts (main.js, pos.js, dashboard.js, tienda.html)
+window.API_URL = API_URL;
 
 /**
  * Módulo Central de Peticiones al Servidor
@@ -29,6 +35,17 @@ window.API = {
             return await response.json();
         } catch (error) {
             console.error("Error en API:", error);
+            return [];
+        }
+    },
+
+    getTiendas: async () => {
+        try {
+            const response = await fetch(`${API_URL}/api/tiendas`);
+            if (!response.ok) throw new Error("Error al conectar con el servidor para obtener tiendas");
+            return await response.json();
+        } catch (error) {
+            console.error("Error en API getTiendas:", error);
             return [];
         }
     },

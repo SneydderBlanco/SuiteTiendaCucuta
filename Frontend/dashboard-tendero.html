@@ -16,6 +16,9 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <link rel="stylesheet" href="css/styles.css">
     <link rel="stylesheet" href="css/style-dashboard.css">
+    <!-- Leaflet.js para Mapa Selector en Configuración (100% Gratis y Open Source) -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </head>
 
 <body class="bg-background text-on-surface">
@@ -71,7 +74,7 @@
                     <span class="material-symbols-outlined">storefront</span>
                     <span>Mi Tienda</span>
                 </a>
-                <a class="flex items-center gap-3 text-[#3c4a42] dark:text-gray-500 px-6 py-3 hover:text-[#006c49] dark:hover:text-[#10b981] hover:bg-[#10b981]/5 transition-all duration-300" href="#">
+                <a id="nav-configuracion" class="flex items-center gap-3 text-[#3c4a42] dark:text-gray-500 px-6 py-3 hover:text-[#006c49] dark:hover:text-[#10b981] hover:bg-[#10b981]/5 transition-all duration-300 cursor-pointer">
                     <span class="material-symbols-outlined">settings</span>
                     <span>Configuración</span>
                 </a>
@@ -79,10 +82,97 @@
         </aside>
 
         <main class="ml-64 w-full bg-surface h-[calc(100vh-80px)] overflow-y-auto relative">
-            <section id="vista-dashboard" class="p-8 hidden">
+            <section id="vista-configuracion" class="p-8 hidden">
                 <div class="mb-8">
-                    <h2 class="text-3xl font-extrabold tracking-tight text-on-surface mb-2">Torre de Control</h2>
-                    <p class="text-on-surface-variant font-medium">Monitorea la operación de tu tienda en tiempo real (Resultados de HOY).</p>
+                    <h2 class="text-3xl font-extrabold tracking-tight text-on-surface mb-2">Centro de Configuración</h2>
+                    <p class="text-on-surface-variant font-medium">Administra la seguridad, opciones de facturación y respaldo de datos.</p>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    <!-- Seguridad -->
+                    <div class="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-outline-variant/10 p-8 flex flex-col gap-6">
+                        <div class="flex items-center gap-3 pb-4 border-b border-outline-variant/10">
+                            <span class="material-symbols-outlined text-primary text-2xl">shield_lock</span>
+                            <h3 class="text-xl font-bold text-on-surface">Seguridad</h3>
+                        </div>
+                        <form id="form-cambio-password" class="flex flex-col gap-4">
+                            <div>
+                                <label class="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-1">Contraseña Actual</label>
+                                <input type="password" id="input-current-pass" class="w-full px-4 py-2 bg-surface-container-low border border-outline-variant/20 rounded-xl focus:ring-2 focus:ring-primary/30 text-sm" placeholder="Ingresa tu contraseña actual">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-1">Nueva Contraseña</label>
+                                <input type="password" id="input-new-pass" class="w-full px-4 py-2 bg-surface-container-low border border-outline-variant/20 rounded-xl focus:ring-2 focus:ring-primary/30 text-sm" placeholder="Mínimo 8 caracteres">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-1">Confirmar Contraseña</label>
+                                <input type="password" id="input-confirm-pass" class="w-full px-4 py-2 bg-surface-container-low border border-outline-variant/20 rounded-xl focus:ring-2 focus:ring-primary/30 text-sm" placeholder="Repite la nueva contraseña">
+                            </div>
+                            <button type="submit" class="mt-2 emerald-pulse text-white w-full py-3 rounded-xl font-bold text-sm transition-all hover:opacity-90 active:scale-95 shadow-lg shadow-primary/20">
+                                Actualizar Credenciales
+                            </button>
+                        </form>
+                    </div>
+
+                    <div class="flex flex-col gap-8">
+                        <!-- Ajustes de Facturación -->
+                        <div class="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-outline-variant/10 p-8 flex flex-col gap-6">
+                            <div class="flex items-center gap-3 pb-4 border-b border-outline-variant/10">
+                                <span class="material-symbols-outlined text-primary text-2xl">receipt_long</span>
+                                <h3 class="text-xl font-bold text-on-surface">Ajustes de Facturación</h3>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-1">Pie de Página del Ticket</label>
+                                <textarea id="input-ticket-footer" rows="2" class="w-full px-4 py-3 bg-surface-container-low border border-outline-variant/20 rounded-xl focus:ring-2 focus:ring-primary/30 text-sm resize-none" placeholder="¡Gracias por su compra! Vuelva pronto."></textarea>
+                                <p class="text-xs text-slate-500 mt-1">Este texto aparecerá al final de todos los recibos impresos.</p>
+                            </div>
+
+                            <div class="flex items-center justify-between p-4 bg-surface-container-lowest rounded-xl border border-outline-variant/5">
+                                <div>
+                                    <h4 class="font-bold text-sm text-on-surface">Impresión Automática</h4>
+                                    <p class="text-xs text-slate-500">Imprimir factura automáticamente al registrar una venta.</p>
+                                </div>
+                                <label class="relative inline-flex items-center cursor-pointer">
+                                    <input type="checkbox" id="toggle-auto-print" class="sr-only peer">
+                                    <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary/30 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-emerald-500"></div>
+                                </label>
+                            </div>
+                            <button id="btn-save-billing" class="bg-surface-container-highest hover:bg-surface-dim text-on-surface w-full py-2.5 rounded-xl font-bold text-sm transition-all active:scale-95">Guardar Ajustes</button>
+                        </div>
+
+                        <!-- Respaldo de Datos -->
+                        <div class="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-outline-variant/10 p-8 flex flex-col gap-4 bg-gradient-to-br from-surface-container-lowest to-emerald-50/30 dark:to-emerald-900/10">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center text-emerald-600">
+                                    <span class="material-symbols-outlined">database</span>
+                                </div>
+                                <h3 class="text-xl font-bold text-on-surface">Respaldo de Datos</h3>
+                            </div>
+                            <p class="text-sm text-slate-600 dark:text-slate-400">Descarga una copia completa de seguridad de tu inventario, ventas y clientes. Mantén tu negocio seguro.</p>
+                            <button id="btn-export-backup" class="mt-2 flex items-center justify-center gap-2 bg-emerald-600 text-white w-full py-3 rounded-xl font-bold text-sm transition-all hover:bg-emerald-700 active:scale-95 shadow-md">
+                                <span class="material-symbols-outlined text-lg">download</span>
+                                Exportar Copia de Seguridad (.SQL)
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="vista-dashboard" class="p-8 hidden">
+                <div class="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div>
+                        <h2 class="text-3xl font-extrabold tracking-tight text-on-surface mb-2">Torre de Control</h2>
+                        <p class="text-on-surface-variant font-medium">Monitorea la operación de tu tienda en tiempo real (Resultados de HOY).</p>
+                    </div>
+                    <div class="flex gap-3">
+                        <button id="btn-dash-nueva-venta" class="emerald-pulse text-white px-5 py-2.5 rounded-lg font-bold text-sm flex items-center gap-2 transition-all hover:scale-105 shadow-lg shadow-primary/20">
+                            <span class="material-symbols-outlined text-lg">add_shopping_cart</span> Nueva Venta
+                        </button>
+                        <button id="btn-dash-cargar-inventario" class="bg-surface-container-highest text-on-surface hover:bg-surface-dim px-5 py-2.5 rounded-lg font-bold text-sm flex items-center gap-2 transition-all hover:scale-105 shadow-sm">
+                            <span class="material-symbols-outlined text-lg">inventory_2</span> Cargar Inventario
+                        </button>
+                    </div>
                 </div>
                 
                 <!-- KPIs Grid -->
@@ -94,7 +184,13 @@
                             </div>
                             <span class="text-sm font-bold text-slate-500 uppercase tracking-wider">Ingresos de Hoy</span>
                         </div>
-                        <span class="text-3xl font-black text-on-surface tracking-tight" id="dash-ingresos-hoy">$0</span>
+                        <div class="flex flex-col">
+                            <span class="text-3xl font-black text-on-surface tracking-tight" id="dash-ingresos-hoy">$0</span>
+                            <div class="mt-2 text-xs font-medium text-slate-500 flex flex-col gap-1">
+                                <span>Efectivo: <span id="dash-efectivo-hoy" class="text-slate-700 dark:text-slate-300 font-bold">$0</span></span>
+                                <span>Transferencia/Daviplata: <span id="dash-transferencia-hoy" class="text-slate-700 dark:text-slate-300 font-bold">$0</span></span>
+                            </div>
+                        </div>
                     </div>
 
                     <div class="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-outline-variant/10 p-6 flex flex-col justify-between hover:shadow-md transition-shadow">
@@ -118,25 +214,39 @@
                     </div>
                 </div>
 
-                <!-- Stock Crítico -->
-                <div class="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-outline-variant/10 overflow-hidden">
-                    <div class="px-6 py-5 border-b border-outline-variant/10 flex items-center gap-2">
-                        <span class="material-symbols-outlined text-red-500">warning</span>
-                        <h3 class="text-lg font-bold text-on-surface">Alertas de Stock Crítico (≤ 5 unidades)</h3>
+                <!-- Bottom Grid: Stock Crítico & Top Productos -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <!-- Stock Crítico -->
+                    <div class="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-outline-variant/10 overflow-hidden flex flex-col">
+                        <div class="px-6 py-5 border-b border-outline-variant/10 flex items-center gap-2 bg-red-50/30 dark:bg-red-900/10">
+                            <span class="material-symbols-outlined text-red-500">warning</span>
+                            <h3 class="text-lg font-bold text-on-surface">Alertas de Stock Crítico (≤ 5)</h3>
+                        </div>
+                        <div class="overflow-x-auto flex-1">
+                            <table class="w-full text-left border-collapse">
+                                <thead>
+                                    <tr class="bg-surface-container-lowest border-b border-outline-variant/10 text-xs font-bold text-slate-500 uppercase tracking-wider">
+                                        <th class="px-6 py-4">Producto</th>
+                                        <th class="px-6 py-4">Stock</th>
+                                        <th class="px-6 py-4">Estado</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="dash-alertas-stock" class="divide-y divide-outline-variant/5">
+                                    <tr><td colspan="3" class="px-6 py-8 text-center text-slate-500 font-medium">Cargando alertas...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-left border-collapse">
-                            <thead>
-                                <tr class="bg-surface-container-lowest border-b border-outline-variant/10 text-xs font-bold text-slate-500 uppercase tracking-wider">
-                                    <th class="px-6 py-4">Producto</th>
-                                    <th class="px-6 py-4">Stock Disponible</th>
-                                    <th class="px-6 py-4">Estado</th>
-                                </tr>
-                            </thead>
-                            <tbody id="dash-alertas-stock" class="divide-y divide-outline-variant/5">
-                                <tr><td colspan="3" class="px-6 py-8 text-center text-slate-500 font-medium">Cargando alertas...</td></tr>
-                            </tbody>
-                        </table>
+
+                    <!-- Top 3 Productos -->
+                    <div class="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-outline-variant/10 overflow-hidden flex flex-col">
+                        <div class="px-6 py-5 border-b border-outline-variant/10 flex items-center gap-2 bg-emerald-50/30 dark:bg-emerald-900/10">
+                            <span class="material-symbols-outlined text-emerald-500">emoji_events</span>
+                            <h3 class="text-lg font-bold text-on-surface">Top 3 Más Vendidos</h3>
+                        </div>
+                        <div class="p-6 flex-1 flex flex-col gap-4" id="dash-top-productos">
+                            <div class="text-center py-8 text-slate-500 font-medium">Cargando top productos...</div>
+                        </div>
                     </div>
                 </div>
             </section>
@@ -164,12 +274,12 @@
                             <span
                                 class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant"
                                 data-icon="search">search</span>
-                            <input
+                            <input id="input-busqueda-inventario"
                                 class="w-full pl-10 pr-4 py-2 bg-surface-container-low border-none rounded-xl focus:ring-2 focus:ring-primary/20 text-sm"
                                 placeholder="Buscar por nombre o ID..." type="text" />
                         </div>
                         <div class="flex items-center gap-2">
-                            <button
+                            <button id="btn-actualizar-tabla"
                                 class="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-on-surface-variant hover:bg-surface-container-low rounded-xl transition-colors">
                                 <span class="material-symbols-outlined text-sm" data-icon="download">download</span>
                                 Actualizar Tabla
@@ -630,6 +740,23 @@
                             <div>
                                 <label class="block text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-1.5">Ubicación / Dirección</label>
                                 <input type="text" id="input-ubicacion-tienda" placeholder="Ej. Calle 10 #4-20, Centro" class="w-full px-4 py-3 bg-surface-container-lowest border border-outline-variant/30 rounded-xl focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 outline-none transition-all text-sm font-medium text-on-surface">
+                            </div>
+
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-1.5">Latitud</label>
+                                    <input type="number" step="any" id="input-latitud-tienda" placeholder="Ej. 7.8939" class="w-full px-4 py-3 bg-surface-container-lowest border border-outline-variant/30 rounded-xl focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 outline-none transition-all text-sm font-medium text-on-surface">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-1.5">Longitud</label>
+                                    <input type="number" step="any" id="input-longitud-tienda" placeholder="Ej. -72.5078" class="w-full px-4 py-3 bg-surface-container-lowest border border-outline-variant/30 rounded-xl focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 outline-none transition-all text-sm font-medium text-on-surface">
+                                </div>
+                            </div>
+
+                            <div>
+                                <label class="block text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-1.5">Seleccionar en el Mapa</label>
+                                <div id="mapa-configuracion" class="w-full h-[180px] rounded-2xl border border-outline-variant/20 shadow-inner relative z-10"></div>
+                                <p class="text-[10px] text-slate-400 mt-1">Haz clic en el mapa para ubicar tu negocio con precisión o escribe las coordenadas arriba.</p>
                             </div>
                         </div>
 

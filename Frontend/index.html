@@ -11,6 +11,9 @@
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
         rel="stylesheet" />
     <link rel="stylesheet" href="css/styles.css">
+    <!-- Leaflet.js para Mapa Interactivo (100% Gratis y Open Source) -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </head>
 
 <body class="bg-surface text-on-surface font-body antialiased">
@@ -43,24 +46,36 @@
     <main class="pt-24 pb-16">
         <section class="relative px-6 lg:px-12 py-20 flex flex-col items-center text-center overflow-hidden">
             <h1 class="text-5xl lg:text-7xl font-extrabold tracking-tighter mb-6 leading-tight">
-                Descubre el Corazón <br />Comercial de <span class="text-primary">Cúcuta</span>
+                Descubre el Corazón <br />Comercial de <span class="text-emerald-600">Cúcuta</span>
             </h1>
 
             <div
-                class="w-full max-w-4xl flex flex-col md:flex-row gap-4 items-stretch p-2 bg-white rounded-xl shadow-lg">
+                class="w-full max-w-4xl flex flex-col md:flex-row gap-4 items-stretch p-2 bg-white rounded-xl shadow-lg border border-slate-100">
                 <div class="flex-grow flex items-center px-4 gap-3 bg-slate-50 rounded-lg">
                     <span class="material-symbols-outlined text-slate-400">search</span>
-                    <input id="search-input" class="w-full py-4 bg-transparent border-none focus:ring-0"
-                        placeholder="Buscar productos en Pueblo Nuevo..." type="text" />
+                    <input id="search-input" class="w-full py-4 bg-transparent border-none focus:ring-0 outline-none text-slate-800"
+                        placeholder="¿Qué tienda o negocio buscas hoy en Cúcuta?..." type="text" />
                 </div>
-                <button class="emerald-pulse text-white px-10 py-4 rounded-lg font-bold">Buscar</button>
+                <button class="bg-emerald-600 hover:bg-emerald-500 text-white px-10 py-4 rounded-lg font-bold transition-all shadow-md active:scale-95">Buscar</button>
             </div>
         </section>
 
         <section class="max-w-screen-2xl mx-auto px-6 lg:px-12 py-16">
-            <h2 class="text-3xl font-extrabold tracking-tighter uppercase mb-12">VITRINAS DESTACADAS</h2>
-            <div id="product-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-                <p class="text-slate-500">Cargando productos locales...</p>
+            <div class="flex flex-col md:flex-row md:items-center justify-between mb-12 gap-4">
+                <div>
+                    <h2 class="text-3xl font-extrabold tracking-tighter uppercase">Nuestras Tiendas</h2>
+                    <p class="text-slate-500 text-sm mt-1">Explora los mejores catálogos y negocios locales de tu sector</p>
+                </div>
+                <div class="flex items-center gap-2 bg-slate-100 p-1 rounded-xl self-start">
+                    <button class="px-4 py-2 bg-white text-emerald-700 font-bold rounded-lg text-xs shadow-sm">Todos</button>
+                    <button class="px-4 py-2 text-slate-600 hover:text-slate-900 font-semibold rounded-lg text-xs">Cerca de mí</button>
+                </div>
+            </div>
+            <!-- Mapa Interactivo de Geolocalización Multi-Tienda -->
+            <div id="mapa-marketplace" class="w-full h-[400px] rounded-3xl shadow-sm mb-8 border border-slate-100 relative z-10"></div>
+
+            <div id="tiendas-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                <p class="text-slate-500">Explorando tiendas locales en Cúcuta...</p>
             </div>
         </section>
     </main>

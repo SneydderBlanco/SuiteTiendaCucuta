@@ -31,6 +31,7 @@ const port = process.env.PORT || 3000;
 // Middlewares
 app.use(cors());
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Routes
@@ -45,6 +46,27 @@ app.get('/productos', async (req, res) => {
         res.status(500).json({ error: 'Error del servidor al obtener productos' });
     }
 });
+
+// Endpoint público para obtener todas las tiendas registradas con su perfil
+app.get('/api/tiendas', async (req, res) => {
+    try {
+        // Asegurarse de que las columnas necesarias existen
+        await db.query('ALTER TABLE tendero ADD COLUMN IF NOT EXISTS banner_url TEXT');
+        await db.query('ALTER TABLE tendero ADD COLUMN IF NOT EXISTS latitud NUMERIC, ADD COLUMN IF NOT EXISTS longitud NUMERIC');
+        
+        const queryText = `
+            SELECT id_tendero, nombre, nombre_tienda, descripcion, ubicacion, logo_url, banner_url, latitud, longitud 
+            FROM tendero 
+            WHERE nombre_tienda IS NOT NULL AND nombre_tienda != ''
+        `;
+        const { rows } = await db.query(queryText);
+        res.json(rows);
+    } catch (err) {
+        console.error('Error al obtener tiendas:', err.message);
+        res.status(500).json({ error: 'Error del servidor al obtener tiendas' });
+    }
+});
+
 
 // Endpoint para OBTENER los productos de un tendero individual
 app.get('/api/productos/:id_tendero', async (req, res) => {
@@ -236,8 +258,8 @@ app.post('/api/actualizar-password', async (req, res) => {
 app.get('/api/tienda/configurar/:id_tendero', async (req, res) => {
     const { id_tendero } = req.params;
     try {
-        await db.query('ALTER TABLE tendero ADD COLUMN IF NOT EXISTS descripcion TEXT, ADD COLUMN IF NOT EXISTS ubicacion TEXT, ADD COLUMN IF NOT EXISTS logo_url TEXT');
-        const text = 'SELECT nombre, nombre_tienda, descripcion, ubicacion, logo_url FROM tendero WHERE id_tendero = $1';
+        await db.query('ALTER TABLE tendero ADD COLUMN IF NOT EXISTS descripcion TEXT, ADD COLUMN IF NOT EXISTS ubicacion TEXT, ADD COLUMN IF NOT EXISTS logo_url TEXT, ADD COLUMN IF NOT EXISTS banner_url TEXT, ADD COLUMN IF NOT EXISTS latitud NUMERIC, ADD COLUMN IF NOT EXISTS longitud NUMERIC');
+        const text = 'SELECT nombre, nombre_tienda, descripcion, ubicacion, logo_url, banner_url, latitud, longitud FROM tendero WHERE id_tendero = $1';
         const { rows } = await db.query(text, [id_tendero]);
         if (rows.length > 0) {
             // Obtener el conteo de clientes únicos para este tendero
@@ -259,24 +281,56 @@ app.get('/api/tienda/configurar/:id_tendero', async (req, res) => {
 });
 
 // Endpoint: Store Settings - PUT
-app.put('/api/tienda/configurar/:id_tendero', upload.single('logo'), async (req, res) => {
+app.put('/api/tienda/configurar/:id_tendero', upload.fields([{ name: 'logo', maxCount: 1 }, { name: 'banner', maxCount: 1 }]), async (req, res) => {
     const { id_tendero } = req.params;
-    const { nombre, nombre_tienda, descripcion, ubicacion } = req.body;
+    const { nombre, nombre_tienda, descripcion, ubicacion, latitud, longitud } = req.body || {};
     
     try {
-        await db.query('ALTER TABLE tendero ADD COLUMN IF NOT EXISTS descripcion TEXT, ADD COLUMN IF NOT EXISTS ubicacion TEXT, ADD COLUMN IF NOT EXISTS logo_url TEXT');
+        await db.query('ALTER TABLE tendero ADD COLUMN IF NOT EXISTS descripcion TEXT, ADD COLUMN IF NOT EXISTS ubicacion TEXT, ADD COLUMN IF NOT EXISTS logo_url TEXT, ADD COLUMN IF NOT EXISTS banner_url TEXT, ADD COLUMN IF NOT EXISTS latitud NUMERIC, ADD COLUMN IF NOT EXISTS longitud NUMERIC');
         
-        let text, values;
-        if (req.file) {
-            const logo_url = `/uploads/${req.file.filename}`;
-            text = 'UPDATE tendero SET nombre = $1, nombre_tienda = $2, descripcion = $3, ubicacion = $4, logo_url = $5 WHERE id_tendero = $6 RETURNING nombre, nombre_tienda, descripcion, ubicacion, logo_url';
-            values = [nombre, nombre_tienda, descripcion, ubicacion, logo_url, id_tendero];
-        } else {
-            text = 'UPDATE tendero SET nombre = $1, nombre_tienda = $2, descripcion = $3, ubicacion = $4 WHERE id_tendero = $5 RETURNING nombre, nombre_tienda, descripcion, ubicacion, logo_url';
-            values = [nombre, nombre_tienda, descripcion, ubicacion, id_tendero];
+        let logo_url = null;
+        let banner_url = null;
+
+        if (req.files) {
+            if (req.files['logo'] && req.files['logo'][0]) {
+                logo_url = `/uploads/${req.files['logo'][0].filename}`;
+            }
+            if (req.files['banner'] && req.files['banner'][0]) {
+                banner_url = `/uploads/${req.files['banner'][0].filename}`;
+            }
         }
-        
-        const { rows } = await db.query(text, values);
+
+        let queryText = 'UPDATE tendero SET nombre = $1, nombre_tienda = $2, descripcion = $3, ubicacion = $4';
+        let values = [nombre, nombre_tienda, descripcion, ubicacion];
+        let counter = 5;
+
+        if (logo_url) {
+            queryText += `, logo_url = $${counter}`;
+            values.push(logo_url);
+            counter++;
+        }
+        if (banner_url) {
+            queryText += `, banner_url = $${counter}`;
+            values.push(banner_url);
+            counter++;
+        }
+        if (latitud !== undefined && latitud !== null) {
+            const parsedLat = latitud === '' ? null : parseFloat(latitud);
+            queryText += `, latitud = $${counter}`;
+            values.push(parsedLat);
+            counter++;
+        }
+        if (longitud !== undefined && longitud !== null) {
+            const parsedLng = longitud === '' ? null : parseFloat(longitud);
+            queryText += `, longitud = $${counter}`;
+            values.push(parsedLng);
+            counter++;
+        }
+
+        queryText += ` WHERE id_tendero = $${counter} RETURNING nombre, nombre_tienda, descripcion, ubicacion, logo_url, banner_url, latitud, longitud`;
+        values.push(id_tendero);
+
+        const { rows } = await db.query(queryText, values);
         if (rows.length > 0) {
             res.json({ success: true, message: 'Configuración actualizada', data: rows[0] });
         } else {
@@ -513,14 +567,27 @@ app.get('/api/dashboard/:id_tendero', async (req, res) => {
     try {
         const dashboardData = {
             ingresos_hoy: 0,
+            ingresos_efectivo: 0,
+            ingresos_transferencia: 0,
             facturas_hoy: 0,
             clientes_hoy: 0,
-            alertas_stock: []
+            alertas_stock: [],
+            top_productos: []
         };
 
-        // 1. Ingresos de hoy
-        const resIngresos = await db.query(`SELECT COALESCE(SUM(total), 0) as total FROM venta WHERE id_tienda = $1 AND DATE(fecha) = CURRENT_DATE`, [id_tendero]);
-        dashboardData.ingresos_hoy = parseFloat(resIngresos.rows[0].total);
+        // 1. Ingresos de hoy y desglose por tipo de pago
+        const resIngresosTotales = await db.query(`SELECT COALESCE(SUM(total), 0) as total FROM venta WHERE id_tienda = $1 AND DATE(fecha) = CURRENT_DATE`, [id_tendero]);
+        dashboardData.ingresos_hoy = parseFloat(resIngresosTotales.rows[0].total);
+
+        const resPagos = await db.query(`SELECT tipo_pago, COALESCE(SUM(total), 0) as total FROM venta WHERE id_tienda = $1 AND DATE(fecha) = CURRENT_DATE GROUP BY tipo_pago`, [id_tendero]);
+        resPagos.rows.forEach(row => {
+            const tipo = row.tipo_pago ? row.tipo_pago.toLowerCase() : '';
+            if (tipo.includes('efectivo')) {
+                dashboardData.ingresos_efectivo += parseFloat(row.total);
+            } else {
+                dashboardData.ingresos_transferencia += parseFloat(row.total);
+            }
+        });
 
         // 2. Facturas de hoy
         const resFacturas = await db.query(`SELECT COUNT(*) as total FROM venta WHERE id_tienda = $1 AND DATE(fecha) = CURRENT_DATE`, [id_tendero]);
@@ -533,6 +600,18 @@ app.get('/api/dashboard/:id_tendero', async (req, res) => {
         // 4. Alertas de stock crítico (<= 5)
         const resStock = await db.query(`SELECT nombre, stock FROM productos WHERE id_tendero = $1 AND stock <= 5 ORDER BY stock ASC LIMIT 5`, [id_tendero]);
         dashboardData.alertas_stock = resStock.rows;
+
+        // 5. Top 3 Productos más vendidos
+        const resTop = await db.query(`
+            SELECT p.id_producto, p.nombre, p.imagen_url, p.categoria, SUM(dv.cantidad) as total_vendido 
+            FROM detalle_venta dv 
+            JOIN venta v ON v.id_venta = dv.id_venta 
+            JOIN productos p ON p.id_producto = dv.id_producto 
+            WHERE v.id_tienda = $1 
+            GROUP BY p.id_producto, p.nombre, p.imagen_url, p.categoria 
+            ORDER BY total_vendido DESC LIMIT 3
+        `, [id_tendero]);
+        dashboardData.top_productos = resTop.rows;
 
         res.json({ success: true, data: dashboardData });
     } catch (err) {

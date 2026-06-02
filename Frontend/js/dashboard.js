@@ -14,16 +14,16 @@ document.addEventListener("DOMContentLoaded", () => {
     // Load API Resources
     loadProducts(userId);
     highlightCurrentDay();
-    loadStoreSettings(userId);
+    fetchStoreProfile();
     loadDashboard(userId);
 
-    // Tab Navigation Logic
     const navDashboard = document.getElementById("nav-dashboard");
     const navInventario = document.getElementById("nav-inventario");
     const navReportes = document.getElementById("nav-reportes");
     const navVentas = document.getElementById("nav-ventas");
     const navHistorial = document.getElementById("nav-historial");
     const navMiTienda = document.getElementById("nav-mi-tienda");
+    const navConfiguracion = document.getElementById("nav-configuracion");
     
     const vistaDashboard = document.getElementById("vista-dashboard");
     const vistaInventario = document.getElementById("vista-inventario");
@@ -31,13 +31,14 @@ document.addEventListener("DOMContentLoaded", () => {
     const vistaVentas = document.getElementById("vista-ventas");
     const vistaHistorial = document.getElementById("vista-historial");
     const vistaMiTienda = document.getElementById("vista-mi-tienda");
+    const vistaConfiguracion = document.getElementById("vista-configuracion");
 
     const activeClasses = ['text-[#006c49]', 'dark:text-[#10b981]', 'font-bold', 'border-r-4', 'border-[#006c49]', 'dark:border-[#10b981]', 'bg-[#10b981]/5', 'translate-x-1'];
     const inactiveClasses = ['text-[#3c4a42]', 'dark:text-gray-500'];
 
     function switchTabTo(activeNav, activeView) {
-        const allNavs = [navDashboard, navInventario, navReportes, navVentas, navHistorial, navMiTienda];
-        const allViews = [vistaDashboard, vistaInventario, vistaReportes, vistaVentas, vistaHistorial, vistaMiTienda];
+        const allNavs = [navDashboard, navInventario, navReportes, navVentas, navHistorial, navMiTienda, navConfiguracion];
+        const allViews = [vistaDashboard, vistaInventario, vistaReportes, vistaVentas, vistaHistorial, vistaMiTienda, vistaConfiguracion];
 
         allNavs.forEach(nav => {
             if (!nav) return;
@@ -81,9 +82,16 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         });
         navMiTienda.addEventListener("click", () => {
+            fetchStoreProfile();
             switchTabTo(navMiTienda, vistaMiTienda);
-            loadStorefront(userId);
         });
+        navConfiguracion.addEventListener("click", () => switchTabTo(navConfiguracion, vistaConfiguracion));
+
+        // Quick Actions from Dashboard
+        const btnDashNuevaVenta = document.getElementById("btn-dash-nueva-venta");
+        const btnDashCargarInventario = document.getElementById("btn-dash-cargar-inventario");
+        if (btnDashNuevaVenta) btnDashNuevaVenta.addEventListener("click", () => navVentas.click());
+        if (btnDashCargarInventario) btnDashCargarInventario.addEventListener("click", () => navInventario.click());
     }
 
     // Chart Date Filter Logic
@@ -382,7 +390,7 @@ async function loadProducts(tenderoId) {
     <td class="px-8 py-6 font-mono text-xs text-on-surface-variant">#LM-${p.id || p.id_producto || 'XX'}</td>
     <td class="px-8 py-6">
         <div class="flex items-center gap-3">
-            ${p.imagen_url ? `<img src="http://localhost:3000${p.imagen_url}" alt="${p.nombre}" class="w-10 h-10 rounded-lg object-cover bg-white shrink-0"/>` : `<div class="w-10 h-10 rounded-lg bg-surface-container-high flex items-center justify-center shrink-0"><span class="material-symbols-outlined text-on-surface-variant text-sm">image</span></div>`}
+            ${p.imagen_url ? `<img src="${window.API_URL}${p.imagen_url}" alt="${p.nombre}" class="w-10 h-10 rounded-lg object-cover bg-white shrink-0"/>` : `<div class="w-10 h-10 rounded-lg bg-surface-container-high flex items-center justify-center shrink-0"><span class="material-symbols-outlined text-on-surface-variant text-sm">image</span></div>`}
             <div>
                 <span class="font-bold text-on-surface block leading-tight">${p.nombre}</span>
                 <span class="text-[10px] text-slate-400 uppercase">(${p.marca || 'S/M'})</span>
@@ -445,7 +453,7 @@ async function loadReportes(tenderoId) {
                 topList.innerHTML = '<p class="text-sm text-slate-500 text-center py-4 font-medium">No hay ventas registradas aún.</p>';
             } else {
                 topResp.data.forEach((p, index) => {
-                    const imgUrl = p.imagen_url ? (p.imagen_url.startsWith('http') ? p.imagen_url : `http://localhost:3000${p.imagen_url}`) : 'https://placehold.co/400x300/e2e8f0/475569?text=Sin+Imagen';
+                    const imgUrl = p.imagen_url ? (p.imagen_url.startsWith('http') ? p.imagen_url : `${window.API_URL}${p.imagen_url}`) : 'https://placehold.co/400x300/e2e8f0/475569?text=Sin+Imagen';
                     topList.innerHTML += `
                     <div class="flex items-center justify-between group py-1">
                         <div class="flex items-center gap-4">
@@ -590,7 +598,7 @@ function renderStorefrontGrid(products) {
     }
 
     products.forEach(p => {
-        const imgUrl = p.imagen_url ? (p.imagen_url.startsWith('http') ? p.imagen_url : `http://localhost:3000${p.imagen_url}`) : 'https://placehold.co/400x400/e2e8f0/475569?text=Producto';
+        const imgUrl = p.imagen_url ? (p.imagen_url.startsWith('http') ? p.imagen_url : `${window.API_URL}${p.imagen_url}`) : 'https://placehold.co/400x400/e2e8f0/475569?text=Producto';
         
         const card = document.createElement('div');
         card.className = "bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-outline-variant/10 overflow-hidden hover:shadow-xl transition-all duration-300 group flex flex-col relative";
@@ -666,14 +674,18 @@ function setupStorefrontFilters() {
 async function loadDashboard(tenderoId) {
     const resp = await API.getDashboardData(tenderoId);
     if (resp.status === 200 && resp.data && resp.data.data) {
-        const { ingresos_hoy, facturas_hoy, clientes_hoy, alertas_stock } = resp.data.data;
+        const { ingresos_hoy, ingresos_efectivo, ingresos_transferencia, facturas_hoy, clientes_hoy, alertas_stock, top_productos } = resp.data.data;
         
         // Actualizar KPIs
         const elIngresos = document.getElementById('dash-ingresos-hoy');
+        const elEfectivo = document.getElementById('dash-efectivo-hoy');
+        const elTransferencia = document.getElementById('dash-transferencia-hoy');
         const elFacturas = document.getElementById('dash-facturas-hoy');
         const elClientes = document.getElementById('dash-clientes-hoy');
         
-        if (elIngresos) elIngresos.textContent = Utils.formatCurrency(ingresos_hoy);
+        if (elIngresos) elIngresos.textContent = Utils.formatCurrency(ingresos_hoy || 0);
+        if (elEfectivo) elEfectivo.textContent = Utils.formatCurrency(ingresos_efectivo || 0);
+        if (elTransferencia) elTransferencia.textContent = Utils.formatCurrency(ingresos_transferencia || 0);
         if (elFacturas) elFacturas.textContent = facturas_hoy;
         if (elClientes) elClientes.textContent = clientes_hoy;
         
@@ -705,47 +717,201 @@ async function loadDashboard(tenderoId) {
                 });
             }
         }
+
+        // Actualizar Top 3 Productos
+        const containerTop = document.getElementById('dash-top-productos');
+        if (containerTop) {
+            containerTop.innerHTML = '';
+            if (!top_productos || top_productos.length === 0) {
+                containerTop.innerHTML = '<div class="text-center py-8 text-slate-500 font-medium">Aún no hay ventas registradas hoy.</div>';
+            } else {
+                top_productos.forEach((prod, index) => {
+                    const fullImgUrl = prod.imagen_url ? (prod.imagen_url.startsWith('http') ? prod.imagen_url : `${window.API_URL}${prod.imagen_url}`) : 'img/default-product.png';
+                    
+                    let medalIcon = '';
+                    let medalColor = '';
+                    if (index === 0) { medalIcon = 'workspace_premium'; medalColor = 'text-amber-500'; }
+                    else if (index === 1) { medalIcon = 'military_tech'; medalColor = 'text-slate-400'; }
+                    else if (index === 2) { medalIcon = 'military_tech'; medalColor = 'text-amber-700'; }
+
+                    containerTop.innerHTML += `
+                        <div class="flex items-center gap-4 bg-surface-container-lowest p-3 rounded-xl border border-outline-variant/10 shadow-sm hover:shadow-md transition-shadow">
+                            <div class="relative w-12 h-12 rounded-lg bg-surface-container flex items-center justify-center overflow-hidden shrink-0">
+                                <img src="${fullImgUrl}" class="object-cover w-full h-full" alt="${prod.nombre}" onerror="this.src='img/default-product.png'">
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <h4 class="font-bold text-on-surface truncate text-sm">${prod.nombre}</h4>
+                                <p class="text-xs text-slate-500 truncate">${prod.categoria || 'Sin categoría'}</p>
+                            </div>
+                            <div class="flex flex-col items-end shrink-0">
+                                <div class="flex items-center gap-1">
+                                    <span class="material-symbols-outlined text-[20px] ${medalColor}">${medalIcon}</span>
+                                </div>
+                                <span class="text-xs font-black text-slate-700 mt-1">${prod.total_vendido} vendidos</span>
+                            </div>
+                        </div>
+                    `;
+                });
+            }
+        }
     }
 }
 
-// --- PRODUCTOS E INVENTARIO ---
-window.loadStoreSettings = async function(tenderoId) {
-    const resp = await API.getStoreSettings(tenderoId);
-    if (resp.status === 200 && resp.data && resp.data.data) {
-        const { nombre, nombre_tienda, descripcion, ubicacion, logo_url } = resp.data.data;
-        
-        const inputNombre = document.getElementById("input-nombre-tienda");
-        const inputDueno = document.getElementById("input-dueno-tienda");
-        const inputDesc = document.getElementById("input-descripcion-tienda");
-        const inputUbicacion = document.getElementById("input-ubicacion-tienda");
+// --- MAPA PICKER CONFIGURACIÓN (Leaflet) ---
+let configMap = null;
+let configMarker = null;
 
-        if(inputNombre) inputNombre.value = nombre_tienda || '';
-        if(inputDueno) inputDueno.value = nombre || '';
-        if(inputDesc) inputDesc.value = descripcion || '';
-        if(inputUbicacion) inputUbicacion.value = ubicacion || '';
+function initConfigMap() {
+    if (configMap) {
+        setTimeout(() => {
+            configMap.invalidateSize();
+            updateConfigMapMarker(window.currentStoreLat, window.currentStoreLng);
+        }, 350);
+        return;
+    }
+
+    setTimeout(() => {
+        const initialLat = parseFloat(window.currentStoreLat) || 7.8939;
+        const initialLng = parseFloat(window.currentStoreLng) || -72.5078;
         
-        updateStoreDOM(resp.data.data);
+        configMap = L.map('mapa-configuracion').setView([initialLat, initialLng], 14);
+        
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+        }).addTo(configMap);
+
+        if (window.currentStoreLat && window.currentStoreLng) {
+            configMarker = L.marker([initialLat, initialLng], { draggable: true }).addTo(configMap);
+            setupMarkerEvents(configMarker);
+        }
+
+        configMap.on('click', function(e) {
+            const { lat, lng } = e.latlng;
+            const inputLat = document.getElementById("input-latitud-tienda");
+            const inputLng = document.getElementById("input-longitud-tienda");
+            if (inputLat) inputLat.value = lat.toFixed(6);
+            if (inputLng) inputLng.value = lng.toFixed(6);
+            
+            if (configMarker) {
+                configMarker.setLatLng(e.latlng);
+            } else {
+                configMarker = L.marker(e.latlng, { draggable: true }).addTo(configMap);
+                setupMarkerEvents(configMarker);
+            }
+        });
+
+        // Sincronizar inputs manuales
+        const inputLat = document.getElementById("input-latitud-tienda");
+        const inputLng = document.getElementById("input-longitud-tienda");
+        if (inputLat && inputLng) {
+            inputLat.addEventListener("input", syncManualCoordinates);
+            inputLng.addEventListener("input", syncManualCoordinates);
+        }
+    }, 350);
+}
+
+function setupMarkerEvents(marker) {
+    marker.on('dragend', function(e) {
+        const position = marker.getLatLng();
+        const inputLat = document.getElementById("input-latitud-tienda");
+        const inputLng = document.getElementById("input-longitud-tienda");
+        if (inputLat) inputLat.value = position.lat.toFixed(6);
+        if (inputLng) inputLng.value = position.lng.toFixed(6);
+    });
+}
+
+function updateConfigMapMarker(lat, lng) {
+    if (!configMap) return;
+    const parsedLat = parseFloat(lat);
+    const parsedLng = parseFloat(lng);
+    
+    if (!isNaN(parsedLat) && !isNaN(parsedLng)) {
+        const latlng = [parsedLat, parsedLng];
+        configMap.setView(latlng, 14);
+        if (configMarker) {
+            configMarker.setLatLng(latlng);
+        } else {
+            configMarker = L.marker(latlng, { draggable: true }).addTo(configMap);
+            setupMarkerEvents(configMarker);
+        }
+    } else {
+        if (configMarker) {
+            configMap.removeLayer(configMarker);
+            configMarker = null;
+        }
+    }
+}
+
+function syncManualCoordinates() {
+    const lat = document.getElementById("input-latitud-tienda").value;
+    const lng = document.getElementById("input-longitud-tienda").value;
+    updateConfigMapMarker(lat, lng);
+}
+
+// --- PERFIL DE LA TIENDA Y CONFIGURACIÓN ---
+window.fetchStoreProfile = async function() {
+    const tenderoId = localStorage.getItem("userId");
+    if (!tenderoId) return;
+
+    try {
+        const resp = await API.getStoreSettings(tenderoId);
+        if (resp.status === 200 && resp.data && resp.data.data) {
+            const storeData = resp.data.data;
+            
+            const inputNombre = document.getElementById("input-nombre-tienda");
+            const inputDueno = document.getElementById("input-dueno-tienda");
+            const inputDesc = document.getElementById("input-descripcion-tienda");
+            const inputUbicacion = document.getElementById("input-ubicacion-tienda");
+            const inputLat = document.getElementById("input-latitud-tienda");
+            const inputLng = document.getElementById("input-longitud-tienda");
+
+            if(inputNombre) inputNombre.value = storeData.nombre_tienda || '';
+            if(inputDueno) inputDueno.value = storeData.nombre || '';
+            if(inputDesc) inputDesc.value = storeData.descripcion || '';
+            if(inputUbicacion) inputUbicacion.value = storeData.ubicacion || '';
+            if(inputLat) inputLat.value = storeData.latitud || '';
+            if(inputLng) inputLng.value = storeData.longitud || '';
+            
+            // Guardar variables globales para la inicialización del mapa
+            window.currentStoreLat = storeData.latitud;
+            window.currentStoreLng = storeData.longitud;
+            updateConfigMapMarker(storeData.latitud, storeData.longitud);
+
+            updateStoreDOM(storeData);
+        }
+    } catch (error) {
+        console.error("Error fetching store profile:", error);
     }
 };
 
+// Alias para compatibilidad
+window.loadStoreSettings = async function(tenderoId) {
+    await window.fetchStoreProfile();
+};
+
 function updateStoreDOM(settings) {
-    if (settings.nombre_tienda) {
-        document.querySelectorAll('.nombre-tienda-dinamico').forEach(el => el.textContent = settings.nombre_tienda);
-    }
-    if (settings.nombre) {
-        const tenderoNameEl = document.getElementById("tendero-name");
-        if (tenderoNameEl) tenderoNameEl.textContent = settings.nombre;
-        localStorage.setItem("userName", settings.nombre);
-        document.querySelectorAll('.dueno-tienda-dinamico').forEach(el => el.textContent = settings.nombre);
-    }
-    if (settings.descripcion) {
-        document.querySelectorAll('.bio-tienda-dinamico').forEach(el => el.textContent = settings.descripcion);
-    }
-    if (settings.ubicacion) {
-        document.querySelectorAll('.ubicacion-tienda-dinamico').forEach(el => el.textContent = settings.ubicacion);
-    }
+    // 1. Nombre de la tienda
+    const nombreTienda = settings.nombre_tienda || 'Mi Tienda';
+    document.querySelectorAll('.nombre-tienda-dinamico').forEach(el => el.textContent = nombreTienda);
+
+    // 2. Nombre del dueño (tendero)
+    const nombreDueno = settings.nombre || 'Dueño de Tienda';
+    const tenderoNameEl = document.getElementById("tendero-name");
+    if (tenderoNameEl) tenderoNameEl.textContent = nombreDueno;
+    localStorage.setItem("userName", nombreDueno);
+    document.querySelectorAll('.dueno-tienda-dinamico').forEach(el => el.textContent = nombreDueno);
+
+    // 3. Descripción / Bio / Lema
+    const descripcion = settings.descripcion || 'Todo lo que necesitas, a la vuelta de tu casa.';
+    document.querySelectorAll('.bio-tienda-dinamico').forEach(el => el.textContent = descripcion);
+
+    // 4. Ubicación / Dirección
+    const ubicacion = settings.ubicacion || 'Sin ubicación registrada';
+    document.querySelectorAll('.ubicacion-tienda-dinamico').forEach(el => el.textContent = ubicacion);
+
+    // 5. Logo de la tienda
     if (settings.logo_url) {
-        const fullUrl = settings.logo_url.startsWith('http') ? settings.logo_url : `http://localhost:3000${settings.logo_url}`;
+        const fullUrl = settings.logo_url.startsWith('http') ? settings.logo_url : `${window.API_URL}${settings.logo_url}`;
         document.querySelectorAll('.logo-tienda-dinamico').forEach(el => el.src = fullUrl);
         const preview = document.getElementById("preview-store-logo");
         if (preview) {
@@ -753,6 +919,8 @@ function updateStoreDOM(settings) {
             preview.classList.remove("hidden");
         }
     }
+
+    // 6. Contador Clientes
     if (settings.totalClientes !== undefined) {
         const clientMetric = document.getElementById("contador-clientes-real");
         if (clientMetric) clientMetric.textContent = settings.totalClientes;
@@ -784,6 +952,8 @@ document.addEventListener("DOMContentLoaded", () => {
                 storeSettingsOverlay.classList.remove("opacity-0");
                 storeSettingsOverlay.classList.add("opacity-100");
                 storeSettingsPanel.classList.remove("translate-x-full");
+                // Inicializar mapa selector al abrir configuración
+                initConfigMap();
             }, 10);
         }
     }
@@ -802,6 +972,11 @@ document.addEventListener("DOMContentLoaded", () => {
         formData.append("nombre", document.getElementById("input-dueno-tienda").value);
         formData.append("descripcion", document.getElementById("input-descripcion-tienda").value);
         formData.append("ubicacion", document.getElementById("input-ubicacion-tienda").value);
+        
+        const latVal = document.getElementById("input-latitud-tienda").value;
+        const lngVal = document.getElementById("input-longitud-tienda").value;
+        formData.append("latitud", latVal);
+        formData.append("longitud", lngVal);
         
         if (fileInput.files[0]) {
             formData.append("logo", fileInput.files[0]);
@@ -871,6 +1046,66 @@ document.addEventListener("DOMContentLoaded", () => {
                 btnDownloadPdf.disabled = false;
                 alert("Ocurrió un error al generar el PDF.");
             });
+        });
+    }
+
+    // Inventory Search Logic
+    const inputBusquedaInventario = document.getElementById("input-busqueda-inventario");
+    const btnActualizarTabla = document.getElementById("btn-actualizar-tabla");
+    const tablaInventarioBody = document.getElementById("inventory-table-body");
+
+    if (inputBusquedaInventario && tablaInventarioBody) {
+        inputBusquedaInventario.addEventListener("input", (e) => {
+            const term = e.target.value.toLowerCase().trim();
+            const rows = tablaInventarioBody.querySelectorAll("tr");
+            
+            rows.forEach(row => {
+                if (row.children.length > 1) { // Skip empty states if any
+                    // Assuming columns: 0: ID, 1: Nombre, 2: Categoría, 3: Precio, 4: Stock, 5: Acciones
+                    // Let's just combine the text content of the whole row for robust filtering
+                    const rowText = row.textContent.toLowerCase();
+                    
+                    if (rowText.includes(term)) {
+                        row.style.display = "";
+                    } else {
+                        row.style.display = "none";
+                    }
+                }
+            });
+        });
+    }
+
+    if (btnActualizarTabla) {
+        btnActualizarTabla.addEventListener("click", () => {
+            const userId = localStorage.getItem("userId");
+            if (inputBusquedaInventario) inputBusquedaInventario.value = '';
+            if (userId) loadProducts(userId);
+        });
+    }
+
+    // --- CONFIGURATION LOGIC ---
+    const formCambioPassword = document.getElementById("form-cambio-password");
+    if (formCambioPassword) {
+        formCambioPassword.addEventListener("submit", (e) => {
+            e.preventDefault();
+            console.log("Cambio de contraseña solicitado");
+            // Implementar lógica de API aquí
+        });
+    }
+
+    const btnSaveBilling = document.getElementById("btn-save-billing");
+    if (btnSaveBilling) {
+        btnSaveBilling.addEventListener("click", () => {
+            console.log("Guardando ajustes de facturación");
+            // Implementar lógica de API aquí
+        });
+    }
+
+    const btnExportBackup = document.getElementById("btn-export-backup");
+    if (btnExportBackup) {
+        btnExportBackup.addEventListener("click", () => {
+            console.log("Exportando base de datos");
+            // Implementar lógica de API aquí
         });
     }
 });
