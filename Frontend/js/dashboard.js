@@ -862,6 +862,7 @@ window.fetchStoreProfile = async function() {
             const inputDueno = document.getElementById("input-dueno-tienda");
             const inputDesc = document.getElementById("input-descripcion-tienda");
             const inputUbicacion = document.getElementById("input-ubicacion-tienda");
+            const inputWhatsapp = document.getElementById("input-whatsapp-tienda");
             const inputLat = document.getElementById("input-latitud-tienda");
             const inputLng = document.getElementById("input-longitud-tienda");
 
@@ -869,6 +870,7 @@ window.fetchStoreProfile = async function() {
             if(inputDueno) inputDueno.value = storeData.nombre || '';
             if(inputDesc) inputDesc.value = storeData.descripcion || '';
             if(inputUbicacion) inputUbicacion.value = storeData.ubicacion || '';
+            if(inputWhatsapp) inputWhatsapp.value = storeData.whatsapp || '';
             if(inputLat) inputLat.value = storeData.latitud || '';
             if(inputLng) inputLng.value = storeData.longitud || '';
             
@@ -972,6 +974,10 @@ document.addEventListener("DOMContentLoaded", () => {
         formData.append("nombre", document.getElementById("input-dueno-tienda").value);
         formData.append("descripcion", document.getElementById("input-descripcion-tienda").value);
         formData.append("ubicacion", document.getElementById("input-ubicacion-tienda").value);
+        
+        const rawWhatsapp = document.getElementById("input-whatsapp-tienda") ? document.getElementById("input-whatsapp-tienda").value : "";
+        const cleanWhatsapp = rawWhatsapp.replace(/\D/g, "");
+        formData.append("whatsapp", cleanWhatsapp);
         
         const latVal = document.getElementById("input-latitud-tienda").value;
         const lngVal = document.getElementById("input-longitud-tienda").value;

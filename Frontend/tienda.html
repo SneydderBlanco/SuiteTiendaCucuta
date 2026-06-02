@@ -818,7 +818,9 @@
                 
                 const message = `¡Hola! Vengo de la Vitrina Local SuiteTiendaCúcuta. Me gustaría realizar el siguiente pedido a tu tienda *${storeDataGlobal.nombre_tienda}*:\n\n${itemsText}\n\n*Total Estimado: ${totalText}*\n\n¿Me podrías confirmar la disponibilidad y el proceso de entrega?`;
                 
-                const whatsappUrl = `https://wa.me/573000000000?text=${encodeURIComponent(message)}`;
+                const rawPhone = (storeDataGlobal && storeDataGlobal.whatsapp) ? storeDataGlobal.whatsapp : '573000000000';
+                const cleanPhone = rawPhone.replace(/\D/g, '');
+                const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
                 window.open(whatsappUrl, '_blank');
             });
         }

@@ -53,9 +53,10 @@ app.get('/api/tiendas', async (req, res) => {
         // Asegurarse de que las columnas necesarias existen
         await db.query('ALTER TABLE tendero ADD COLUMN IF NOT EXISTS banner_url TEXT');
         await db.query('ALTER TABLE tendero ADD COLUMN IF NOT EXISTS latitud NUMERIC, ADD COLUMN IF NOT EXISTS longitud NUMERIC');
+        await db.query('ALTER TABLE tendero ADD COLUMN IF NOT EXISTS whatsapp TEXT');
         
         const queryText = `
-            SELECT id_tendero, nombre, nombre_tienda, descripcion, ubicacion, logo_url, banner_url, latitud, longitud 
+            SELECT id_tendero, nombre, nombre_tienda, descripcion, ubicacion, logo_url, banner_url, latitud, longitud, whatsapp 
             FROM tendero 
             WHERE nombre_tienda IS NOT NULL AND nombre_tienda != ''
         `;
@@ -258,8 +259,8 @@ app.post('/api/actualizar-password', async (req, res) => {
 app.get('/api/tienda/configurar/:id_tendero', async (req, res) => {
     const { id_tendero } = req.params;
     try {
-        await db.query('ALTER TABLE tendero ADD COLUMN IF NOT EXISTS descripcion TEXT, ADD COLUMN IF NOT EXISTS ubicacion TEXT, ADD COLUMN IF NOT EXISTS logo_url TEXT, ADD COLUMN IF NOT EXISTS banner_url TEXT, ADD COLUMN IF NOT EXISTS latitud NUMERIC, ADD COLUMN IF NOT EXISTS longitud NUMERIC');
-        const text = 'SELECT nombre, nombre_tienda, descripcion, ubicacion, logo_url, banner_url, latitud, longitud FROM tendero WHERE id_tendero = $1';
+        await db.query('ALTER TABLE tendero ADD COLUMN IF NOT EXISTS descripcion TEXT, ADD COLUMN IF NOT EXISTS ubicacion TEXT, ADD COLUMN IF NOT EXISTS logo_url TEXT, ADD COLUMN IF NOT EXISTS banner_url TEXT, ADD COLUMN IF NOT EXISTS latitud NUMERIC, ADD COLUMN IF NOT EXISTS longitud NUMERIC, ADD COLUMN IF NOT EXISTS whatsapp TEXT');
+        const text = 'SELECT nombre, nombre_tienda, descripcion, ubicacion, logo_url, banner_url, latitud, longitud, whatsapp FROM tendero WHERE id_tendero = $1';
         const { rows } = await db.query(text, [id_tendero]);
         if (rows.length > 0) {
             // Obtener el conteo de clientes únicos para este tendero
@@ -283,10 +284,10 @@ app.get('/api/tienda/configurar/:id_tendero', async (req, res) => {
 // Endpoint: Store Settings - PUT
 app.put('/api/tienda/configurar/:id_tendero', upload.fields([{ name: 'logo', maxCount: 1 }, { name: 'banner', maxCount: 1 }]), async (req, res) => {
     const { id_tendero } = req.params;
-    const { nombre, nombre_tienda, descripcion, ubicacion, latitud, longitud } = req.body || {};
+    const { nombre, nombre_tienda, descripcion, ubicacion, latitud, longitud, whatsapp } = req.body || {};
     
     try {
-        await db.query('ALTER TABLE tendero ADD COLUMN IF NOT EXISTS descripcion TEXT, ADD COLUMN IF NOT EXISTS ubicacion TEXT, ADD COLUMN IF NOT EXISTS logo_url TEXT, ADD COLUMN IF NOT EXISTS banner_url TEXT, ADD COLUMN IF NOT EXISTS latitud NUMERIC, ADD COLUMN IF NOT EXISTS longitud NUMERIC');
+        await db.query('ALTER TABLE tendero ADD COLUMN IF NOT EXISTS descripcion TEXT, ADD COLUMN IF NOT EXISTS ubicacion TEXT, ADD COLUMN IF NOT EXISTS logo_url TEXT, ADD COLUMN IF NOT EXISTS banner_url TEXT, ADD COLUMN IF NOT EXISTS latitud NUMERIC, ADD COLUMN IF NOT EXISTS longitud NUMERIC, ADD COLUMN IF NOT EXISTS whatsapp TEXT');
         
         let logo_url = null;
         let banner_url = null;
@@ -300,9 +301,9 @@ app.put('/api/tienda/configurar/:id_tendero', upload.fields([{ name: 'logo', max
             }
         }
 
-        let queryText = 'UPDATE tendero SET nombre = $1, nombre_tienda = $2, descripcion = $3, ubicacion = $4';
-        let values = [nombre, nombre_tienda, descripcion, ubicacion];
-        let counter = 5;
+        let queryText = 'UPDATE tendero SET nombre = $1, nombre_tienda = $2, descripcion = $3, ubicacion = $4, whatsapp = $5';
+        let values = [nombre, nombre_tienda, descripcion, ubicacion, whatsapp];
+        let counter = 6;
 
         if (logo_url) {
             queryText += `, logo_url = $${counter}`;
@@ -327,7 +328,7 @@ app.put('/api/tienda/configurar/:id_tendero', upload.fields([{ name: 'logo', max
             counter++;
         }
 
-        queryText += ` WHERE id_tendero = $${counter} RETURNING nombre, nombre_tienda, descripcion, ubicacion, logo_url, banner_url, latitud, longitud`;
+        queryText += ` WHERE id_tendero = $${counter} RETURNING nombre, nombre_tienda, descripcion, ubicacion, logo_url, banner_url, latitud, longitud, whatsapp`;
         values.push(id_tendero);
 
         const { rows } = await db.query(queryText, values);
