@@ -1,7 +1,7 @@
 // Determinar dinámicamente la URL del servidor API backend
 const API_URL = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
     ? "http://localhost:3000"
-    : (localStorage.getItem("API_URL") || "https://suite-tienda-cucuta-backend.onrender.com");
+    : (localStorage.getItem("API_URL") || "https://tienda-cucuta-backend.onrender.com");
 
 // Exponer globalmente para otros scripts (main.js, pos.js, dashboard.js, tienda.html)
 window.API_URL = API_URL;
