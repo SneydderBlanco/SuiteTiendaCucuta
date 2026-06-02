@@ -60,7 +60,8 @@ function setupClientEvents() {
                 return;
             }
             try {
-                const res = await fetch(`${window.API_URL}/api/clientes/buscar?q=${encodeURIComponent(q)}`);
+                const tenderoId = localStorage.getItem("userId") || "1";
+                const res = await fetch(`${window.API_URL}/api/clientes/buscar?q=${encodeURIComponent(q)}&id_tendero=${tenderoId}`);
                 const clientes = await res.json();
                 
                 if (clientes.length > 0) {
@@ -102,10 +103,11 @@ function setupClientEvents() {
             const email = document.getElementById('new-client-email').value;
             
             try {
+                const tenderoId = localStorage.getItem("userId") || "1";
                 const res = await fetch(`${window.API_URL}/api/clientes`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ nombre, email })
+                    body: JSON.stringify({ nombre, email, id_tendero: tenderoId })
                 });
                 const data = await res.json();
                 

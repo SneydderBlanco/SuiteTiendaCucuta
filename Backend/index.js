@@ -260,11 +260,13 @@ app.get('/api/tienda/configurar/:id_tendero', async (req, res) => {
     const { id_tendero } = req.params;
     try {
         await db.query('ALTER TABLE tendero ADD COLUMN IF NOT EXISTS descripcion TEXT, ADD COLUMN IF NOT EXISTS ubicacion TEXT, ADD COLUMN IF NOT EXISTS logo_url TEXT, ADD COLUMN IF NOT EXISTS banner_url TEXT, ADD COLUMN IF NOT EXISTS latitud NUMERIC, ADD COLUMN IF NOT EXISTS longitud NUMERIC, ADD COLUMN IF NOT EXISTS whatsapp TEXT');
+        await db.query('ALTER TABLE cliente ADD COLUMN IF NOT EXISTS id_tendero INTEGER');
+        await db.query('UPDATE cliente SET id_tendero = 1 WHERE id_tendero IS NULL');
         const text = 'SELECT nombre, nombre_tienda, descripcion, ubicacion, logo_url, banner_url, latitud, longitud, whatsapp FROM tendero WHERE id_tendero = $1';
         const { rows } = await db.query(text, [id_tendero]);
         if (rows.length > 0) {
-            // Obtener el conteo de clientes únicos para este tendero
-            const clientQuery = 'SELECT COUNT(DISTINCT id_cliente) AS total_clientes FROM venta WHERE id_tienda = $1 AND id_cliente IS NOT NULL';
+            // Obtener el conteo de clientes registrados por este tendero
+            const clientQuery = 'SELECT COUNT(*) AS total_clientes FROM cliente WHERE id_tendero = $1';
             const clientRes = await db.query(clientQuery, [id_tendero]);
             const totalClientes = parseInt(clientRes.rows[0].total_clientes) || 0;
             
@@ -345,11 +347,13 @@ app.put('/api/tienda/configurar/:id_tendero', upload.fields([{ name: 'logo', max
 
 // Endpoint: Buscar Clientes
 app.get('/api/clientes/buscar', async (req, res) => {
-    const { q } = req.query;
+    const { q, id_tendero } = req.query;
     try {
+        await db.query('ALTER TABLE cliente ADD COLUMN IF NOT EXISTS id_tendero INTEGER');
         if (!q) return res.json([]);
-        const text = 'SELECT id_cliente, nombre, email FROM cliente WHERE nombre ILIKE $1 OR email ILIKE $1 LIMIT 5';
-        const { rows } = await db.query(text, [`%${q}%`]);
+        const tenderoId = parseInt(id_tendero) || 1;
+        const text = 'SELECT id_cliente, nombre, email FROM cliente WHERE id_tendero = $1 AND (nombre ILIKE $2 OR email ILIKE $2) LIMIT 5';
+        const { rows } = await db.query(text, [tenderoId, `%${q}%`]);
         res.json(rows);
     } catch (err) {
         console.error('Error buscando clientes:', err.message);
@@ -359,11 +363,13 @@ app.get('/api/clientes/buscar', async (req, res) => {
 
 // Endpoint: Crear Cliente Express
 app.post('/api/clientes', async (req, res) => {
-    const { nombre, email } = req.body;
+    const { nombre, email, id_tendero } = req.body;
     const genericPassword = hashPassword('123456'); // Hash genérico
     try {
-        const text = 'INSERT INTO cliente (nombre, email, password) VALUES ($1, $2, $3) RETURNING id_cliente, nombre, email';
-        const { rows } = await db.query(text, [nombre, email, genericPassword]);
+        await db.query('ALTER TABLE cliente ADD COLUMN IF NOT EXISTS id_tendero INTEGER');
+        const tenderoId = parseInt(id_tendero) || 1;
+        const text = 'INSERT INTO cliente (nombre, email, password, id_tendero) VALUES ($1, $2, $3, $4) RETURNING id_cliente, nombre, email';
+        const { rows } = await db.query(text, [nombre, email, genericPassword, tenderoId]);
         res.json({ success: true, cliente: rows[0] });
     } catch (err) {
         console.error('Error creando cliente:', err.message);

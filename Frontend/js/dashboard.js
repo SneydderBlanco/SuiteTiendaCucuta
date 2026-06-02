@@ -926,6 +926,8 @@ function updateStoreDOM(settings) {
     if (settings.totalClientes !== undefined) {
         const clientMetric = document.getElementById("contador-clientes-real");
         if (clientMetric) clientMetric.textContent = settings.totalClientes;
+        const clientSettingsMetric = document.getElementById("contador-clientes-settings");
+        if (clientSettingsMetric) clientSettingsMetric.textContent = settings.totalClientes;
     }
 }
 
