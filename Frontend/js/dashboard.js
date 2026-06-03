@@ -85,6 +85,7 @@ document.addEventListener("DOMContentLoaded", () => {
         });
         navMiTienda.addEventListener("click", () => {
             fetchStoreProfile();
+            loadStorefront(userId);
             switchTabTo(navMiTienda, vistaMiTienda);
         });
         if (navVitrina) {
@@ -573,12 +574,37 @@ function updateChartUI(chartData) {
 
 // --- MI TIENDA STOREFRONT LOGIC ---
 let storefrontProducts = [];
+let storefrontOffers = [];
+
+function getActiveStorefrontOffer(productId) {
+    if (!storefrontOffers || storefrontOffers.length === 0) return null;
+    const offer = storefrontOffers.find(o => o.id_producto === productId);
+    if (!offer) return null;
+
+    // Validar expiración automática con la hora local
+    const dateStr = offer.vigencia_fecha.split('T')[0];
+    const timeStr = offer.vigencia_hora;
+    const expDate = new Date(`${dateStr}T${timeStr}`);
+    const now = new Date();
+
+    if (now > expDate) {
+        return null; // Expirada automáticamente
+    }
+    return offer;
+}
 
 async function loadStorefront(tenderoId) {
     const grid = document.getElementById("storefront-grid");
     grid.innerHTML = '<div class="col-span-full text-center py-12"><p class="text-slate-500 font-bold">Cargando vitrina...</p></div>';
     
     try {
+        try {
+            storefrontOffers = await API.getVitrina(tenderoId);
+        } catch (err) {
+            console.error("Error loading offers for storefront preview:", err);
+            storefrontOffers = [];
+        }
+
         const resp = await API.getProductosTendero(tenderoId);
         if (resp.status === 200) {
             storefrontProducts = resp.data;
@@ -606,11 +632,40 @@ function renderStorefrontGrid(products) {
     }
 
     products.forEach(p => {
+        const idProd = p.id || p.id_producto;
         const imgUrl = p.imagen_url ? (p.imagen_url.startsWith('http') ? p.imagen_url : `${window.API_URL}${p.imagen_url}`) : 'https://placehold.co/400x400/e2e8f0/475569?text=Producto';
         
+        const activeOffer = getActiveStorefrontOffer(idProd);
+        
+        let priceHTML = '';
+        let discountBadge = '';
+        if (activeOffer) {
+            const original = parseFloat(p.precio_venta);
+            const promo = parseFloat(activeOffer.precio_oferta);
+            const descuentoPct = Math.round(((original - promo) / original) * 100);
+            
+            priceHTML = `
+                <div class="flex items-baseline gap-2 mt-auto">
+                    <span class="text-xs text-slate-400 line-through">${Utils.formatCurrency(original)}</span>
+                    <span class="text-sm font-black text-emerald-600 tracking-tight">${Utils.formatCurrency(promo)}</span>
+                </div>
+            `;
+            discountBadge = `
+                <span class="absolute top-3 right-3 bg-red-600 text-white text-[8px] font-black uppercase tracking-widest px-2.5 py-1 rounded shadow-sm z-10">
+                    -${descuentoPct}% OFF
+                </span>
+            `;
+        } else {
+            priceHTML = `
+                <div class="mt-auto">
+                    <span class="text-lg font-black text-emerald-600 tracking-tight">${Utils.formatCurrency(p.precio_venta)}</span>
+                </div>
+            `;
+        }
+
         const card = document.createElement('div');
         card.className = "bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-outline-variant/10 overflow-hidden hover:shadow-xl transition-all duration-300 group flex flex-col relative";
-        card.setAttribute('data-id', p.id || p.id_producto);
+        card.setAttribute('data-id', idProd);
         card.innerHTML = `
             <div class="aspect-square bg-surface-container overflow-hidden relative">
                 <img src="${imgUrl}" alt="${p.nombre}" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"/>
@@ -618,6 +673,8 @@ function renderStorefrontGrid(products) {
                 <div class="absolute top-3 left-3">
                     <span class="px-2.5 py-1 bg-black/60 backdrop-blur-md text-white text-[10px] font-bold uppercase tracking-wider rounded-lg">${p.categoria}</span>
                 </div>
+
+                ${discountBadge}
 
                 <div class="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300"></div>
 
@@ -634,9 +691,7 @@ function renderStorefrontGrid(products) {
                 </div>
                 <span class="text-xs text-slate-400 font-semibold mb-3">${p.marca || 'Sin marca'}</span>
                 
-                <div class="mt-auto flex items-center">
-                    <span class="text-lg font-black text-emerald-600 tracking-tight">${Utils.formatCurrency(p.precio_venta)}</span>
-                </div>
+                ${priceHTML}
             </div>
         `;
         grid.appendChild(card);
