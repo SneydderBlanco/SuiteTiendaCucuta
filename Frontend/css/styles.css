@@ -29,3 +29,56 @@ body {
     transform: translateY(-5px);
     box-shadow: 0 12px 32px -4px rgba(0, 108, 73, 0.1);
 }
+
+/* ==========================================
+   Estilos de Marcadores Personalizados (Leaflet)
+   ========================================== */
+
+/* Quitar fondo por defecto de Leaflet */
+.custom-leaflet-marker {
+    background: transparent !important;
+    border: none !important;
+}
+
+/* Efecto de rebote suave */
+@keyframes marker-bounce {
+    0%, 100% {
+        transform: translateY(0);
+    }
+    50% {
+        transform: translateY(-10px);
+    }
+}
+
+/* Clase activa de animación de rebote */
+.marker-active-bounce .marker-pin-wrapper {
+    animation: marker-bounce 0.6s ease-in-out infinite;
+}
+
+/* Resaltado del pin cuando está activo o hover */
+.marker-active-bounce .marker-pin-wrapper .core-pin {
+    background-color: #047857 !important; /* Esmeralda oscuro */
+    transform: scale(1.2);
+    box-shadow: 0 0 16px rgba(16, 185, 129, 0.8);
+    border-color: #a7f3d0 !important; /* Borde verde claro */
+}
+
+.marker-active-bounce .marker-pin-wrapper .pin-triangle {
+    background-color: #047857 !important;
+    border-right-color: #a7f3d0 !important;
+    border-bottom-color: #a7f3d0 !important;
+    transform: rotate(45deg) scale(1.2);
+}
+
+/* Transiciones suaves en el marcador */
+.marker-pin-wrapper {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.marker-pin-wrapper .core-pin {
+    transition: all 0.3s ease;
+}
+
+.marker-pin-wrapper .pin-triangle {
+    transition: all 0.3s ease;
+}

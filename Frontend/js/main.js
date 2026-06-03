@@ -29,48 +29,13 @@ document.addEventListener("DOMContentLoaded", async () => {
     const grid = document.getElementById("tiendas-grid");
     const searchInput = document.getElementById("search-input");
 
-    // Inicializar mapa de Leaflet centrado en Cúcuta
-    const map = L.map('mapa-marketplace').setView([7.8939, -72.5078], 13);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-    }).addTo(map);
-    const markerGroup = L.layerGroup().addTo(map);
-
     // 1. Llamar al Backend para obtener tiendas
     const tiendas = await API.getTiendas();
 
     // 2. Función para renderizar tiendas
     function renderTiendas(tiendasList) {
+        if (!grid) return;
         grid.innerHTML = "";
-
-        // Limpiar y cargar marcadores reactivos en el mapa
-        markerGroup.clearLayers();
-        tiendasList.forEach(tienda => {
-            if (tienda.latitud && tienda.longitud) {
-                const lat = parseFloat(tienda.latitud);
-                const lng = parseFloat(tienda.longitud);
-                if (!isNaN(lat) && !isNaN(lng)) {
-                    const logoUrl = tienda.logo_url 
-                        ? (tienda.logo_url.startsWith('http') ? tienda.logo_url : `${window.API_URL}${tienda.logo_url}`)
-                        : `https://placehold.co/100x100/10b981/ffffff?text=${encodeURIComponent(tienda.nombre_tienda.substring(0,2).toUpperCase())}`;
-
-                    const popupHTML = `
-                        <div class="p-1 text-slate-800 font-sans min-w-[180px] flex flex-col items-center">
-                            <div class="w-12 h-12 rounded-full border border-emerald-500 overflow-hidden shadow-sm mb-2 bg-white flex items-center justify-center">
-                                <img src="${logoUrl}" class="w-full h-full object-cover" alt="${tienda.nombre_tienda}" onerror="this.src='https://placehold.co/100x100/10b981/ffffff?text=${encodeURIComponent(tienda.nombre_tienda.substring(0,2).toUpperCase())}'">
-                            </div>
-                            <h4 class="font-bold text-sm text-emerald-800 text-center leading-tight mb-1">${tienda.nombre_tienda}</h4>
-                            <p class="text-[11px] text-slate-500 text-center leading-normal mb-2 line-clamp-2">${tienda.descripcion || '¡Bienvenido a nuestra tienda!'}</p>
-                            <a href="tienda.html?id=${tienda.id_tendero}" class="inline-flex items-center justify-center gap-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs px-2.5 py-1.5 rounded-lg transition-all w-full shadow-sm text-center" style="text-decoration: none !important; color: white !important;">
-                                <span>🛒 Visitar Tienda</span>
-                            </a>
-                        </div>
-                    `;
-                    const marker = L.marker([lat, lng]).bindPopup(popupHTML);
-                    markerGroup.addLayer(marker);
-                }
-            }
-        });
 
         if (tiendasList.length === 0) {
             grid.innerHTML = `
@@ -92,7 +57,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             // Formatear imágenes
             const fullLogoUrl = tienda.logo_url 
                 ? (tienda.logo_url.startsWith('http') ? tienda.logo_url : `${window.API_URL}${tienda.logo_url}`)
-                : `https://placehold.co/100x100/10b981/ffffff?text=${encodeURIComponent(tienda.nombre_tienda.substring(0,2).toUpperCase())}`;
+                : null;
 
             const fullBannerUrl = tienda.banner_url
                 ? (tienda.banner_url.startsWith('http') ? tienda.banner_url : `${window.API_URL}${tienda.banner_url}`)
@@ -111,12 +76,15 @@ document.addEventListener("DOMContentLoaded", async () => {
                 <div class="px-6 pb-6 relative flex-1 flex flex-col">
                     <!-- Logo circular pisándolo -->
                     <div class="absolute -top-10 left-6 w-20 h-20 rounded-full border-4 border-white shadow-md bg-white overflow-hidden flex items-center justify-center">
-                        <img src="${fullLogoUrl}" class="w-full h-full object-cover" alt="Logo ${tienda.nombre_tienda}" onerror="this.src='https://placehold.co/100x100/10b981/ffffff?text=${encodeURIComponent(tienda.nombre_tienda.substring(0,2).toUpperCase())}'">
+                        ${fullLogoUrl
+                            ? `<img src="${fullLogoUrl}" class="w-full h-full object-cover" alt="Logo ${tienda.nombre_tienda}" onerror="this.outerHTML='<span class=\'material-symbols-outlined text-emerald-600 text-3xl\'>storefront</span>'">`
+                            : `<span class="material-symbols-outlined text-emerald-600 text-3xl">storefront</span>`
+                        }
                     </div>
                     
                     <!-- Store Name and details -->
                     <div class="mt-12 flex-grow">
-                        <h3 class="text-xl font-bold text-slate-800 group-hover:text-emerald-600 transition-colors tracking-tight flex items-center gap-1.5">
+                        <h3 class="text-xl font-bold text-slate-800 group-hover:text-emerald-600 transition-colors tracking-tight flex items-center gap-1.5 font-headline">
                             ${tienda.nombre_tienda}
                             <span class="material-symbols-outlined text-emerald-500 text-lg fill-current">verified</span>
                         </h3>
