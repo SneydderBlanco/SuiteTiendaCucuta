@@ -178,5 +178,42 @@ window.API = {
             console.error("Error en API updateStoreSettings:", error);
             return { status: 500, data: { error: "Error de red" } };
         }
+    },
+
+    getVitrina: async (tenderoId) => {
+        try {
+            const response = await fetch(`${API_URL}/api/vitrina/${tenderoId}`);
+            if (!response.ok) throw new Error("Fallo al obtener vitrina");
+            return await response.json();
+        } catch (error) {
+            console.error("Error en API getVitrina:", error);
+            return [];
+        }
+    },
+
+    saveOferta: async (payload) => {
+        try {
+            const response = await fetch(`${API_URL}/api/vitrina`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
+            return { status: response.status, data: await response.json() };
+        } catch (error) {
+            console.error("Error en API saveOferta:", error);
+            return { status: 500, data: { error: "Error de red" } };
+        }
+    },
+
+    deleteOferta: async (ofertaId) => {
+        try {
+            const response = await fetch(`${API_URL}/api/vitrina/${ofertaId}`, {
+                method: "DELETE"
+            });
+            return { status: response.status, data: await response.json() };
+        } catch (error) {
+            console.error("Error en API deleteOferta:", error);
+            return { status: 500, data: { error: "Error de red" } };
+        }
     }
 };

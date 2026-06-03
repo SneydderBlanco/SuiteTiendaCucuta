@@ -108,6 +108,18 @@
 
         <!-- Product Catalog Section -->
         <section class="max-w-6xl mx-auto px-6 mt-12">
+            <!-- Vitrina de Ofertas Diarias (Ocupa ancho completo superior) -->
+            <div id="vitrina-ofertas-container" class="hidden mb-12">
+                <div class="flex items-center gap-2 mb-6">
+                    <span class="material-symbols-outlined text-orange-500 animate-pulse text-3xl">auto_awesome</span>
+                    <h3 class="text-2xl font-black text-slate-800 tracking-tight">Vitrina de Ofertas Diarias</h3>
+                    <span class="bg-red-50 text-red-600 font-extrabold text-[10px] px-2.5 py-1 rounded-full border border-red-100 uppercase tracking-wide">¡Solo por hoy!</span>
+                </div>
+                <div id="vitrina-ofertas-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <!-- Las ofertas se inyectan dinámicamente -->
+                </div>
+            </div>
+
             <!-- Filter Bar & Search -->
             <div class="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8 bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
                 <!-- Search input -->
@@ -270,9 +282,36 @@
     <script>
         let storeDataGlobal = null;
         let productsGlobal = [];
+        let activeOffersGlobal = [];
         let activeCategory = 'all';
         let cart = [];
         let pendingProductToConfirm = null;
+
+        // Función para validar y obtener la oferta activa no expirada
+        function getActiveOffer(productId) {
+            const offer = activeOffersGlobal.find(o => o.id_producto === productId);
+            if (!offer) return null;
+
+            // Validar expiración automática con la hora local
+            const dateStr = offer.vigencia_fecha.split('T')[0];
+            const timeStr = offer.vigencia_hora;
+            const expDate = new Date(`${dateStr}T${timeStr}`);
+            const now = new Date();
+
+            if (now > expDate) {
+                return null; // Expirada automáticamente
+            }
+            return offer;
+        }
+
+        // Obtener el precio activo actual (de oferta o regular)
+        function getActivePrice(productId, regularPrice) {
+            const offer = getActiveOffer(productId);
+            if (offer) {
+                return parseFloat(offer.precio_oferta);
+            }
+            return parseFloat(regularPrice);
+        }
 
         // 1. Obtener ID de la tienda desde URL
         const urlParams = new URLSearchParams(window.location.search);
@@ -334,10 +373,21 @@
         async function loadStoreCatalog() {
             const grid = document.getElementById('store-products-grid');
             try {
+                // Cargar ofertas de la vitrina
+                try {
+                    activeOffersGlobal = await API.getVitrina(tenderoId);
+                } catch (e) {
+                    console.error("Error al cargar ofertas de vitrina:", e);
+                    activeOffersGlobal = [];
+                }
+
                 const resp = await API.getProductosTendero(tenderoId);
                 if (resp.status === 200 && Array.isArray(resp.data)) {
                     productsGlobal = resp.data;
                     
+                    // Renderizar vitrina superior
+                    renderVitrinaOfertas();
+
                     // Renderizar
                     renderProducts(productsGlobal);
                     
@@ -360,6 +410,121 @@
                     </div>
                 `;
             }
+        }
+
+        // 4.1 Renderizar Ofertas en la Vitrina Superior
+        function renderVitrinaOfertas() {
+            const container = document.getElementById("vitrina-ofertas-container");
+            const grid = document.getElementById("vitrina-ofertas-grid");
+            if (!container || !grid) return;
+
+            // Filtrar las ofertas activas no expiradas
+            const activeOffers = activeOffersGlobal.filter(o => getActiveOffer(o.id_producto) !== null);
+
+            if (activeOffers.length === 0) {
+                container.classList.add("hidden");
+                return;
+            }
+
+            container.classList.remove("hidden");
+            grid.innerHTML = "";
+
+            activeOffers.forEach(o => {
+                const card = document.createElement("div");
+                card.className = "group bg-white rounded-3xl overflow-hidden border border-orange-100 hover:border-orange-200 hover:shadow-xl transition-all duration-300 flex flex-col relative cursor-pointer";
+                
+                const imgUrl = o.imagen_url 
+                    ? (o.imagen_url.startsWith('http') ? o.imagen_url : `${window.API_URL}${o.imagen_url}`) 
+                    : 'https://placehold.co/300x300/e2e8f0/475569?text=Sin+Imagen';
+
+                // Buscar cantidad en el carrito
+                const cartItem = cart.find(item => item.id_producto === o.id_producto);
+                const qty = cartItem ? cartItem.cantidad : 0;
+
+                // Porcentaje de descuento
+                const original = parseFloat(o.precio_venta);
+                const promo = parseFloat(o.precio_oferta);
+                const descuentoPct = Math.round(((original - promo) / original) * 100);
+
+                let actionBtnHTML = '';
+                const prodInCatalog = productsGlobal.find(p => p.id_producto === o.id_producto);
+                const stock = prodInCatalog ? prodInCatalog.stock : 0;
+                
+                if (stock > 0) {
+                    if (qty > 0) {
+                        actionBtnHTML = `
+                            <div class="flex items-center bg-orange-50 rounded-full border border-orange-200/50 p-0.5 shadow-sm" onclick="event.stopPropagation();">
+                                <button onclick="actualizarCantidadClick(${o.id_producto}, -1, event)" class="w-6 h-6 rounded-full bg-white hover:bg-orange-100 text-orange-800 flex items-center justify-center font-bold transition-colors">
+                                    <span class="material-symbols-outlined text-[14px]">remove</span>
+                                </button>
+                                <span class="px-2 text-xs font-black text-orange-800 min-w-[12px] text-center">${qty}</span>
+                                <button onclick="actualizarCantidadClick(${o.id_producto}, 1, event)" class="w-6 h-6 rounded-full bg-orange-600 text-white hover:bg-orange-500 flex items-center justify-center font-bold transition-colors">
+                                    <span class="material-symbols-outlined text-[14px]">add</span>
+                                </button>
+                            </div>
+                        `;
+                    } else {
+                        const prodInCatalogEscaped = JSON.stringify(prodInCatalog).replace(/"/g, '&quot;');
+                        actionBtnHTML = `
+                            <button onclick="agregarAlCarritoClick(${prodInCatalogEscaped}, event)" class="w-8 h-8 rounded-full bg-orange-600 hover:bg-orange-500 text-white flex items-center justify-center transition-all duration-300 shadow hover:scale-110 active:scale-95 cursor-pointer" title="Añadir al carrito">
+                                <span class="material-symbols-outlined text-[18px]">add</span>
+                            </button>
+                        `;
+                    }
+                } else {
+                    actionBtnHTML = `
+                        <span class="text-xs font-bold text-red-500 uppercase tracking-wider">Agotado</span>
+                    `;
+                }
+
+                // Hora legible de vigencia (hh:mm)
+                const timeStr = o.vigencia_hora ? o.vigencia_hora.substring(0, 5) : '';
+
+                card.innerHTML = `
+                    <!-- Porcentaje de Descuento -->
+                    <div class="absolute top-3 left-3 bg-red-600 text-white text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded shadow-sm z-10">
+                        -${descuentoPct}% OFF
+                    </div>
+
+                    <!-- Vigencia temporal -->
+                    <div class="absolute top-3 right-3 bg-white/95 backdrop-blur-sm text-[8px] font-black text-slate-700 px-2.5 py-1 rounded shadow-sm border border-slate-100 flex items-center gap-1 z-10">
+                        <span class="material-symbols-outlined text-[11px] text-orange-500 animate-pulse">schedule</span>
+                        Expira: ${timeStr}
+                    </div>
+
+                    <!-- Imagen de Producto -->
+                    <div class="aspect-video w-full bg-slate-50 relative overflow-hidden flex items-center justify-center border-b border-orange-50">
+                        <img src="${imgUrl}" class="object-cover w-full h-full group-hover:scale-102 transition-transform duration-500" alt="${o.nombre}">
+                    </div>
+
+                    <!-- Detalles -->
+                    <div class="p-5 flex-grow flex flex-col justify-between">
+                        <div>
+                            <span class="block text-[9px] font-bold text-slate-400 uppercase tracking-wider">${o.marca || 'Genérico'}</span>
+                            <h4 class="font-extrabold text-sm text-slate-800 tracking-tight mt-0.5 truncate group-hover:text-orange-700 transition-colors">${o.nombre}</h4>
+                        </div>
+
+                        <div class="mt-4 pt-3 border-t border-orange-50 flex items-center justify-between">
+                            <div>
+                                <span class="block text-[8px] font-bold text-slate-400 uppercase tracking-widest leading-none">Oferta</span>
+                                <div class="flex items-baseline gap-1.5 mt-0.5">
+                                    <span class="text-xs text-slate-400 line-through leading-none font-medium">${Utils.formatCurrency(o.precio_venta)}</span>
+                                    <span class="text-base font-black text-emerald-600 leading-none">${Utils.formatCurrency(o.precio_oferta)}</span>
+                                </div>
+                            </div>
+                            <div class="shrink-0 flex items-center gap-1.5" onclick="event.stopPropagation();">
+                                ${actionBtnHTML}
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                if (prodInCatalog) {
+                    card.addEventListener('click', () => showProductModal(prodInCatalog));
+                }
+
+                grid.appendChild(card);
+            });
         }
 
         // 5. Renderizar Tarjetas de Productos
@@ -390,6 +555,9 @@
                 const cartItem = cart.find(item => item.id_producto === prod.id_producto);
                 const qty = cartItem ? cartItem.cantidad : 0;
 
+                // Obtener oferta activa si existe
+                const activeOffer = getActiveOffer(prod.id_producto);
+
                 let actionBtnHTML = '';
                 if (prod.stock > 0) {
                     if (qty > 0) {
@@ -405,7 +573,6 @@
                             </div>
                         `;
                     } else {
-                        // Escapar comillas dobles para pasar el objeto completo de manera segura
                         const prodEscaped = JSON.stringify(prod).replace(/"/g, '&quot;');
                         actionBtnHTML = `
                             <button onclick="agregarAlCarritoClick(${prodEscaped}, event)" class="w-8 h-8 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white flex items-center justify-center transition-all duration-300 shadow hover:scale-110 active:scale-95 cursor-pointer" title="Añadir al carrito">
@@ -419,6 +586,20 @@
                     `;
                 }
 
+                let priceHTML = '';
+                if (activeOffer) {
+                    priceHTML = `
+                        <div class="flex flex-col">
+                            <span class="text-[10px] text-slate-400 line-through leading-tight">${Utils.formatCurrency(prod.precio_venta)}</span>
+                            <span class="text-sm font-extrabold text-emerald-600 leading-tight">${Utils.formatCurrency(activeOffer.precio_oferta)}</span>
+                        </div>
+                    `;
+                } else {
+                    priceHTML = `
+                        <span class="text-base font-extrabold text-slate-800">${Utils.formatCurrency(prod.precio_venta)}</span>
+                    `;
+                }
+
                 card.innerHTML = `
                     <!-- Product Image -->
                     <div class="aspect-square bg-slate-50 relative overflow-hidden flex items-center justify-center">
@@ -428,6 +609,12 @@
                         <span class="absolute top-3 left-3 bg-white/95 backdrop-blur-sm text-[9px] font-black text-slate-700 uppercase tracking-widest px-2.5 py-1 rounded-md shadow-sm border border-slate-100">
                             ${prod.categoria || 'General'}
                         </span>
+                        
+                        <!-- Badge de Oferta -->
+                        ${activeOffer 
+                            ? `<span class="absolute top-3 right-3 bg-red-600 text-white text-[8px] font-black uppercase tracking-widest px-2.5 py-1 rounded shadow-sm">Oferta</span>` 
+                            : ''
+                        }
                     </div>
 
                     <!-- Details -->
@@ -441,8 +628,8 @@
 
                         <div class="mt-4 pt-3 border-t border-slate-50 flex items-center justify-between">
                             <div>
-                                <span class="block text-[9px] font-bold text-slate-400 uppercase tracking-widest">Precio</span>
-                                <span class="text-base font-extrabold text-slate-800">${Utils.formatCurrency(prod.precio_venta)}</span>
+                                <span class="block text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-none mb-1">Precio</span>
+                                ${priceHTML}
                             </div>
                             <div class="shrink-0 flex items-center gap-1.5" onclick="event.stopPropagation();">
                                 ${actionBtnHTML}
@@ -528,7 +715,17 @@
             document.getElementById('modal-product-tag').textContent = product.categoria || 'General';
             document.getElementById('modal-product-name').textContent = product.nombre;
             document.getElementById('modal-product-brand').textContent = product.marca || 'Genérico';
-            document.getElementById('modal-product-price').textContent = Utils.formatCurrency(product.precio_venta);
+            
+            const activeOffer = getActiveOffer(product.id_producto);
+            const priceEl = document.getElementById('modal-product-price');
+            if (activeOffer) {
+                priceEl.innerHTML = `
+                    <span class="text-xs text-slate-400 line-through mr-2 font-normal">${Utils.formatCurrency(product.precio_venta)}</span>
+                    <span class="text-emerald-600 font-extrabold">${Utils.formatCurrency(activeOffer.precio_oferta)}</span>
+                `;
+            } else {
+                priceEl.textContent = Utils.formatCurrency(product.precio_venta);
+            }
             
             const stockLbl = document.getElementById('modal-product-stock-lbl');
             if (product.stock > 0) {
@@ -704,7 +901,8 @@
             let subtotal = 0;
 
             cart.forEach(item => {
-                const itemSubtotal = item.precio_venta * item.cantidad;
+                const activePrice = getActivePrice(item.id_producto, item.precio_venta);
+                const itemSubtotal = activePrice * item.cantidad;
                 subtotal += itemSubtotal;
 
                 const imgUrl = item.imagen_url 
@@ -717,7 +915,7 @@
                     <img src="${imgUrl}" class="w-14 h-14 rounded-xl object-cover bg-white shadow-sm shrink-0" alt="${item.nombre}">
                     <div class="flex-grow min-w-0">
                         <h4 class="font-bold text-xs text-slate-800 truncate leading-tight">${item.nombre}</h4>
-                        <span class="text-[10px] text-slate-400 font-bold block mt-0.5">${Utils.formatCurrency(item.precio_venta)} c/u</span>
+                        <span class="text-[10px] text-slate-400 font-bold block mt-0.5">${Utils.formatCurrency(activePrice)} c/u</span>
                         <span class="text-xs font-extrabold text-emerald-600 mt-1 block">${Utils.formatCurrency(itemSubtotal)}</span>
                     </div>
                     <div class="flex flex-col items-end justify-between self-stretch shrink-0">
@@ -811,9 +1009,12 @@
             document.getElementById("btn-confirmar-pedido").addEventListener("click", () => {
                 if (cart.length === 0) return;
                 
-                const itemsText = cart.map(item => `• ${item.cantidad}x *${item.nombre}* (${Utils.formatCurrency(item.precio_venta)}) = *${Utils.formatCurrency(item.precio_venta * item.cantidad)}*`).join('\n');
+                const itemsText = cart.map(item => {
+                    const price = getActivePrice(item.id_producto, item.precio_venta);
+                    return `• ${item.cantidad}x *${item.nombre}* (${Utils.formatCurrency(price)}) = *${Utils.formatCurrency(price * item.cantidad)}*`;
+                }).join('\n');
                 
-                const subtotal = cart.reduce((sum, item) => sum + (item.precio_venta * item.cantidad), 0);
+                const subtotal = cart.reduce((sum, item) => sum + (getActivePrice(item.id_producto, item.precio_venta) * item.cantidad), 0);
                 const totalText = Utils.formatCurrency(subtotal);
                 
                 const message = `¡Hola! Vengo de la Vitrina Local SuiteTiendaCúcuta. Me gustaría realizar el siguiente pedido a tu tienda *${storeDataGlobal.nombre_tienda}*:\n\n${itemsText}\n\n*Total Estimado: ${totalText}*\n\n¿Me podrías confirmar la disponibilidad y el proceso de entrega?`;

@@ -23,6 +23,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const navVentas = document.getElementById("nav-ventas");
     const navHistorial = document.getElementById("nav-historial");
     const navMiTienda = document.getElementById("nav-mi-tienda");
+    const navVitrina = document.getElementById("nav-vitrina");
     const navConfiguracion = document.getElementById("nav-configuracion");
     
     const vistaDashboard = document.getElementById("vista-dashboard");
@@ -31,14 +32,15 @@ document.addEventListener("DOMContentLoaded", () => {
     const vistaVentas = document.getElementById("vista-ventas");
     const vistaHistorial = document.getElementById("vista-historial");
     const vistaMiTienda = document.getElementById("vista-mi-tienda");
+    const vistaVitrina = document.getElementById("vista-vitrina");
     const vistaConfiguracion = document.getElementById("vista-configuracion");
 
     const activeClasses = ['text-[#006c49]', 'dark:text-[#10b981]', 'font-bold', 'border-r-4', 'border-[#006c49]', 'dark:border-[#10b981]', 'bg-[#10b981]/5', 'translate-x-1'];
     const inactiveClasses = ['text-[#3c4a42]', 'dark:text-gray-500'];
 
     function switchTabTo(activeNav, activeView) {
-        const allNavs = [navDashboard, navInventario, navReportes, navVentas, navHistorial, navMiTienda, navConfiguracion];
-        const allViews = [vistaDashboard, vistaInventario, vistaReportes, vistaVentas, vistaHistorial, vistaMiTienda, vistaConfiguracion];
+        const allNavs = [navDashboard, navInventario, navReportes, navVentas, navHistorial, navMiTienda, navVitrina, navConfiguracion];
+        const allViews = [vistaDashboard, vistaInventario, vistaReportes, vistaVentas, vistaHistorial, vistaMiTienda, vistaVitrina, vistaConfiguracion];
 
         allNavs.forEach(nav => {
             if (!nav) return;
@@ -85,6 +87,12 @@ document.addEventListener("DOMContentLoaded", () => {
             fetchStoreProfile();
             switchTabTo(navMiTienda, vistaMiTienda);
         });
+        if (navVitrina) {
+            navVitrina.addEventListener("click", () => {
+                switchTabTo(navVitrina, vistaVitrina);
+                loadVitrinaManager(userId);
+            });
+        }
         navConfiguracion.addEventListener("click", () => switchTabTo(navConfiguracion, vistaConfiguracion));
 
         // Quick Actions from Dashboard
@@ -1114,6 +1122,202 @@ document.addEventListener("DOMContentLoaded", () => {
         btnExportBackup.addEventListener("click", () => {
             console.log("Exportando base de datos");
             // Implementar lógica de API aquí
+    }
+
+    // ==========================================
+    // --- LÓGICA DE VITRINA DIGITAL ---
+    // ==========================================
+    let currentOffersCount = 0;
+
+    async function loadVitrinaManager(tenderoId) {
+        const selectProducto = document.getElementById("vitrina-select-producto");
+        const grid = document.getElementById("vitrina-activa-grid");
+        const contador = document.getElementById("vitrina-contador-ofertas");
+
+        if (!selectProducto || !grid) return;
+
+        // 1. Cargar productos en el dropdown
+        selectProducto.innerHTML = '<option value="">Cargando productos...</option>';
+        let products = [];
+        try {
+            const resp = await API.getProductosTendero(tenderoId);
+            if (resp.status === 200) {
+                products = resp.data;
+                selectProducto.innerHTML = '<option value="">Selecciona un producto...</option>';
+                products.forEach(p => {
+                    const opt = document.createElement("option");
+                    opt.value = p.id_producto;
+                    opt.textContent = `${p.nombre} (${p.marca || 'Sin marca'}) - Regular: ${Utils.formatCurrency(p.precio_venta)}`;
+                    selectProducto.appendChild(opt);
+                });
+            } else {
+                selectProducto.innerHTML = '<option value="">Error al cargar productos</option>';
+            }
+        } catch (e) {
+            console.error("Error al cargar productos en vitrina:", e);
+            selectProducto.innerHTML = '<option value="">Error de conexión</option>';
+        }
+
+        // 2. Cargar ofertas actuales
+        let ofertas = [];
+        try {
+            ofertas = await API.getVitrina(tenderoId);
+            currentOffersCount = ofertas.length;
+            if (contador) {
+                contador.textContent = `Ofertas: ${currentOffersCount} / 5`;
+                if (currentOffersCount >= 5) {
+                    contador.className = "bg-red-50 dark:bg-red-950 text-red-700 dark:text-red-300 font-extrabold px-3 py-1.5 rounded-full text-xs border border-red-100/50 animate-pulse";
+                } else {
+                    contador.className = "bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 font-extrabold px-3 py-1.5 rounded-full text-xs border border-emerald-100/50";
+                }
+            }
+
+            renderVitrinaGrid(ofertas, tenderoId);
+        } catch (e) {
+            console.error("Error al cargar ofertas:", e);
+            grid.innerHTML = '<div class="col-span-full text-center py-12 text-red-500 font-bold">Error de conexión al cargar ofertas.</div>';
+        }
+
+        // 3. Clonar y re-enlazar botón guardar para evitar múltiples binds
+        const btnGuardar = document.getElementById("vitrina-btn-guardar");
+        if (btnGuardar) {
+            const newBtnGuardar = btnGuardar.cloneNode(true);
+            btnGuardar.parentNode.replaceChild(newBtnGuardar, btnGuardar);
+            
+            newBtnGuardar.addEventListener("click", async () => {
+                const idProducto = selectProducto.value;
+                const precioOferta = document.getElementById("vitrina-input-precio").value;
+                const hora = document.getElementById("vitrina-input-hora").value;
+                const fecha = document.getElementById("vitrina-input-fecha").value;
+
+                if (!idProducto || !precioOferta || !hora || !fecha) {
+                    Utils.showAlert("Todos los campos son obligatorios.");
+                    return;
+                }
+
+                if (currentOffersCount >= 5) {
+                    Utils.showAlert("Límite alcanzado. Debes eliminar una oferta existente para habilitar un nuevo espacio.");
+                    return;
+                }
+
+                // Validar precio de oferta menor
+                const selectedProd = products.find(p => p.id_producto == idProducto);
+                if (selectedProd) {
+                    const originalPrice = parseFloat(selectedProd.precio_venta);
+                    const offerPrice = parseFloat(precioOferta);
+                    if (offerPrice >= originalPrice) {
+                        Utils.showAlert(`El precio de oferta debe ser estrictamente menor al precio regular del producto (${Utils.formatCurrency(originalPrice)}).`);
+                        return;
+                    }
+                }
+
+                // Payload
+                const payload = {
+                    id_tendero: parseInt(tenderoId, 10),
+                    id_producto: parseInt(idProducto, 10),
+                    precio_oferta: parseFloat(precioOferta),
+                    vigencia_fecha: fecha,
+                    vigencia_hora: hora
+                };
+
+                const saveResp = await API.saveOferta(payload);
+                if (saveResp.status === 200) {
+                    Utils.showAlert("¡Oferta guardada correctamente y publicada en tu vitrina!");
+                    document.getElementById("form-vitrina-oferta").reset();
+                    loadVitrinaManager(tenderoId);
+                } else {
+                    Utils.showAlert(saveResp.data.error || "Error al publicar la oferta.");
+                }
+            });
+        }
+    }
+
+    function renderVitrinaGrid(ofertasList, tenderoId) {
+        const grid = document.getElementById("vitrina-activa-grid");
+        if (!grid) return;
+
+        grid.innerHTML = "";
+
+        if (ofertasList.length === 0) {
+            grid.innerHTML = `
+                <div class="col-span-full py-12 text-center text-slate-400 bg-white dark:bg-gray-900 rounded-3xl border border-dashed border-slate-200">
+                    <span class="material-symbols-outlined text-4xl mb-2 text-slate-300">campaign</span>
+                    <p class="text-xs font-semibold">No tienes ofertas programadas en este momento.</p>
+                </div>
+            `;
+            return;
+        }
+
+        ofertasList.forEach(o => {
+            const card = document.createElement("div");
+            card.className = "group bg-white dark:bg-gray-900 rounded-2xl overflow-hidden border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md transition-all duration-300 flex flex-col";
+            
+            const imgUrl = o.imagen_url 
+                ? (o.imagen_url.startsWith('http') ? o.imagen_url : `${window.API_URL}${o.imagen_url}`) 
+                : 'https://placehold.co/300x300/e2e8f0/475569?text=Sin+Imagen';
+
+            // Formatear fecha de vigencia a algo legible (dd/mm/aaaa)
+            let fechaLegible = o.vigencia_fecha;
+            if (o.vigencia_fecha) {
+                const dateParts = o.vigencia_fecha.split('T')[0].split('-');
+                if (dateParts.length === 3) {
+                    fechaLegible = `${dateParts[2]}/${dateParts[1]}/${dateParts[0]}`;
+                }
+            }
+
+            const horaLegible = o.vigencia_hora ? o.vigencia_hora.substring(0, 5) : '';
+
+            // Calcular porcentaje de descuento
+            const original = parseFloat(o.precio_venta);
+            const promo = parseFloat(o.precio_oferta);
+            const descuentoPct = Math.round(((original - promo) / original) * 100);
+
+            card.innerHTML = `
+                <!-- Image & Discount Badge -->
+                <div class="aspect-video w-full bg-slate-50 relative overflow-hidden flex items-center justify-center border-b border-slate-100 dark:border-slate-800">
+                    <img src="${imgUrl}" class="object-cover w-full h-full group-hover:scale-102 transition-transform duration-500" alt="${o.nombre}">
+                    <span class="absolute top-3 left-3 bg-red-600 text-white text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded shadow-sm">
+                        -${descuentoPct}% OFF
+                    </span>
+                    <span class="absolute top-3 right-3 bg-white/90 backdrop-blur-sm text-[8px] font-bold text-slate-700 px-2 py-1 rounded border border-slate-100 flex items-center gap-0.5">
+                        <span class="material-symbols-outlined text-[10px] text-emerald-600">schedule</span>
+                        Expira: ${fechaLegible} ${horaLegible}
+                    </span>
+                </div>
+                
+                <!-- Details -->
+                <div class="p-4 flex-grow flex flex-col justify-between">
+                    <div>
+                        <span class="block text-[9px] font-bold text-slate-400 uppercase tracking-wider">${o.marca || 'Genérico'}</span>
+                        <h4 class="font-bold text-xs text-slate-800 dark:text-slate-100 tracking-tight mt-0.5 truncate">${o.nombre}</h4>
+                        
+                        <div class="mt-2.5 flex items-baseline gap-2">
+                            <span class="text-xs text-slate-400 line-through">${Utils.formatCurrency(o.precio_venta)}</span>
+                            <span class="text-sm font-extrabold text-emerald-600">${Utils.formatCurrency(o.precio_oferta)}</span>
+                        </div>
+                    </div>
+
+                    <!-- Delete Button -->
+                    <button class="mt-4 py-2 bg-red-50 hover:bg-red-100 text-red-600 hover:text-red-700 rounded-xl font-bold text-[11px] transition-all flex items-center justify-center gap-1 w-full" onclick="event.stopPropagation();">
+                        <span class="material-symbols-outlined text-sm">delete</span>
+                        Eliminar Oferta
+                    </button>
+                </div>
+            `;
+
+            const btnEliminar = card.querySelector("button");
+            btnEliminar.addEventListener("click", async () => {
+                if (!confirm(`¿Estás seguro de que deseas eliminar la oferta para "${o.nombre}" de la vitrina digital?`)) return;
+                const delResp = await API.deleteOferta(o.id_oferta);
+                if (delResp.status === 200) {
+                    Utils.showAlert("Oferta eliminada correctamente.");
+                    loadVitrinaManager(tenderoId);
+                } else {
+                    Utils.showAlert("Error al eliminar la oferta.");
+                }
+            });
+
+            grid.appendChild(card);
         });
     }
 });

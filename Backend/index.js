@@ -703,8 +703,132 @@ app.get('/api/reportes/semana/:id_tendero', async (req, res) => {
     }
 });
 
+// ==========================================
+// ENDPOINTS DE VITRINA DIGITAL (OFERTAS DIARIAS)
+// ==========================================
+
+// Endpoint para OBTENER las ofertas activas de un tendero
+app.get('/api/vitrina/:id_tendero', async (req, res) => {
+    const { id_tendero } = req.params;
+    try {
+        const query = `
+            SELECT v.id_oferta, v.precio_oferta, v.vigencia_fecha, v.vigencia_hora, 
+                   p.id_producto, p.nombre, p.marca, p.precio_venta, p.imagen_url, p.categoria
+            FROM vitrina_digital v
+            JOIN productos p ON v.id_producto = p.id_producto
+            WHERE v.id_tendero = $1
+            ORDER BY v.created_at DESC
+        `;
+        const { rows } = await db.query(query, [id_tendero]);
+        res.json(rows);
+    } catch (err) {
+        console.error('Error al obtener vitrina:', err.message);
+        res.status(500).json({ error: 'Error al obtener la vitrina digital.' });
+    }
+});
+
+// Endpoint para REGISTRAR una nueva oferta en la vitrina
+app.post('/api/vitrina', async (req, res) => {
+    const { id_tendero, id_producto, precio_oferta, vigencia_fecha, vigencia_hora } = req.body;
+
+    if (!id_tendero || !id_producto || !precio_oferta || !vigencia_fecha || !vigencia_hora) {
+        return res.status(400).json({ error: 'Todos los campos son obligatorios.' });
+    }
+
+    try {
+        // 1. Validar límite estricto de 5 ofertas por tendero
+        const countQuery = 'SELECT COUNT(*) FROM vitrina_digital WHERE id_tendero = $1';
+        const countResult = await db.query(countQuery, [id_tendero]);
+        const totalOfertas = parseInt(countResult.rows[0].count, 10);
+
+        if (totalOfertas >= 5) {
+            return res.status(400).json({ error: 'Límite alcanzado. Debes eliminar una oferta existente para habilitar un nuevo espacio.' });
+        }
+
+        // 2. Validar que el producto pertenezca al tendero y que el precio de oferta sea menor al original
+        const prodQuery = 'SELECT precio_venta FROM productos WHERE id_producto = $1 AND id_tendero = $2';
+        const prodResult = await db.query(prodQuery, [id_producto, id_tendero]);
+
+        if (prodResult.rows.length === 0) {
+            return res.status(404).json({ error: 'Producto no encontrado o no pertenece a tu tienda.' });
+        }
+
+        const precioVenta = parseFloat(prodResult.rows[0].precio_venta);
+        const pOferta = parseFloat(precio_oferta);
+
+        if (pOferta >= precioVenta) {
+            return res.status(400).json({ error: 'El precio de oferta debe ser estrictamente menor al precio regular del producto.' });
+        }
+
+        // 3. Validar duplicados (que el producto no esté ya en la vitrina)
+        const dupQuery = 'SELECT * FROM vitrina_digital WHERE id_producto = $1';
+        const dupResult = await db.query(dupQuery, [id_producto]);
+        if (dupResult.rows.length > 0) {
+            return res.status(400).json({ error: 'Este producto ya tiene una oferta activa en la vitrina.' });
+        }
+
+        // 4. Insertar la oferta
+        const insertQuery = `
+            INSERT INTO vitrina_digital (id_tendero, id_producto, precio_oferta, vigencia_fecha, vigencia_hora)
+            VALUES ($1, $2, $3, $4, $5)
+            RETURNING *
+        `;
+        const { rows } = await db.query(insertQuery, [id_tendero, id_producto, pOferta, vigencia_fecha, vigencia_hora]);
+        
+        // Obtener el registro completo con los datos del producto
+        const fullQuery = `
+            SELECT v.id_oferta, v.precio_oferta, v.vigencia_fecha, v.vigencia_hora, 
+                   p.id_producto, p.nombre, p.marca, p.precio_venta, p.imagen_url, p.categoria
+            FROM vitrina_digital v
+            JOIN productos p ON v.id_producto = p.id_producto
+            WHERE v.id_oferta = $1
+        `;
+        const fullResult = await db.query(fullQuery, [rows[0].id_oferta]);
+
+        res.json({ success: true, oferta: fullResult.rows[0] });
+    } catch (err) {
+        console.error('Error al guardar oferta:', err.message);
+        res.status(500).json({ error: 'Error al registrar la oferta en la base de datos.' });
+    }
+});
+
+// Endpoint para ELIMINAR una oferta de la vitrina
+app.delete('/api/vitrina/:id_oferta', async (req, res) => {
+    const { id_oferta } = req.params;
+    try {
+        const text = 'DELETE FROM vitrina_digital WHERE id_oferta = $1 RETURNING *';
+        const { rows } = await db.query(text, [id_oferta]);
+        if (rows.length > 0) {
+            res.json({ success: true, message: 'Oferta eliminada correctamente de la vitrina' });
+        } else {
+            res.status(404).json({ error: 'Oferta no encontrada' });
+        }
+    } catch (err) {
+        console.error('Error al eliminar oferta:', err.message);
+        res.status(500).json({ error: 'Error al eliminar la oferta de la base de datos.' });
+    }
+});
+
 // Start Server
-app.listen(port, () => {
+app.listen(port, async () => {
     console.log(`Servidor iniciado correctamente en http://localhost:${port}`);
     console.log(`La base de datos buscará conectarse a: postgres://${process.env.DB_USER}@${process.env.DB_HOST}:${process.env.DB_PORT}/${process.env.DB_NAME}`);
+    
+    // Auto-migración: Crear tabla vitrina_digital si no existe
+    try {
+        await db.query(`
+            CREATE TABLE IF NOT EXISTS vitrina_digital (
+                id_oferta SERIAL PRIMARY KEY,
+                id_tendero INT REFERENCES tendero(id_tendero) ON DELETE CASCADE,
+                id_producto INT REFERENCES productos(id_producto) ON DELETE CASCADE,
+                precio_oferta NUMERIC(10, 2) NOT NULL,
+                vigencia_fecha DATE NOT NULL,
+                vigencia_hora TIME NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+        console.log("Tabla 'vitrina_digital' verificada/creada con éxito en PostgreSQL.");
+    } catch (err) {
+        console.error("Error al inicializar la tabla 'vitrina_digital':", err.message);
+    }
 });
