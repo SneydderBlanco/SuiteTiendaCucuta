@@ -1124,11 +1124,12 @@ document.addEventListener("DOMContentLoaded", () => {
             // Implementar lógica de API aquí
         });
     }
+});
 
-    // ==========================================
-    // --- LÓGICA DE VITRINA DIGITAL ---
-    // ==========================================
-    let currentOffersCount = 0;
+// ==========================================
+// --- LÓGICA DE VITRINA DIGITAL ---
+// ==========================================
+let currentOffersCount = 0;
 
     async function loadVitrinaManager(tenderoId) {
         const selectProducto = document.getElementById("vitrina-select-producto");
@@ -1321,4 +1322,3 @@ document.addEventListener("DOMContentLoaded", () => {
             grid.appendChild(card);
         });
     }
-});
