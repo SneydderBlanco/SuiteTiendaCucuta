@@ -1122,6 +1122,7 @@ document.addEventListener("DOMContentLoaded", () => {
         btnExportBackup.addEventListener("click", () => {
             console.log("Exportando base de datos");
             // Implementar lógica de API aquí
+        });
     }
 
     // ==========================================
