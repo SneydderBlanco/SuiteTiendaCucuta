@@ -1,7 +1,7 @@
 /* Configuración de Fuentes y Estilos Globales */
 body {
     font-family: 'Inter', sans-serif;
-    min-height: max(884px, 100dvh);
+    min-height: 100dvh;
     background-color: #f8f9fa;
 }
 
