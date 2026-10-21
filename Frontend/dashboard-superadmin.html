@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html class="light h-screen overflow-hidden" lang="es">
+
+<head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>Panel SuperAdministrador - Tiendas Cúcuta</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&amp;display=swap"
+        rel="stylesheet" />
+    <!-- Material Icons -->
+    <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+    <script src="js/tailwind-config.js"></script>
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="css/style-dashboard.css">
+</head>
+
+<body class="bg-slate-50 text-slate-900 h-screen overflow-hidden flex flex-col font-['Inter'] !min-h-0">
+
+    <!-- Top Header -->
+    <header
+        class="bg-slate-900 text-white flex items-center justify-between px-4 sm:px-8 h-20 w-full shrink-0 z-40 border-b border-slate-800 shadow-md">
+        <div class="flex items-center gap-3 sm:gap-4">
+            <button id="btn-mobile-sidebar" type="button"
+                class="lg:hidden p-2 rounded-xl text-slate-300 hover:text-white hover:bg-slate-800 transition-colors"
+                aria-label="Abrir menú lateral">
+                <span class="material-symbols-outlined">menu</span>
+            </button>
+            <div class="flex items-center gap-3 cursor-pointer" onclick="window.location.href='index.html'">
+                <div
+                    class="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-600/30">
+                    <span class="material-symbols-outlined text-white">admin_panel_settings</span>
+                </div>
+                <div>
+                    <h1 class="text-lg sm:text-xl font-extrabold tracking-tight text-white leading-none">TiendasCúcuta
+                    </h1>
+                    <span
+                        class="text-[10px] font-bold uppercase tracking-widest text-indigo-400 block mt-0.5">SuperAdmin
+                        Console</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-3 sm:gap-6">
+            <div
+                class="hidden sm:flex items-center gap-2 px-3.5 py-1.5 bg-slate-800/90 border border-slate-700 rounded-full">
+                <span class="w-2 h-2 rounded-full bg-indigo-400 animate-pulse"></span>
+                <span class="text-xs font-semibold text-slate-200">Sistema Global Activo</span>
+            </div>
+            <div class="flex items-center gap-3 sm:gap-4 border-l border-slate-800 pl-3 sm:pl-6">
+                <div class="text-right">
+                    <p class="text-[11px] text-slate-400 leading-none">Rol Institucional</p>
+                    <p class="text-xs sm:text-sm font-bold text-white mt-0.5" id="superadmin-name">Super Administrador
+                    </p>
+                </div>
+                <button id="btn-header-logout" type="button"
+                    class="w-9 h-9 rounded-xl bg-slate-800 hover:bg-red-500/20 text-slate-300 hover:text-red-400 flex items-center justify-center transition-colors"
+                    title="Cerrar Sesión">
+                    <span class="material-symbols-outlined text-[20px]">logout</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Workspace Container -->
+    <div class="flex flex-1 min-h-0 overflow-hidden relative">
+
+        <!-- Mobile Sidebar Backdrop -->
+        <div id="sidebar-backdrop"
+            class="fixed inset-0 bg-slate-950/60 backdrop-blur-xs z-30 hidden lg:hidden transition-opacity"></div>
+
+        <!-- Sidebar Navigation -->
+        <aside id="superadmin-sidebar"
+            class="fixed lg:static inset-y-0 left-0 top-20 lg:top-0 z-30 w-64 bg-slate-900 text-slate-300 flex flex-col justify-between border-r border-slate-800 transform -translate-x-full lg:translate-x-0 transition-transform duration-300 shrink-0 h-[calc(100vh-5rem)] lg:h-full">
+            <div class="p-4">
+                <p class="px-4 text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-3">Módulos de Control
+                </p>
+                <nav class="flex flex-col space-y-1.5 text-sm font-medium">
+                    <a id="nav-sa-dashboard" data-target="vista-sa-dashboard"
+                        class="sa-nav-link flex items-center gap-3 px-4 py-3 rounded-xl text-white font-bold bg-indigo-600 shadow-lg shadow-indigo-600/25 cursor-pointer transition-all"
+                        href="#dashboard">
+                        <span class="material-symbols-outlined text-[20px]">space_dashboard</span>
+                        <span>Dashboard (Métricas)</span>
+                    </a>
+                    <a id="nav-sa-tiendas" data-target="vista-sa-tiendas"
+                        class="sa-nav-link flex items-center gap-3 px-4 py-3 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800/80 cursor-pointer transition-all"
+                        href="#tiendas">
+                        <span class="material-symbols-outlined text-[20px]">storefront</span>
+                        <span>Gestión de Tiendas</span>
+                    </a>
+                    <a id="nav-sa-usuarios" data-target="vista-sa-usuarios"
+                        class="sa-nav-link flex items-center gap-3 px-4 py-3 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800/80 cursor-pointer transition-all"
+                        href="#usuarios">
+                        <span class="material-symbols-outlined text-[20px]">group</span>
+                        <span>Gestión de Usuarios</span>
+                    </a>
+                </nav>
+            </div>
+
+            <!-- Sidebar Footer / Logout -->
+            <div class="p-4 border-t border-slate-800 bg-slate-950/40">
+                <button id="nav-sa-logout" type="button"
+                    class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-red-400 hover:bg-red-500/10 hover:text-red-300 font-semibold text-sm transition-colors">
+                    <span class="material-symbols-outlined text-[20px]">logout</span>
+                    <span>Cerrar Sesión</span>
+                </button>
+            </div>
+        </aside>
+
+        <!-- Scrollable Content Area -->
+        <main class="flex-1 w-full bg-slate-50 h-full overflow-y-auto p-4 sm:p-8 space-y-8">
+
+            <!-- Header Banner & Quick Filter -->
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                    <span
+                        class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-indigo-100 text-indigo-700 mb-2">
+                        <span class="material-symbols-outlined text-sm">verified_user</span>
+                        Auditoría Universitaria &amp; Control Central
+                    </span>
+                    <h2 id="sa-view-title" class="text-2xl sm:text-3xl font-black tracking-tight text-slate-900">
+                        Resumen Ejecutivo de la Plataforma
+                    </h2>
+                    <p id="sa-view-subtitle" class="text-sm text-slate-500 font-medium mt-1">
+                        Monitoreo en tiempo real de comercios registrados, usuarios activos y rendimiento comercial en
+                        Cúcuta.
+                    </p>
+                </div>
+
+                <div class="flex flex-wrap items-center gap-3">
+                    <div class="relative w-full sm:w-64">
+                        <span
+                            class="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-lg">search</span>
+                        <input id="sa-search-input" type="text"
+                            placeholder="Buscar tienda o propietario..."
+                            class="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none shadow-xs transition-all" />
+                    </div>
+                    <button id="btn-sa-refresh" type="button"
+                        class="inline-flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold rounded-xl shadow-md shadow-indigo-600/20 active:scale-95 transition-all">
+                        <span class="material-symbols-outlined text-lg">refresh</span>
+                        <span>Actualizar Datos</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- ==========================================
+                 SECCIÓN 1: TARJETAS DE KPI (REPORTES)
+                 ========================================== -->
+            <section id="seccion-sa-kpis" aria-label="Indicadores Clave de Rendimiento">
+                <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 sm:gap-6">
+                    <!-- KPI 1: Total Usuarios Activos -->
+                    <article
+                        class="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-xs hover:shadow-md transition-shadow flex flex-col justify-between">
+                        <div class="flex items-start justify-between gap-4">
+                            <div>
+                                <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Total Usuarios
+                                    Activos</p>
+                                <h3 id="kpi-total-usuarios" class="text-3xl font-black text-slate-900 mt-2">148</h3>
+                            </div>
+                            <div
+                                class="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
+                                <span class="material-symbols-outlined text-2xl">groups</span>
+                            </div>
+                        </div>
+                        <div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
+                            <span class="font-bold text-emerald-600 flex items-center gap-1">
+                                <span class="material-symbols-outlined text-sm">trending_up</span>
+                                +14% este mes
+                            </span>
+                            <span class="text-slate-400 font-medium">Clientes y Tenderos</span>
+                        </div>
+                    </article>
+
+                    <!-- KPI 2: Total Tiendas Registradas -->
+                    <article
+                        class="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-xs hover:shadow-md transition-shadow flex flex-col justify-between">
+                        <div class="flex items-start justify-between gap-4">
+                            <div>
+                                <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Total Tiendas
+                                    Registradas</p>
+                                <h3 id="kpi-total-tiendas" class="text-3xl font-black text-slate-900 mt-2">32</h3>
+                            </div>
+                            <div
+                                class="w-12 h-12 rounded-2xl bg-slate-100 text-slate-700 flex items-center justify-center shrink-0">
+                                <span class="material-symbols-outlined text-2xl">store</span>
+                            </div>
+                        </div>
+                        <div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
+                            <span class="font-bold text-indigo-600 flex items-center gap-1">
+                                <span class="material-symbols-outlined text-sm">verified</span>
+                                29 Verificadas
+                            </span>
+                            <span class="text-slate-400 font-medium">3 en revisión</span>
+                        </div>
+                    </article>
+
+                    <!-- KPI 3: Tienda Más Activa -->
+                    <article
+                        class="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-xs hover:shadow-md transition-shadow flex flex-col justify-between">
+                        <div class="flex items-start justify-between gap-4">
+                            <div class="min-w-0">
+                                <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Tienda Más Activa
+                                </p>
+                                <h3 id="kpi-tienda-activa"
+                                    class="text-lg sm:text-xl font-black text-indigo-700 mt-2 truncate"
+                                    title="Variedades Torcoroma">
+                                    Variedades Torcoroma
+                                </h3>
+                            </div>
+                            <div
+                                class="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
+                                <span class="material-symbols-outlined text-2xl">workspace_premium</span>
+                            </div>
+                        </div>
+                        <div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
+                            <span class="font-bold text-slate-700">126 transacciones</span>
+                            <span class="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 font-bold">Top #1</span>
+                        </div>
+                    </article>
+
+                    <!-- KPI 4: Producto Más Vendido/Popular -->
+                    <article
+                        class="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-xs hover:shadow-md transition-shadow flex flex-col justify-between">
+                        <div class="flex items-start justify-between gap-4">
+                            <div class="min-w-0">
+                                <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Producto Más
+                                    Vendido/Popular</p>
+                                <h3 id="kpi-producto-popular"
+                                    class="text-lg sm:text-xl font-black text-slate-900 mt-2 truncate"
+                                    title="Panela Pulverizada El Trapiche">
+                                    Panela Pulverizada
+                                </h3>
+                            </div>
+                            <div
+                                class="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+                                <span class="material-symbols-outlined text-2xl">local_fire_department</span>
+                            </div>
+                        </div>
+                        <div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
+                            <span class="font-bold text-emerald-600">412 Und. vendidas</span>
+                            <span class="text-slate-400 font-medium">Categoría: Alimentos</span>
+                        </div>
+                    </article>
+                </div>
+            </section>
+
+            <!-- ==========================================
+                 SECCIÓN 2: TABLA DE CONTROL - GESTIÓN DE TIENDAS
+                 ========================================== -->
+            <section id="seccion-sa-tiendas"
+                class="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+                <div
+                    class="px-6 py-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                        <h3 id="tiendas-table-heading" class="text-lg font-extrabold text-slate-900">Gestión de Tiendas
+                        </h3>
+                        <p class="text-xs text-slate-500 font-medium mt-0.5">Listado general de comercios afiliados a
+                            la plataforma y su estado operativo.</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <select id="sa-filter-estado"
+                            class="px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:ring-2 focus:ring-indigo-500">
+                            <option value="all">Todos los estados</option>
+                            <option value="Activa">Activas</option>
+                            <option value="En Revisión">En Revisión</option>
+                            <option value="Suspendida">Suspendidas</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Accessible Responsive Table Wrapper -->
+                <div tabindex="0" role="region" aria-labelledby="tiendas-table-heading"
+                    class="overflow-x-auto max-w-full focus:outline-none focus:ring-2 focus:ring-indigo-500/40">
+                    <table class="w-full text-left border-collapse">
+                        <thead class="sticky top-0 z-10 bg-slate-50 border-b border-slate-200/80">
+                            <tr class="text-[11px] font-extrabold uppercase tracking-wider text-slate-500">
+                                <th scope="col" class="px-6 py-4">ID</th>
+                                <th scope="col" class="px-6 py-4">Nombre de Tienda</th>
+                                <th scope="col" class="px-6 py-4">Propietario</th>
+                                <th scope="col" class="px-6 py-4 text-center">Total Productos</th>
+                                <th scope="col" class="px-6 py-4 text-center">Estado</th>
+                                <th scope="col" class="px-6 py-4 text-right">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="sa-tiendas-tbody" class="divide-y divide-slate-100 text-sm">
+                            <!-- Filas inyectadas o estáticas por defecto -->
+                            <tr class="hover:bg-slate-50/80 transition-colors" data-store-id="101"
+                                data-status="Activa">
+                                <td class="px-6 py-4 font-mono text-xs font-bold text-slate-500">#TC-101</td>
+                                <th scope="row" class="px-6 py-4 font-bold text-slate-900">
+                                    <div class="flex items-center gap-3">
+                                        <div
+                                            class="w-9 h-9 rounded-xl bg-indigo-100 text-indigo-700 font-black text-xs flex items-center justify-center shrink-0">
+                                            VT</div>
+                                        <div>
+                                            <span class="block leading-tight">Variedades Torcoroma</span>
+                                            <span class="text-[11px] font-medium text-slate-400">Barrio Torcoroma</span>
+                                        </div>
+                                    </div>
+                                </th>
+                                <td class="px-6 py-4 text-slate-700 font-medium">Carlos Andrés Rangel</td>
+                                <td class="px-6 py-4 text-center">
+                                    <span
+                                        class="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-800 font-bold text-xs">84
+                                        Productos</span>
+                                </td>
+                                <td class="px-6 py-4 text-center">
+                                    <span
+                                        class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700">
+                                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                        Activa
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-right">
+                                    <div class="inline-flex items-center justify-end gap-2">
+                                        <button type="button" data-action="view-store" data-id="101"
+                                            data-name="Variedades Torcoroma"
+                                            class="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-xs transition-all inline-flex items-center gap-1.5 active:scale-95">
+                                            <span class="material-symbols-outlined text-[16px]">visibility</span>
+                                            <span>Ver Detalles</span>
+                                        </button>
+                                        <button type="button" data-action="delete-store" data-id="101"
+                                            data-name="Variedades Torcoroma"
+                                            class="px-3 py-1.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold shadow-xs transition-all inline-flex items-center gap-1.5 active:scale-95">
+                                            <span class="material-symbols-outlined text-[16px]">delete</span>
+                                            <span>Eliminar</span>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+
+                            <tr class="hover:bg-slate-50/80 transition-colors" data-store-id="102"
+                                data-status="Activa">
+                                <td class="px-6 py-4 font-mono text-xs font-bold text-slate-500">#TC-102</td>
+                                <th scope="row" class="px-6 py-4 font-bold text-slate-900">
+                                    <div class="flex items-center gap-3">
+                                        <div
+                                            class="w-9 h-9 rounded-xl bg-indigo-100 text-indigo-700 font-black text-xs flex items-center justify-center shrink-0">
+                                            MC</div>
+                                        <div>
+                                            <span class="block leading-tight">Minimercado Caobos Express</span>
+                                            <span class="text-[11px] font-medium text-slate-400">Av. Libertadores</span>
+                                        </div>
+                                    </div>
+                                </th>
+                                <td class="px-6 py-4 text-slate-700 font-medium">Martha Lucía Gómez</td>
+                                <td class="px-6 py-4 text-center">
+                                    <span
+                                        class="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-800 font-bold text-xs">62
+                                        Productos</span>
+                                </td>
+                                <td class="px-6 py-4 text-center">
+                                    <span
+                                        class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700">
+                                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                        Activa
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-right">
+                                    <div class="inline-flex items-center justify-end gap-2">
+                                        <button type="button" data-action="view-store" data-id="102"
+                                            data-name="Minimercado Caobos Express"
+                                            class="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-xs transition-all inline-flex items-center gap-1.5 active:scale-95">
+                                            <span class="material-symbols-outlined text-[16px]">visibility</span>
+                                            <span>Ver Detalles</span>
+                                        </button>
+                                        <button type="button" data-action="delete-store" data-id="102"
+                                            data-name="Minimercado Caobos Express"
+                                            class="px-3 py-1.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold shadow-xs transition-all inline-flex items-center gap-1.5 active:scale-95">
+                                            <span class="material-symbols-outlined text-[16px]">delete</span>
+                                            <span>Eliminar</span>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+
+                            <tr class="hover:bg-slate-50/80 transition-colors" data-store-id="103"
+                                data-status="En Revisión">
+                                <td class="px-6 py-4 font-mono text-xs font-bold text-slate-500">#TC-103</td>
+                                <th scope="row" class="px-6 py-4 font-bold text-slate-900">
+                                    <div class="flex items-center gap-3">
+                                        <div
+                                            class="w-9 h-9 rounded-xl bg-amber-100 text-amber-700 font-black text-xs flex items-center justify-center shrink-0">
+                                            DA</div>
+                                        <div>
+                                            <span class="block leading-tight">Despensa La Aurora</span>
+                                            <span class="text-[11px] font-medium text-slate-400">Barrio Blanco</span>
+                                        </div>
+                                    </div>
+                                </th>
+                                <td class="px-6 py-4 text-slate-700 font-medium">Jorge Eliécer Mora</td>
+                                <td class="px-6 py-4 text-center">
+                                    <span
+                                        class="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-800 font-bold text-xs">19
+                                        Productos</span>
+                                </td>
+                                <td class="px-6 py-4 text-center">
+                                    <span
+                                        class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800">
+                                        <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                                        En Revisión
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-right">
+                                    <div class="inline-flex items-center justify-end gap-2">
+                                        <button type="button" data-action="view-store" data-id="103"
+                                            data-name="Despensa La Aurora"
+                                            class="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-xs transition-all inline-flex items-center gap-1.5 active:scale-95">
+                                            <span class="material-symbols-outlined text-[16px]">visibility</span>
+                                            <span>Ver Detalles</span>
+                                        </button>
+                                        <button type="button" data-action="delete-store" data-id="103"
+                                            data-name="Despensa La Aurora"
+                                            class="px-3 py-1.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold shadow-xs transition-all inline-flex items-center gap-1.5 active:scale-95">
+                                            <span class="material-symbols-outlined text-[16px]">delete</span>
+                                            <span>Eliminar</span>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+
+                            <tr class="hover:bg-slate-50/80 transition-colors" data-store-id="104"
+                                data-status="Activa">
+                                <td class="px-6 py-4 font-mono text-xs font-bold text-slate-500">#TC-104</td>
+                                <th scope="row" class="px-6 py-4 font-bold text-slate-900">
+                                    <div class="flex items-center gap-3">
+                                        <div
+                                            class="w-9 h-9 rounded-xl bg-indigo-100 text-indigo-700 font-black text-xs flex items-center justify-center shrink-0">
+                                            ab</div>
+                                        <div>
+                                            <span class="block leading-tight">Abastos Guaimaral</span>
+                                            <span class="text-[11px] font-medium text-slate-400">Guaimaral</span>
+                                        </div>
+                                    </div>
+                                </th>
+                                <td class="px-6 py-4 text-slate-700 font-medium">Diana Carolina Vera</td>
+                                <td class="px-6 py-4 text-center">
+                                    <span
+                                        class="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-800 font-bold text-xs">51
+                                        Productos</span>
+                                </td>
+                                <td class="px-6 py-4 text-center">
+                                    <span
+                                        class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700">
+                                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                        Activa
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-right">
+                                    <div class="inline-flex items-center justify-end gap-2">
+                                        <button type="button" data-action="view-store" data-id="104"
+                                            data-name="Abastos Guaimaral"
+                                            class="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-xs transition-all inline-flex items-center gap-1.5 active:scale-95">
+                                            <span class="material-symbols-outlined text-[16px]">visibility</span>
+                                            <span>Ver Detalles</span>
+                                        </button>
+                                        <button type="button" data-action="delete-store" data-id="104"
+                                            data-name="Abastos Guaimaral"
+                                            class="px-3 py-1.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold shadow-xs transition-all inline-flex items-center gap-1.5 active:scale-95">
+                                            <span class="material-symbols-outlined text-[16px]">delete</span>
+                                            <span>Eliminar</span>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- ==========================================
+                 SECCIÓN 3: GESTIÓN DE USUARIOS (VISTA SECUNDARIA)
+                 ========================================== -->
+            <section id="seccion-sa-usuarios"
+                class="hidden bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+                <div class="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
+                    <div>
+                        <h3 id="usuarios-table-heading" class="text-lg font-extrabold text-slate-900">Gestión de
+                            Usuarios</h3>
+                        <p class="text-xs text-slate-500 font-medium mt-0.5">Directorio de cuentas de tenderos y
+                            compradores registrados en el ecosistema.</p>
+                    </div>
+                    <span class="px-3 py-1 rounded-full bg-indigo-50 text-indigo-700 text-xs font-bold">Vista
+                        Preliminar</span>
+                </div>
+                <div tabindex="0" role="region" aria-labelledby="usuarios-table-heading" class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead class="sticky top-0 z-10 bg-slate-50 border-b border-slate-200/80">
+                            <tr class="text-[11px] font-extrabold uppercase tracking-wider text-slate-500">
+                                <th scope="col" class="px-6 py-4">ID</th>
+                                <th scope="col" class="px-6 py-4">Usuario</th>
+                                <th scope="col" class="px-6 py-4">Correo Electrónico</th>
+                                <th scope="col" class="px-6 py-4 text-center">Rol</th>
+                                <th scope="col" class="px-6 py-4 text-center">Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody id="sa-usuarios-tbody" class="divide-y divide-slate-100 text-sm">
+                            <tr class="hover:bg-slate-50/80">
+                                <td class="px-6 py-4 font-mono text-xs font-bold text-slate-500">#USR-01</td>
+                                <th scope="row" class="px-6 py-4 font-bold text-slate-900">Carlos Andrés Rangel</th>
+                                <td class="px-6 py-4 text-slate-600">carlos.rangel@tiendascucuta.co</td>
+                                <td class="px-6 py-4 text-center"><span
+                                        class="px-2.5 py-1 rounded-full bg-indigo-100 text-indigo-700 text-xs font-bold">Tendero</span>
+                                </td>
+                                <td class="px-6 py-4 text-center"><span
+                                        class="text-xs font-bold text-emerald-600">Activo</span></td>
+                            </tr>
+                            <tr class="hover:bg-slate-50/80">
+                                <td class="px-6 py-4 font-mono text-xs font-bold text-slate-500">#USR-02</td>
+                                <th scope="row" class="px-6 py-4 font-bold text-slate-900">Martha Lucía Gómez</th>
+                                <td class="px-6 py-4 text-slate-600">martha.gomez@tiendascucuta.co</td>
+                                <td class="px-6 py-4 text-center"><span
+                                        class="px-2.5 py-1 rounded-full bg-indigo-100 text-indigo-700 text-xs font-bold">Tendero</span>
+                                </td>
+                                <td class="px-6 py-4 text-center"><span
+                                        class="text-xs font-bold text-emerald-600">Activo</span></td>
+                            </tr>
+                            <tr class="hover:bg-slate-50/80">
+                                <td class="px-6 py-4 font-mono text-xs font-bold text-slate-500">#USR-03</td>
+                                <th scope="row" class="px-6 py-4 font-bold text-slate-900">Camila Fernanda Peñaranda
+                                </th>
+                                <td class="px-6 py-4 text-slate-600">camila.p@ufps.edu.co</td>
+                                <td class="px-6 py-4 text-center"><span
+                                        class="px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 text-xs font-bold">Cliente</span>
+                                </td>
+                                <td class="px-6 py-4 text-center"><span
+                                        class="text-xs font-bold text-emerald-600">Activo</span></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <!-- Modal Detalles de Tienda -->
+    <div id="sa-store-modal"
+        class="hidden fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-xs p-4">
+        <div
+            class="bg-white w-full max-w-md max-h-[90vh] flex flex-col rounded-2xl shadow-2xl overflow-hidden border border-slate-200">
+            <div class="px-6 py-4 bg-slate-900 text-white flex items-center justify-between shrink-0">
+                <div class="flex items-center gap-2.5">
+                    <span class="material-symbols-outlined text-indigo-400">storefront</span>
+                    <h3 class="text-base font-bold" id="sa-modal-store-name">Detalles de Tienda</h3>
+                </div>
+                <button id="btn-close-sa-modal" type="button"
+                    class="text-slate-400 hover:text-white transition-colors">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+            <div class="p-6 overflow-y-auto flex-1 space-y-4 text-sm">
+                <div class="p-4 rounded-xl bg-slate-50 border border-slate-100 space-y-2">
+                    <div class="flex justify-between">
+                        <span class="text-slate-500 font-medium">ID Registro:</span>
+                        <span id="sa-modal-store-id" class="font-mono font-bold text-slate-900">#TC-101</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-slate-500 font-medium">Propietario:</span>
+                        <span id="sa-modal-store-owner" class="font-bold text-slate-900">-</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-slate-500 font-medium">Inventario:</span>
+                        <span id="sa-modal-store-products" class="font-bold text-indigo-600">-</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-slate-500 font-medium">Estado:</span>
+                        <span id="sa-modal-store-status" class="font-bold text-emerald-600">-</span>
+                    </div>
+                </div>
+                <p class="text-xs text-slate-400">
+                    Este panel está preparado para conectarse con los endpoints administrativos de auditoría en el
+                    Backend.
+                </p>
+            </div>
+            <div class="px-6 py-4 border-t border-slate-100 bg-slate-50 flex justify-end shrink-0">
+                <button id="btn-accept-sa-modal" type="button"
+                    class="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-colors">
+                    Cerrar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/utils.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/superadmin.js"></script>
+</body>
+
+</html>
