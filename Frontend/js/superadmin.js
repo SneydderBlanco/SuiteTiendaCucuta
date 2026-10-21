@@ -1,7 +1,7 @@
 /**
  * superadmin.js
  * Controlador del Panel de SuperAdministrador (Tiendas Cúcuta)
- * Incluye Mapa Interactivo Leaflet.js y CRUD completo de tiendas (/api/admin/tiendas).
+ * Incluye Mapa Interactivo Leaflet.js (OpenStreetMap) y CRUD completo de tiendas (/api/admin/tiendas).
  */
 
 document.addEventListener("DOMContentLoaded", async () => {
@@ -49,7 +49,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     let map = null;
     let markersLayer = null;
 
-    // --- Inicializar Mapa Leaflet.js ---
+    // --- Inicializar Mapa Leaflet.js con OpenStreetMap ---
     function initSuperAdminMap() {
         const mapContainer = document.getElementById("sa-mapa-tiendas");
         if (!mapContainer || typeof L === "undefined") return;
@@ -60,10 +60,8 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         L.control.zoom({ position: "bottomright" }).addTo(map);
 
-        L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
-            attribution: "&copy; OpenStreetMap contributors &copy; CARTO",
-            subdomains: "abcd",
-            maxZoom: 20
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors'
         }).addTo(map);
 
         markersLayer = L.layerGroup().addTo(map);
@@ -109,9 +107,9 @@ document.addEventListener("DOMContentLoaded", async () => {
                         width: 34px;
                         height: 34px;
                         border-radius: 9999px;
-                        background: linear-gradient(135deg, #4f46e5, #3730a3);
+                        background: linear-gradient(135deg, #059669, #047857);
                         border: 2.5px solid #ffffff;
-                        box-shadow: 0 6px 14px rgba(79, 70, 229, 0.55);
+                        box-shadow: 0 6px 14px rgba(5, 150, 105, 0.45);
                         display: flex;
                         align-items: center;
                         justify-content: center;
@@ -133,21 +131,21 @@ document.addEventListener("DOMContentLoaded", async () => {
 
             marker.bindPopup(`
                 <div style="min-width: 190px; padding: 2px;">
-                    <p style="font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; color: #818cf8; margin: 0 0 2px 0;">
+                    <p style="font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; color: #059669; margin: 0 0 2px 0;">
                         #TC-${tienda.id_tendero}
                     </p>
-                    <h4 style="font-size: 14px; font-weight: 800; color: #ffffff; margin: 0 0 4px 0;">
+                    <h4 style="font-size: 14px; font-weight: 800; color: #1e293b; margin: 0 0 4px 0;">
                         ${storeTitle}
                     </h4>
-                    <p style="font-size: 12px; color: #cbd5e1; margin: 0 0 2px 0;">
+                    <p style="font-size: 12px; color: #475569; margin: 0 0 2px 0;">
                         <strong>Dueño:</strong> ${ownerName}
                     </p>
-                    <p style="font-size: 11px; color: #94a3b8; margin: 0 0 8px 0;">
+                    <p style="font-size: 11px; color: #64748b; margin: 0 0 8px 0;">
                         📍 ${address}
                     </p>
-                    <div style="display: flex; align-items: center; justify-content: space-between; border-top: 1px solid #1e293b; padding-top: 6px;">
-                        <span style="font-size: 11px; font-weight: 700; color: #38bdf8;">${totalProds} Productos</span>
-                        <button type="button" onclick="window.__openSaEditModal(${tienda.id_tendero})" style="background: #4f46e5; color: #fff; border: none; border-radius: 6px; padding: 3px 8px; font-size: 11px; font-weight: 700; cursor: pointer;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; border-top: 1px solid #e2e8f0; padding-top: 6px;">
+                        <span style="font-size: 11px; font-weight: 700; color: #059669;">${totalProds} Productos</span>
+                        <button type="button" onclick="window.__openSaEditModal(${tienda.id_tendero})" style="background: #059669; color: #fff; border: none; border-radius: 6px; padding: 3px 8px; font-size: 11px; font-weight: 700; cursor: pointer;">
                             Editar
                         </button>
                     </div>
@@ -169,7 +167,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         if (stores.length === 0) {
             tiendasTbody.innerHTML = `
                 <tr>
-                    <td colspan="6" class="px-6 py-12 text-center text-slate-400 font-semibold">
+                    <td colspan="6" class="px-6 py-12 text-center text-slate-500 font-semibold">
                         No se encontraron tiendas registradas con ese criterio.
                     </td>
                 </tr>
@@ -194,41 +192,41 @@ document.addEventListener("DOMContentLoaded", async () => {
                     .join("") || "TC";
 
                 return `
-                    <tr class="hover:bg-slate-800/50 transition-colors" data-store-id="${id}">
-                        <td class="px-6 py-4 font-mono text-xs font-bold text-indigo-400">#TC-${id}</td>
-                        <th scope="row" class="px-6 py-4 font-bold text-white">
+                    <tr class="hover:bg-slate-50 transition-colors" data-store-id="${id}">
+                        <td class="px-6 py-4 font-mono text-xs font-bold text-emerald-600">#TC-${id}</td>
+                        <th scope="row" class="px-6 py-4 font-bold text-slate-800">
                             <div class="flex items-center gap-3">
-                                <div class="w-10 h-10 rounded-xl bg-indigo-500/15 border border-indigo-500/30 text-indigo-300 font-black text-xs flex items-center justify-center shrink-0">
+                                <div class="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 font-black text-xs flex items-center justify-center shrink-0">
                                     ${initials}
                                 </div>
                                 <div>
-                                    <span class="block leading-tight text-white">${nombreTienda}</span>
-                                    <span class="text-[11px] font-medium text-slate-400 line-clamp-1">${tienda.descripcion || "Comercio local afiliado"}</span>
+                                    <span class="block leading-tight text-slate-800">${nombreTienda}</span>
+                                    <span class="text-[11px] font-medium text-slate-500 line-clamp-1">${tienda.descripcion || "Comercio local afiliado"}</span>
                                 </div>
                             </div>
                         </th>
                         <td class="px-6 py-4">
-                            <span class="block font-semibold text-slate-200">${propietario}</span>
-                            <span class="text-xs text-slate-400">${email}</span>
+                            <span class="block font-semibold text-slate-800">${propietario}</span>
+                            <span class="text-xs text-slate-500">${email}</span>
                         </td>
                         <td class="px-6 py-4">
-                            <span class="block text-xs font-medium text-slate-300">${ubicacion}</span>
+                            <span class="block text-xs font-medium text-slate-600">${ubicacion}</span>
                             <span class="text-[11px] text-slate-500">Tel: ${whatsapp}</span>
                         </td>
                         <td class="px-6 py-4 text-center">
-                            <span class="px-3 py-1 rounded-lg bg-slate-800 border border-slate-700 text-indigo-300 font-bold text-xs">
+                            <span class="px-3 py-1 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 font-bold text-xs">
                                 ${totalProductos} Productos
                             </span>
                         </td>
                         <td class="px-6 py-4 text-right">
                             <div class="inline-flex items-center justify-end gap-2">
                                 <button type="button" data-action="edit-store" data-id="${id}"
-                                    class="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-xs transition-all inline-flex items-center gap-1.5 active:scale-95">
+                                    class="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs transition-all inline-flex items-center gap-1.5 active:scale-95">
                                     <span class="material-symbols-outlined text-[16px]">edit</span>
                                     <span>Editar</span>
                                 </button>
                                 <button type="button" data-action="delete-store" data-id="${id}"
-                                    class="px-3.5 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-bold shadow-xs transition-all inline-flex items-center gap-1.5 active:scale-95">
+                                    class="px-3.5 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold shadow-xs transition-all inline-flex items-center gap-1.5 active:scale-95">
                                     <span class="material-symbols-outlined text-[16px]">delete</span>
                                     <span>Eliminar</span>
                                 </button>
@@ -427,13 +425,13 @@ document.addEventListener("DOMContentLoaded", async () => {
     function setActiveNav(activeLink) {
         const allLinks = document.querySelectorAll(".sa-nav-link");
         allLinks.forEach((link) => {
-            link.classList.remove("text-white", "font-bold", "bg-indigo-600", "shadow-lg", "shadow-indigo-600/30");
-            link.classList.add("text-slate-400", "hover:text-white", "hover:bg-slate-800");
+            link.classList.remove("text-white", "font-bold", "bg-emerald-600", "shadow-md", "shadow-emerald-600/20");
+            link.classList.add("text-slate-600", "hover:text-emerald-700", "hover:bg-emerald-50");
         });
 
         if (activeLink) {
-            activeLink.classList.remove("text-slate-400", "hover:text-white", "hover:bg-slate-800");
-            activeLink.classList.add("text-white", "font-bold", "bg-indigo-600", "shadow-lg", "shadow-indigo-600/30");
+            activeLink.classList.remove("text-slate-600", "hover:text-emerald-700", "hover:bg-emerald-50");
+            activeLink.classList.add("text-white", "font-bold", "bg-emerald-600", "shadow-md", "shadow-emerald-600/20");
         }
     }
 
