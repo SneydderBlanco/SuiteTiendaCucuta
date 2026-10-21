@@ -50,6 +50,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     // ==========================================
     // 3. Estructuras de Datos Globales del Mapa
+    setTimeout(() => { map.invalidateSize(); }, 400);
     // ==========================================
     let tiendas = [];
     const markersMap = {};      // Map para guardar referencias de marcadores: { id_tendero: marker }
