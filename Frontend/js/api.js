@@ -267,6 +267,25 @@ window.API = {
         }
     },
 
+    getAdminTiendaProductos: async (id) => {
+        const targetId = encodeURIComponent(id);
+        try {
+            let response = await fetch(`${API_URL}/api/admin/tiendas/${targetId}/productos`);
+            if (response.status === 404 && API_URL !== "http://localhost:3000") {
+                response = await fetch(`http://localhost:3000/api/admin/tiendas/${targetId}/productos`).catch(() => response);
+            }
+            if (response.status === 404) {
+                response = await fetch(`${API_URL}/api/productos/${targetId}`);
+            }
+            const isJson = (response.headers.get("content-type") || "").includes("application/json");
+            const data = isJson ? await response.json() : [];
+            return { status: response.status, data: Array.isArray(data) ? data : (data.productos || []) };
+        } catch (error) {
+            console.error("Error en API getAdminTiendaProductos:", error);
+            return { status: 500, data: [] };
+        }
+    },
+
     updateAdminTienda: async (id, payload) => {
         const targetId = encodeURIComponent(id);
         let response = await fetch(`${API_URL}/api/admin/tiendas/${targetId}`, {

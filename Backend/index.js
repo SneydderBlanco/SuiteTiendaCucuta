@@ -141,6 +141,20 @@ app.get('/api/admin/tiendas', async (req, res) => {
     }
 });
 
+app.get('/api/admin/tiendas/:id/productos', async (req, res) => {
+    const { id } = req.params;
+    try {
+        const { rows } = await db.query(
+            'SELECT * FROM productos WHERE id_tendero = $1 ORDER BY id_producto DESC',
+            [id]
+        );
+        res.json(rows);
+    } catch (err) {
+        console.error('Error en GET /api/admin/tiendas/:id/productos:', err.message);
+        res.status(500).json({ error: 'Error al obtener los productos de la tienda.' });
+    }
+});
+
 app.put('/api/admin/tiendas/:id', async (req, res) => {
     const { id } = req.params;
     const { nombre_tienda, nombre, email, ubicacion, whatsapp, descripcion } = req.body;

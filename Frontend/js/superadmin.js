@@ -220,6 +220,11 @@ document.addEventListener("DOMContentLoaded", async () => {
                         </td>
                         <td class="px-6 py-4 text-right">
                             <div class="inline-flex items-center justify-end gap-2">
+                                <button type="button" data-action="view-products" data-id="${id}"
+                                    class="px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-xs transition-all inline-flex items-center gap-1.5 active:scale-95">
+                                    <span class="material-symbols-outlined text-[16px]">visibility</span>
+                                    <span>Ver Productos</span>
+                                </button>
                                 <button type="button" data-action="edit-store" data-id="${id}"
                                     class="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs transition-all inline-flex items-center gap-1.5 active:scale-95">
                                     <span class="material-symbols-outlined text-[16px]">edit</span>
@@ -385,6 +390,112 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
     }
 
+    // --- Modal de Ver Productos de Tienda (GET /api/admin/tiendas/:id/productos) ---
+    const productsModal = document.getElementById("sa-view-products-modal");
+    const productsContainer = document.getElementById("sa-products-container");
+    const productsModalTitle = document.getElementById("sa-products-modal-title");
+    const productsModalSubtitle = document.getElementById("sa-products-modal-subtitle");
+    const productsModalCount = document.getElementById("sa-products-modal-count");
+    const btnCloseProductsModal = document.getElementById("btn-close-products-modal");
+    const btnAcceptProductsModal = document.getElementById("btn-accept-products-modal");
+
+    const DEFAULT_BOX_SVG = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiB2aWV3Qm94PSIwIDAgMjAwIDIwMCIgZmlsbD0ibm9uZSI+PHJlY3Qgd2lkdGg9IjIwMCIgaGVpZ2h0PSIyMDAiIHJ4PSIyNCIgZmlsbD0iI2YxZjVmOSIvPjxwYXRoIGQ9Ik0xMDAgNTJMMTQ0IDc2VjEyNEwxMDAgMTQ4TDU2IDEyNFY3NkwxMDAgNTJaIiBzdHJva2U9IiMxMGI5ODEiIHN0cm9rZS13aWR0aD0iOCIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIiBmaWxsPSIjZWNmZGY1Ii8+PHBhdGggZD0iTTU2IDc2TDEwMCAxMDBMMTQ0IDc2IiBzdHJva2U9IiMxMGI5ODEiIHN0cm9rZS13aWR0aD0iOCIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+PHBhdGggZD0iTTEwMCAxMDBWMTQ4IiBzdHJva2U9IiMxMGI5ODEiIHN0cm9rZS13aWR0aD0iOCIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+PC9zdmc+";
+
+    function resolveProdImg(item) {
+        const raw = item && (item.imagen_url || item.imagen);
+        if (!raw || typeof raw !== "string" || raw.trim() === "") return DEFAULT_BOX_SVG;
+        if (raw.startsWith("http") || raw.startsWith("data:")) return raw;
+        return `${window.API_URL}${raw.startsWith("/") ? "" : "/"}${raw}`;
+    }
+
+    async function openViewProductsModal(storeId) {
+        if (!productsModal || !productsContainer) return;
+        const store = allStores.find((s) => Number(s.id_tendero) === Number(storeId));
+        const storeName = store?.nombre_tienda || `Tienda #TC-${storeId}`;
+
+        if (productsModalTitle) productsModalTitle.textContent = `Productos de ${storeName}`;
+        if (productsModalSubtitle) productsModalSubtitle.textContent = `Propietario: ${store?.nombre || "N/A"} • #TC-${storeId}`;
+        if (productsModalCount) productsModalCount.textContent = "Cargando...";
+
+        productsContainer.innerHTML = `
+            <div class="py-12 text-center text-slate-500 font-medium text-sm">
+                Consultando inventario de la tienda...
+            </div>
+        `;
+        productsModal.classList.remove("hidden");
+
+        try {
+            const resp = await API.getAdminTiendaProductos(storeId);
+            const productos = Array.isArray(resp.data) ? resp.data : [];
+
+            if (productsModalCount) {
+                productsModalCount.textContent = `${productos.length} ${productos.length === 1 ? "producto registrado" : "productos registrados"}`;
+            }
+
+            if (productos.length === 0) {
+                productsContainer.innerHTML = `
+                    <div class="py-12 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+                        <span class="material-symbols-outlined text-4xl text-slate-400 mb-2 block">inventory_2</span>
+                        <p class="text-sm font-bold text-slate-700">Esta tienda tiene 0 productos registrados</p>
+                        <p class="text-xs text-slate-500 mt-1">El comerciante aún no ha cargado artículos en su inventario.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            productsContainer.innerHTML = `
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                    ${productos
+                        .map((p) => {
+                            const imgUrl = resolveProdImg(p);
+                            const precio = typeof Utils !== "undefined" && Utils.formatCurrency
+                                ? Utils.formatCurrency(p.precio_venta)
+                                : `$${Number(p.precio_venta || 0).toLocaleString("es-CO")}`;
+                            const unidad = p.unidad_medida || "Unidad (Und)";
+                            return `
+                                <div class="flex items-center gap-3.5 p-3.5 rounded-xl border border-slate-200 bg-white hover:border-emerald-300 hover:shadow-xs transition-all">
+                                    <img src="${imgUrl}" alt="${p.nombre || "Producto"}"
+                                        onerror="this.onerror=null;this.src='${DEFAULT_BOX_SVG}';"
+                                        class="w-14 h-14 rounded-xl object-cover bg-slate-100 border border-slate-200 shrink-0" />
+                                    <div class="min-w-0 flex-1">
+                                        <h4 class="font-bold text-slate-800 text-sm truncate">${p.nombre || "Sin nombre"}</h4>
+                                        <p class="text-[11px] text-slate-500 uppercase font-semibold truncate">
+                                            ${p.marca || "S/M"} • ${p.categoria || "General"}
+                                        </p>
+                                        <div class="mt-1.5 flex items-center justify-between gap-2">
+                                            <span class="text-sm font-black text-emerald-600">${precio}</span>
+                                            <span class="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 font-bold text-[11px]">
+                                                Stock: ${p.stock ?? 0} (${unidad})
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+                        })
+                        .join("")}
+                </div>
+            `;
+        } catch (err) {
+            productsContainer.innerHTML = `
+                <div class="py-12 text-center text-red-600 font-semibold text-sm">
+                    Error al cargar los productos de esta tienda.
+                </div>
+            `;
+        }
+    }
+
+    function closeViewProductsModal() {
+        if (productsModal) productsModal.classList.add("hidden");
+    }
+
+    if (btnCloseProductsModal) btnCloseProductsModal.addEventListener("click", closeViewProductsModal);
+    if (btnAcceptProductsModal) btnAcceptProductsModal.addEventListener("click", closeViewProductsModal);
+    if (productsModal) {
+        productsModal.addEventListener("click", (e) => {
+            if (e.target === productsModal) closeViewProductsModal();
+        });
+    }
+
     // Delegación de eventos en la tabla
     if (tiendasTbody) {
         tiendasTbody.addEventListener("click", (e) => {
@@ -393,7 +504,9 @@ document.addEventListener("DOMContentLoaded", async () => {
             const action = btn.getAttribute("data-action");
             const id = btn.getAttribute("data-id");
 
-            if (action === "edit-store") {
+            if (action === "view-products") {
+                openViewProductsModal(id);
+            } else if (action === "edit-store") {
                 openEditModal(id);
             } else if (action === "delete-store") {
                 handleDeleteStore(id);
