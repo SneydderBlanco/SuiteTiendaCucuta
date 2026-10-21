@@ -1,3 +1,13 @@
+var DEFAULT_PRODUCT_IMAGE = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiB2aWV3Qm94PSIwIDAgMjAwIDIwMCIgZmlsbD0ibm9uZSI+PHJlY3Qgd2lkdGg9IjIwMCIgaGVpZ2h0PSIyMDAiIHJ4PSIyNCIgZmlsbD0iI2YxZjVmOSIvPjxwYXRoIGQ9Ik0xMDAgNTJMMTQ0IDc2VjEyNEwxMDAgMTQ4TDU2IDEyNFY3NkwxMDAgNTJaIiBzdHJva2U9IiMxMGI5ODEiIHN0cm9rZS13aWR0aD0iOCIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIiBmaWxsPSIjZWNmZGY1Ii8+PHBhdGggZD0iTTU2IDc2TDEwMCAxMDBMMTQ0IDc2IiBzdHJva2U9IiMxMGI5ODEiIHN0cm9rZS13aWR0aD0iOCIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+PHBhdGggZD0iTTEwMCAxMDBWMTQ4IiBzdHJva2U9IiMxMGI5ODEiIHN0cm9rZS13aWR0aD0iOCIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+PC9zdmc+";
+window.DEFAULT_PRODUCT_IMAGE = DEFAULT_PRODUCT_IMAGE;
+
+function resolveProductImage(item) {
+    const raw = item && (item.imagen_url || item.imagen);
+    if (!raw || typeof raw !== "string" || raw.trim() === "") return DEFAULT_PRODUCT_IMAGE;
+    if (raw.startsWith("http") || raw.startsWith("data:")) return raw;
+    return `${window.API_URL}${raw.startsWith("/") ? "" : "/"}${raw}`;
+}
+
 document.addEventListener("DOMContentLoaded", () => {
     const userName = localStorage.getItem("userName");
     const userRole = localStorage.getItem("userRole");
@@ -548,7 +558,7 @@ async function loadProducts(tenderoId) {
     <td class="px-8 py-6 font-mono text-xs text-on-surface-variant">#LM-${p.id || p.id_producto || 'XX'}</td>
     <td class="px-8 py-6">
         <div class="flex items-center gap-3">
-            ${p.imagen_url ? `<img src="${p.imagen_url.startsWith('http') ? p.imagen_url : window.API_URL + p.imagen_url}" alt="${p.nombre}" class="w-10 h-10 rounded-lg object-cover bg-white shrink-0"/>` : `<div class="w-10 h-10 rounded-lg bg-surface-container-high flex items-center justify-center shrink-0"><span class="material-symbols-outlined text-on-surface-variant text-sm">image</span></div>`}
+            <img src="${resolveProductImage(p)}" alt="${p.nombre}" onerror="this.onerror=null;this.src=window.DEFAULT_PRODUCT_IMAGE;" class="w-10 h-10 rounded-lg object-cover bg-white shrink-0"/>
             <div>
                 <span class="font-bold text-on-surface block leading-tight">${p.nombre}</span>
                 <span class="text-[10px] text-slate-400 uppercase">(${p.marca || 'S/M'})</span>
@@ -611,12 +621,12 @@ async function loadReportes(tenderoId) {
                 topList.innerHTML = '<p class="text-sm text-slate-500 text-center py-4 font-medium">No hay ventas registradas aún.</p>';
             } else {
                 topResp.data.forEach((p, index) => {
-                    const imgUrl = p.imagen_url ? (p.imagen_url.startsWith('http') ? p.imagen_url : `${window.API_URL}${p.imagen_url}`) : 'https://placehold.co/400x300/e2e8f0/475569?text=Sin+Imagen';
+                    const imgUrl = resolveProductImage(p);
                     topList.innerHTML += `
                     <div class="flex items-center justify-between group py-1">
                         <div class="flex items-center gap-4">
                             <div class="relative">
-                                <img src="${imgUrl}" alt="${p.nombre}" class="w-12 h-12 rounded-xl object-cover bg-surface-container shadow-sm group-hover:shadow-md transition-all"/>
+                                <img src="${imgUrl}" alt="${p.nombre}" onerror="this.onerror=null;this.src=window.DEFAULT_PRODUCT_IMAGE;" class="w-12 h-12 rounded-xl object-cover bg-surface-container shadow-sm group-hover:shadow-md transition-all"/>
                                 <div class="absolute -top-2 -right-2 w-6 h-6 bg-primary text-white text-[10px] font-black rounded-full flex items-center justify-center border-2 border-white shadow-sm">
                                     #${index + 1}
                                 </div>
@@ -782,7 +792,7 @@ function renderStorefrontGrid(products) {
 
     products.forEach(p => {
         const idProd = p.id || p.id_producto;
-        const imgUrl = p.imagen_url ? (p.imagen_url.startsWith('http') ? p.imagen_url : `${window.API_URL}${p.imagen_url}`) : 'https://placehold.co/400x400/e2e8f0/475569?text=Producto';
+        const imgUrl = resolveProductImage(p);
         
         const activeOffer = getActiveStorefrontOffer(idProd);
         
@@ -817,7 +827,7 @@ function renderStorefrontGrid(products) {
         card.setAttribute('data-id', idProd);
         card.innerHTML = `
             <div class="aspect-square bg-surface-container overflow-hidden relative">
-                <img src="${imgUrl}" alt="${p.nombre}" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"/>
+                <img src="${imgUrl}" alt="${p.nombre}" onerror="this.onerror=null;this.src=window.DEFAULT_PRODUCT_IMAGE;" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"/>
                 
                 <div class="absolute top-3 left-3">
                     <span class="px-2.5 py-1 bg-black/60 backdrop-blur-md text-white text-[10px] font-bold uppercase tracking-wider rounded-lg">${p.categoria}</span>
@@ -938,7 +948,7 @@ async function loadDashboard(tenderoId) {
                 containerTop.innerHTML = '<div class="text-center py-8 text-slate-500 font-medium">Aún no hay ventas registradas hoy.</div>';
             } else {
                 top_productos.forEach((prod, index) => {
-                    const fullImgUrl = prod.imagen_url ? (prod.imagen_url.startsWith('http') ? prod.imagen_url : `${window.API_URL}${prod.imagen_url}`) : 'img/default-product.png';
+                    const fullImgUrl = resolveProductImage(prod);
                     
                     let medalIcon = '';
                     let medalColor = '';
@@ -949,7 +959,7 @@ async function loadDashboard(tenderoId) {
                     containerTop.innerHTML += `
                         <div class="flex items-center gap-4 bg-surface-container-lowest p-3 rounded-xl border border-outline-variant/10 shadow-sm hover:shadow-md transition-shadow">
                             <div class="relative w-12 h-12 rounded-lg bg-surface-container flex items-center justify-center overflow-hidden shrink-0">
-                                <img src="${fullImgUrl}" class="object-cover w-full h-full" alt="${prod.nombre}" onerror="this.src='img/default-product.png'">
+                                <img src="${fullImgUrl}" class="object-cover w-full h-full" alt="${prod.nombre}" onerror="this.onerror=null;this.src=window.DEFAULT_PRODUCT_IMAGE;">
                             </div>
                             <div class="flex-1 min-w-0">
                                 <h4 class="font-bold text-on-surface truncate text-sm">${prod.nombre}</h4>
@@ -1141,6 +1151,16 @@ function updateStoreDOM(settings) {
         const clientSettingsMetric = document.getElementById("contador-clientes-settings");
         if (clientSettingsMetric) clientSettingsMetric.textContent = settings.totalClientes;
     }
+}
+
+var DEFAULT_PRODUCT_IMAGE = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiB2aWV3Qm94PSIwIDAgMjAwIDIwMCIgZmlsbD0ibm9uZSI+PHJlY3Qgd2lkdGg9IjIwMCIgaGVpZ2h0PSIyMDAiIHJ4PSIyNCIgZmlsbD0iI2YxZjVmOSIvPjxwYXRoIGQ9Ik0xMDAgNTJMMTQ0IDc2VjEyNEwxMDAgMTQ4TDU2IDEyNFY3NkwxMDAgNTJaIiBzdHJva2U9IiMxMGI5ODEiIHN0cm9rZS13aWR0aD0iOCIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIiBmaWxsPSIjZWNmZGY1Ii8+PHBhdGggZD0iTTU2IDc2TDEwMCAxMDBMMTQ0IDc2IiBzdHJva2U9IiMxMGI5ODEiIHN0cm9rZS13aWR0aD0iOCIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+PHBhdGggZD0iTTEwMCAxMDBWMTQ4IiBzdHJva2U9IiMxMGI5ODEiIHN0cm9rZS13aWR0aD0iOCIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+PC9zdmc+";
+window.DEFAULT_PRODUCT_IMAGE = DEFAULT_PRODUCT_IMAGE;
+
+function resolveProductImage(item) {
+    const raw = item && (item.imagen_url || item.imagen);
+    if (!raw || typeof raw !== "string" || raw.trim() === "") return DEFAULT_PRODUCT_IMAGE;
+    if (raw.startsWith("http") || raw.startsWith("data:")) return raw;
+    return `${window.API_URL}${raw.startsWith("/") ? "" : "/"}${raw}`;
 }
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -1460,7 +1480,7 @@ let currentOffersCount = 0;
             
             const imgUrl = o.imagen_url 
                 ? (o.imagen_url.startsWith('http') ? o.imagen_url : `${window.API_URL}${o.imagen_url}`) 
-                : 'https://placehold.co/300x300/e2e8f0/475569?text=Sin+Imagen';
+                : DEFAULT_PRODUCT_IMAGE;
 
             // Formatear fecha de vigencia a algo legible (dd/mm/aaaa)
             let fechaLegible = o.vigencia_fecha;
@@ -1481,7 +1501,7 @@ let currentOffersCount = 0;
             card.innerHTML = `
                 <!-- Image & Discount Badge -->
                 <div class="aspect-video w-full bg-slate-50 relative overflow-hidden flex items-center justify-center border-b border-slate-100 dark:border-slate-800">
-                    <img src="${imgUrl}" class="object-cover w-full h-full group-hover:scale-102 transition-transform duration-500" alt="${o.nombre}">
+                    <img src="${imgUrl}" onerror="this.onerror=null;this.src=window.DEFAULT_PRODUCT_IMAGE;" class="object-cover w-full h-full group-hover:scale-102 transition-transform duration-500" alt="${o.nombre}">
                     <span class="absolute top-3 left-3 bg-red-600 text-white text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded shadow-sm">
                         -${descuentoPct}% OFF
                     </span>
