@@ -127,7 +127,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             const storeTitle = tienda.nombre_tienda || "Tienda Sin Nombre";
             const ownerName = tienda.nombre || "Propietario";
             const address = tienda.ubicacion || "Cúcuta, Norte de Santander";
-            const totalProds = tienda.total_productos ?? 0;
+            const totalProds = parseInt(tienda.total_productos, 10) || 0;
 
             marker.bindPopup(`
                 <div style="min-width: 190px; padding: 2px;">
@@ -183,7 +183,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 const email = tienda.email || "Sin correo";
                 const ubicacion = tienda.ubicacion || "Sin dirección registrada";
                 const whatsapp = tienda.whatsapp || "Sin teléfono";
-                const totalProductos = tienda.total_productos ?? 0;
+                const totalProductos = parseInt(tienda.total_productos, 10) || 0;
                 const initials = nombreTienda
                     .split(" ")
                     .filter(Boolean)
@@ -366,7 +366,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     async function handleDeleteStore(storeId) {
         const store = allStores.find((s) => Number(s.id_tendero) === Number(storeId));
         const storeName = store?.nombre_tienda || `#TC-${storeId}`;
-        const prodCount = store?.total_productos ?? 0;
+        const prodCount = parseInt(store?.total_productos, 10) || 0;
 
         const confirmed = confirm(
             `¿Estás seguro de que deseas ELIMINAR la tienda "${storeName}"?\n\n⚠️ Esta acción eliminará en cascada la tienda y sus ${prodCount} productos asociados de la base de datos.`

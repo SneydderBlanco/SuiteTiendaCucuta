@@ -235,14 +235,27 @@ window.API = {
                 return await response.json();
             }
             const fallbackTiendas = await window.API.getTiendas();
+            const allProds = await window.API.buscarProductosGlobal("").catch(() => []);
+            const countsByStore = {};
+            if (Array.isArray(allProds)) {
+                allProds.forEach((p) => {
+                    const tid = p.id_tendero || p.id_tienda;
+                    if (tid != null) countsByStore[tid] = (countsByStore[tid] || 0) + 1;
+                });
+            }
+            const enrichedTiendas = fallbackTiendas.map((t) => ({
+                ...t,
+                total_productos: t.total_productos != null ? parseInt(t.total_productos, 10) : (countsByStore[t.id_tendero] || 0)
+            }));
+            const sortedFallback = [...enrichedTiendas].sort((a, b) => (parseInt(b.total_productos, 10) || 0) - (parseInt(a.total_productos, 10) || 0));
             return {
                 success: true,
-                tiendas: fallbackTiendas,
+                tiendas: enrichedTiendas,
                 metricas: {
-                    total_usuarios: fallbackTiendas.length + 6,
-                    total_tiendas: fallbackTiendas.length,
-                    tienda_mas_activa: fallbackTiendas[0]?.nombre_tienda || "Variedades Torcoroma",
-                    producto_popular: "Panela Pulverizada"
+                    total_usuarios: enrichedTiendas.length + 6,
+                    total_tiendas: enrichedTiendas.length,
+                    tienda_mas_activa: sortedFallback[0]?.nombre_tienda || "Variedades Torcoroma",
+                    producto_popular: allProds[0]?.nombre || "Panela Pulverizada"
                 }
             };
         } catch (error) {

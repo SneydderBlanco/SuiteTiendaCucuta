@@ -881,11 +881,11 @@ app.get('/api/admin/tiendas', async (req, res) => {
                 t.whatsapp,
                 t.logo_url,
                 COALESCE(t.rol, 'tendero') AS rol,
-                COUNT(p.id_producto)::INT AS total_productos
+                COUNT(p.id_producto) AS total_productos
             FROM tendero t
-            LEFT JOIN productos p ON p.id_tendero = t.id_tendero
+            LEFT JOIN productos p ON t.id_tendero = p.id_tendero
             WHERE COALESCE(t.rol, 'tendero') != 'superadmin'
-            GROUP BY t.id_tendero
+            GROUP BY t.id_tendero, t.nombre, t.email, t.nombre_tienda, t.descripcion, t.ubicacion, t.latitud, t.longitud, t.whatsapp, t.logo_url, t.rol
             ORDER BY t.id_tendero ASC
         `;
         const { rows: tiendas } = await db.query(tiendasQuery);
@@ -897,7 +897,7 @@ app.get('/api/admin/tiendas', async (req, res) => {
 
         let tiendaMasActiva = 'Variedades Torcoroma';
         if (tiendas.length > 0) {
-            const sortedByProd = [...tiendas].sort((a, b) => (b.total_productos || 0) - (a.total_productos || 0));
+            const sortedByProd = [...tiendas].sort((a, b) => (parseInt(b.total_productos, 10) || 0) - (parseInt(a.total_productos, 10) || 0));
             if (sortedByProd[0]?.nombre_tienda) {
                 tiendaMasActiva = sortedByProd[0].nombre_tienda;
             }
