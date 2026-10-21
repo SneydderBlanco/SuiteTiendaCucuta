@@ -70,6 +70,39 @@ app.get('/api/tiendas', async (req, res) => {
 
 
 // Endpoint para OBTENER los productos de un tendero individual
+app.get('/api/productos/buscar', async (req, res) => {
+    const { q = '' } = req.query;
+    try {
+        const searchTerm = `%${q.trim()}%`;
+        const queryText = `
+            SELECT 
+                p.id_producto,
+                p.nombre,
+                p.marca,
+                p.categoria,
+                p.precio_venta,
+                p.stock,
+                p.imagen_url,
+                p.id_tendero,
+                t.id_tendero AS id_tienda,
+                t.nombre_tienda,
+                t.ubicacion,
+                t.logo_url
+            FROM productos p
+            JOIN tendero t ON p.id_tendero = t.id_tendero
+            WHERE p.nombre ILIKE $1 
+               OR COALESCE(p.marca, '') ILIKE $1 
+               OR COALESCE(p.categoria, '') ILIKE $1
+            ORDER BY p.nombre ASC
+        `;
+        const { rows } = await db.query(queryText, [searchTerm]);
+        res.json(rows);
+    } catch (err) {
+        console.error('Error buscando productos globalmente:', err.message);
+        res.status(500).json({ error: 'Error del servidor al buscar productos' });
+    }
+});
+
 app.get('/api/productos/:id_tendero', async (req, res) => {
     const { id_tendero } = req.params;
     try {

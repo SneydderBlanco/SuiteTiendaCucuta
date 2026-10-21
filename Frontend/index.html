@@ -49,6 +49,18 @@
                 Descubre el Corazón <br />Comercial de <span class="text-emerald-600">Cúcuta</span>
             </h1>
 
+            <!-- Selector de Modo de Búsqueda (Tabs) -->
+            <div class="inline-flex items-center p-1.5 bg-white/90 backdrop-blur-md border border-slate-200/80 rounded-2xl shadow-sm mb-4 gap-1">
+                <button id="tab-tiendas" type="button" data-mode="tiendas" class="search-mode-tab flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-extrabold uppercase tracking-wider transition-all duration-200 bg-emerald-600 text-white shadow-md shadow-emerald-600/20 cursor-pointer">
+                    <span class="material-symbols-outlined text-[18px]">storefront</span>
+                    <span>Buscar Tiendas</span>
+                </button>
+                <button id="tab-productos" type="button" data-mode="productos" class="search-mode-tab flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-extrabold uppercase tracking-wider transition-all duration-200 text-slate-600 hover:text-emerald-700 hover:bg-slate-50 cursor-pointer">
+                    <span class="material-symbols-outlined text-[18px]">shopping_bag</span>
+                    <span>Buscar Productos</span>
+                </button>
+            </div>
+
             <div class="w-full max-w-5xl flex flex-col md:flex-row gap-4 items-stretch justify-center">
                 <div class="flex-grow flex items-center p-2 bg-white rounded-xl shadow-lg border border-slate-100">
                     <div class="flex-grow flex items-center px-4 gap-3 bg-slate-50 rounded-lg">
@@ -56,7 +68,7 @@
                         <input id="search-input" class="w-full py-4 bg-transparent border-none focus:ring-0 outline-none text-slate-800"
                             placeholder="¿Qué tienda o negocio buscas hoy en Cúcuta?..." type="text" />
                     </div>
-                    <button class="bg-emerald-600 hover:bg-emerald-500 text-white px-8 py-4 rounded-lg font-bold transition-all shadow-md active:scale-95 ml-2">Buscar</button>
+                    <button id="search-btn" type="button" class="bg-emerald-600 hover:bg-emerald-500 text-white px-8 py-4 rounded-lg font-bold transition-all shadow-md active:scale-95 ml-2 cursor-pointer">Buscar</button>
                 </div>
                 
                 <!-- Botón Mapa / Geolocalización (Mockup 11.1) -->
@@ -67,7 +79,7 @@
             </div>
         </section>
 
-        <section class="max-w-screen-2xl mx-auto px-6 lg:px-12 py-16">
+        <section id="tiendas-section" class="max-w-screen-2xl mx-auto px-6 lg:px-12 py-16">
             <div class="flex flex-col md:flex-row md:items-center justify-between mb-12 gap-4">
                 <div>
                     <h2 class="text-3xl font-extrabold tracking-tighter uppercase">Nuestras Tiendas</h2>
@@ -82,6 +94,22 @@
             <!-- Contenedor Principal de Tiendas a Pantalla Completa -->
             <div id="tiendas-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8">
                 <p class="text-slate-500">Explorando tiendas locales en Cúcuta...</p>
+            </div>
+        </section>
+        <!-- Sección de Resultados de Búsqueda Global de Productos -->
+        <section id="productos-section" class="max-w-screen-2xl mx-auto px-6 lg:px-12 py-16 hidden">
+            <div class="flex flex-col md:flex-row md:items-center justify-between mb-12 gap-4">
+                <div>
+                    <h2 class="text-3xl font-extrabold tracking-tighter uppercase">Resultados de Productos</h2>
+                    <p id="productos-subtitle" class="text-slate-500 text-sm mt-1">Productos disponibles en nuestras tiendas aliadas de Cúcuta</p>
+                </div>
+                <button id="btn-volver-tiendas" type="button" class="flex items-center gap-1.5 px-4 py-2.5 bg-slate-100 hover:bg-emerald-50 text-slate-700 hover:text-emerald-700 font-bold rounded-xl text-xs transition-all self-start cursor-pointer">
+                    <span class="material-symbols-outlined text-[16px]">storefront</span>
+                    <span>Ver Nuestras Tiendas</span>
+                </button>
+            </div>
+
+            <div id="productos-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8">
             </div>
         </section>
     </main>

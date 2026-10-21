@@ -50,6 +50,17 @@ window.API = {
         }
     },
 
+    buscarProductosGlobal: async (query = "") => {
+        try {
+            const response = await fetch(`${API_URL}/api/productos/buscar?q=${encodeURIComponent(query)}`);
+            if (!response.ok) throw new Error("Error al buscar productos globalmente");
+            return await response.json();
+        } catch (error) {
+            console.error("Error en API buscarProductosGlobal:", error);
+            return [];
+        }
+    },
+
     getProductosTendero: async (tenderoId) => {
         const response = await fetch(`${API_URL}/api/productos/${tenderoId}`);
         if (!response.ok) throw new Error("Fallo al obtener inventario del tendero");
