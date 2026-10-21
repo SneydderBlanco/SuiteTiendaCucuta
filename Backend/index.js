@@ -19,7 +19,7 @@ const storage = multer.diskStorage({
         cb(null, uniqueSuffix + path.extname(file.originalname));
     }
 });
-const upload = multer({ storage: storage });
+const upload = require('./middlewares/upload');
 
 function hashPassword(password) {
     return crypto.createHash('sha256').update(password).digest('hex');
@@ -118,7 +118,7 @@ app.get('/api/productos/:id_tendero', async (req, res) => {
 // Endpoint para INSERTAR mediante Modal un producto al tendero individual
 app.post('/api/productos', upload.single('imagen'), async (req, res) => {
     const { id_tendero, nombre, marca, categoria, precio_venta, stock } = req.body;
-    const imagen_url = req.file ? `/uploads/${req.file.filename}` : null;
+    const imagen_url = req.file ? (req.file.path || `/uploads/${req.file.filename}`) : null;
     try {
         await db.query('ALTER TABLE productos ADD COLUMN IF NOT EXISTS imagen_url TEXT');
         const text = 'INSERT INTO productos(id_tendero, nombre, marca, categoria, precio_venta, stock, imagen_url) VALUES($1, $2, $3, $4, $5, $6, $7) RETURNING *';
@@ -156,7 +156,7 @@ app.put('/api/productos/:id', upload.single('imagen'), async (req, res) => {
         await db.query('ALTER TABLE productos ADD COLUMN IF NOT EXISTS imagen_url TEXT');
         let text, values;
         if (req.file) {
-            const imagen_url = `/uploads/${req.file.filename}`;
+            const imagen_url = req.file.path || `/uploads/${req.file.filename}`;
             text = `
                 UPDATE productos 
                 SET nombre = $1, marca = $2, categoria = $3, precio_venta = $4, stock = $5, imagen_url = $6 
@@ -329,10 +329,10 @@ app.put('/api/tienda/configurar/:id_tendero', upload.fields([{ name: 'logo', max
 
         if (req.files) {
             if (req.files['logo'] && req.files['logo'][0]) {
-                logo_url = `/uploads/${req.files['logo'][0].filename}`;
+                logo_url = req.files['logo'][0].path || `/uploads/${req.files['logo'][0].filename}`;
             }
             if (req.files['banner'] && req.files['banner'][0]) {
-                banner_url = `/uploads/${req.files['banner'][0].filename}`;
+                banner_url = req.files['banner'][0].path || `/uploads/${req.files['banner'][0].filename}`;
             }
         }
 
