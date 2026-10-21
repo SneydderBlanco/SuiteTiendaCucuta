@@ -42,8 +42,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     }).addTo(map);
 
     // Tile Layer: CartoDB Positron (Premium aesthetic, light and clean)
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
+        attribution: '&copy; Esri, HERE, Garmin, FAO, NOAA, USGS',
         subdomains: 'abc',
         maxZoom: 20
     }).addTo(map);
