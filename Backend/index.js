@@ -82,6 +82,7 @@ app.get('/api/productos/buscar', async (req, res) => {
                 p.categoria,
                 p.precio_venta,
                 p.stock,
+                p.unidad_medida,
                 p.imagen_url,
                 p.id_tendero,
                 t.id_tendero AS id_tienda,
@@ -117,12 +118,13 @@ app.get('/api/productos/:id_tendero', async (req, res) => {
 
 // Endpoint para INSERTAR mediante Modal un producto al tendero individual
 app.post('/api/productos', upload.single('imagen'), async (req, res) => {
-    const { id_tendero, nombre, marca, categoria, precio_venta, stock } = req.body;
+    const { id_tendero, nombre, marca, categoria, unidad_medida, precio_venta, stock } = req.body;
     const imagen_url = req.file ? (req.file.path || `/uploads/${req.file.filename}`) : null;
     try {
         await db.query('ALTER TABLE productos ADD COLUMN IF NOT EXISTS imagen_url TEXT');
-        const text = 'INSERT INTO productos(id_tendero, nombre, marca, categoria, precio_venta, stock, imagen_url) VALUES($1, $2, $3, $4, $5, $6, $7) RETURNING *';
-        const values = [id_tendero, nombre, marca, categoria, parseFloat(precio_venta), parseInt(stock, 10), imagen_url];
+        await db.query("ALTER TABLE productos ADD COLUMN IF NOT EXISTS unidad_medida VARCHAR(50) DEFAULT 'Unidad (Und)'");
+        const text = 'INSERT INTO productos(id_tendero, nombre, marca, categoria, unidad_medida, precio_venta, stock, imagen_url) VALUES($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *';
+        const values = [id_tendero, nombre, marca, (categoria || '').trim(), unidad_medida || 'Unidad (Und)', parseFloat(precio_venta), parseInt(stock, 10), imagen_url];
         const result = await db.query(text, values);
         res.json({ success: true, producto: result.rows[0] });
     } catch (err) {
@@ -151,27 +153,28 @@ app.delete('/api/productos/:id', async (req, res) => {
 // Endpoint para ACTUALIZAR un producto
 app.put('/api/productos/:id', upload.single('imagen'), async (req, res) => {
     const { id } = req.params;
-    const { nombre, marca, categoria, precio_venta, stock } = req.body;
+    const { nombre, marca, categoria, unidad_medida, precio_venta, stock } = req.body;
     try {
         await db.query('ALTER TABLE productos ADD COLUMN IF NOT EXISTS imagen_url TEXT');
+        await db.query("ALTER TABLE productos ADD COLUMN IF NOT EXISTS unidad_medida VARCHAR(50) DEFAULT 'Unidad (Und)'");
         let text, values;
         if (req.file) {
             const imagen_url = req.file.path || `/uploads/${req.file.filename}`;
             text = `
                 UPDATE productos 
-                SET nombre = $1, marca = $2, categoria = $3, precio_venta = $4, stock = $5, imagen_url = $6 
-                WHERE id_producto = $7 
+                SET nombre = $1, marca = $2, categoria = $3, unidad_medida = $4, precio_venta = $5, stock = $6, imagen_url = $7 
+                WHERE id_producto = $8 
                 RETURNING *
             `;
-            values = [nombre, marca, categoria, parseFloat(precio_venta), parseInt(stock, 10), imagen_url, id];
+            values = [nombre, marca, (categoria || '').trim(), unidad_medida || 'Unidad (Und)', parseFloat(precio_venta), parseInt(stock, 10), imagen_url, id];
         } else {
             text = `
                 UPDATE productos 
-                SET nombre = $1, marca = $2, categoria = $3, precio_venta = $4, stock = $5 
-                WHERE id_producto = $6 
+                SET nombre = $1, marca = $2, categoria = $3, unidad_medida = $4, precio_venta = $5, stock = $6 
+                WHERE id_producto = $7 
                 RETURNING *
             `;
-            values = [nombre, marca, categoria, parseFloat(precio_venta), parseInt(stock, 10), id];
+            values = [nombre, marca, (categoria || '').trim(), unidad_medida || 'Unidad (Und)', parseFloat(precio_venta), parseInt(stock, 10), id];
         }
         const result = await db.query(text, values);
         
@@ -861,6 +864,7 @@ app.listen(port, async () => {
             )
         `);
         console.log("Tabla 'vitrina_digital' verificada/creada con éxito en PostgreSQL.");
+        await db.query("ALTER TABLE productos ADD COLUMN IF NOT EXISTS unidad_medida VARCHAR(50) DEFAULT 'Unidad (Und)'");
     } catch (err) {
         console.error("Error al inicializar la tabla 'vitrina_digital':", err.message);
     }

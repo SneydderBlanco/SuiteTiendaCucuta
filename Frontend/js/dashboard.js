@@ -211,6 +211,8 @@ document.addEventListener("DOMContentLoaded", () => {
         document.getElementById('edit-prod-nombre').value = product.nombre;
         document.getElementById('edit-prod-marca').value = product.marca || '';
         document.getElementById('edit-prod-categoria').value = product.categoria;
+        const editUnidadEl = document.getElementById('edit-prod-unidad');
+        if (editUnidadEl) editUnidadEl.value = product.unidad_medida || 'Unidad (Und)';
         document.getElementById('edit-prod-precio').value = product.precio_venta;
         document.getElementById('edit-prod-stock').value = product.stock;
 
@@ -244,6 +246,8 @@ document.addEventListener("DOMContentLoaded", () => {
         formData.append("nombre", document.getElementById("reg-prod-nombre").value);
         formData.append("marca", document.getElementById("reg-prod-marca").value);
         formData.append("categoria", document.getElementById("reg-prod-categoria").value);
+        const regUnidadEl = document.getElementById("reg-prod-unidad");
+        formData.append("unidad_medida", regUnidadEl ? regUnidadEl.value : "Unidad (Und)");
         formData.append("precio_venta", document.getElementById("reg-prod-precio").value);
         formData.append("stock", document.getElementById("reg-prod-stock").value);
         
@@ -301,6 +305,8 @@ document.addEventListener("DOMContentLoaded", () => {
             formData.append("nombre", document.getElementById("edit-prod-nombre").value);
             formData.append("marca", document.getElementById("edit-prod-marca").value);
             formData.append("categoria", document.getElementById("edit-prod-categoria").value);
+            const editUnidadInput = document.getElementById("edit-prod-unidad");
+            formData.append("unidad_medida", editUnidadInput ? editUnidadInput.value : "Unidad (Und)");
             formData.append("precio_venta", precio);
             formData.append("stock", stock);
 
@@ -374,6 +380,13 @@ async function loadProducts(tenderoId) {
         if (resp.status === 200) {
             const productos = resp.data;
             window.loadedProducts = productos; // Store globally for edit modal
+            const datalistCategorias = document.getElementById("categorias-list");
+            if (datalistCategorias) {
+                const categoriasUnicas = [...new Set(productos.map(p => (p.categoria || '').trim()).filter(Boolean))];
+                datalistCategorias.innerHTML = categoriasUnicas
+                    .map(cat => `<option value="${cat.replace(/"/g, '&quot;')}"></option>`)
+                    .join('');
+            }
             tbody.innerHTML = "";
             if(productos.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="6" class="text-center font-bold text-slate-400 py-12">No hay productos registrados aún. ¡Añade tu primero!</td></tr>';
@@ -381,16 +394,17 @@ async function loadProducts(tenderoId) {
             }
 
             productos.forEach(p => {
-                let stockContent = `<span class="text-sm font-bold text-on-surface">${p.stock} Unidades</span>`;
+                const unidadLabel = p.unidad_medida || 'Unidades';
+                let stockContent = `<span class="text-sm font-bold text-on-surface">${p.stock} ${unidadLabel}</span>`;
                 if(p.stock < 15) {
                     stockContent = `
-                        <span class="text-sm font-bold text-error">${p.stock} (Bajo Stock)</span>
+                        <span class="text-sm font-bold text-error">${p.stock} ${unidadLabel} (Bajo Stock)</span>
                         <div class="w-24 h-1.5 bg-surface-container mt-1 rounded-full overflow-hidden">
                             <div class="bg-error w-1/4 h-full"></div>
                         </div>`;
                 } else {
                     stockContent = `
-                        <span class="text-sm font-bold text-on-surface">${p.stock} Unidades</span>
+                        <span class="text-sm font-bold text-on-surface">${p.stock} ${unidadLabel}</span>
                         <div class="w-24 h-1.5 bg-surface-container mt-1 rounded-full overflow-hidden">
                             <div class="bg-primary w-3/4 h-full"></div>
                         </div>`;
