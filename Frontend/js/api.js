@@ -230,7 +230,10 @@ window.API = {
 
     getAdminTiendas: async () => {
         try {
-            const response = await fetch(`${API_URL}/api/admin/tiendas`);
+            let response = await fetch(`${API_URL}/api/admin/tiendas`);
+            if (response.status === 404 && API_URL !== "http://localhost:3000") {
+                response = await fetch("http://localhost:3000/api/admin/tiendas").catch(() => response);
+            }
             if (response.ok) {
                 return await response.json();
             }
@@ -265,19 +268,39 @@ window.API = {
     },
 
     updateAdminTienda: async (id, payload) => {
-        const response = await fetch(`${API_URL}/api/admin/tiendas/${id}`, {
+        const targetId = encodeURIComponent(id);
+        let response = await fetch(`${API_URL}/api/admin/tiendas/${targetId}`, {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload)
         });
-        return { status: response.status, data: await response.json() };
+        if (response.status === 404 && API_URL !== "http://localhost:3000") {
+            response = await fetch(`http://localhost:3000/api/admin/tiendas/${targetId}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            }).catch(() => response);
+        }
+        const isJson = (response.headers.get("content-type") || "").includes("application/json");
+        const data = isJson ? await response.json() : { error: `Error HTTP ${response.status}` };
+        return { status: response.status, data };
     },
 
     deleteAdminTienda: async (id) => {
-        const response = await fetch(`${API_URL}/api/admin/tiendas/${id}`, {
-            method: "DELETE"
+        const targetId = encodeURIComponent(id);
+        let response = await fetch(`${API_URL}/api/admin/tiendas/${targetId}`, {
+            method: "DELETE",
+            headers: { "Content-Type": "application/json" }
         });
-        return { status: response.status, data: await response.json() };
+        if (response.status === 404 && API_URL !== "http://localhost:3000") {
+            response = await fetch(`http://localhost:3000/api/admin/tiendas/${targetId}`, {
+                method: "DELETE",
+                headers: { "Content-Type": "application/json" }
+            }).catch(() => response);
+        }
+        const isJson = (response.headers.get("content-type") || "").includes("application/json");
+        const data = isJson ? await response.json() : { error: `Error HTTP ${response.status}` };
+        return { status: response.status, data };
     },
 
     deleteOfertaLegacy: async (ofertaId) => {
