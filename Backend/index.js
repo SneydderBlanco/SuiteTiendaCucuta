@@ -21,6 +21,14 @@ const storage = multer.diskStorage({
 });
 const upload = require('./middlewares/upload');
 
+function generateJwtToken(payload) {
+    const secret = process.env.JWT_SECRET || 'tiendas_cucuta_secret_key_2026';
+    const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
+    const body = Buffer.from(JSON.stringify({ ...payload, iat: Math.floor(Date.now() / 1000) })).toString('base64url');
+    const signature = crypto.createHmac('sha256', secret).update(`${header}.${body}`).digest('base64url');
+    return `${header}.${body}.${signature}`;
+}
+
 function hashPassword(password) {
     return crypto.createHash('sha256').update(password).digest('hex');
 }
@@ -58,7 +66,7 @@ app.get('/api/tiendas', async (req, res) => {
         const queryText = `
             SELECT id_tendero, nombre, nombre_tienda, descripcion, ubicacion, logo_url, banner_url, latitud, longitud, whatsapp 
             FROM tendero 
-            WHERE nombre_tienda IS NOT NULL AND nombre_tienda != ''
+            WHERE nombre_tienda IS NOT NULL AND nombre_tienda != '' AND COALESCE(rol, 'tendero') != 'superadmin'
         `;
         const { rows } = await db.query(queryText);
         res.json(rows);
@@ -123,6 +131,8 @@ app.post('/api/productos', upload.single('imagen'), async (req, res) => {
     try {
         await db.query('ALTER TABLE productos ADD COLUMN IF NOT EXISTS imagen_url TEXT');
         await db.query("ALTER TABLE productos ADD COLUMN IF NOT EXISTS unidad_medida VARCHAR(50) DEFAULT 'Unidad (Und)'");
+        await db.query("ALTER TABLE tendero ADD COLUMN IF NOT EXISTS rol VARCHAR(50) DEFAULT 'tendero'");
+        await db.query("ALTER TABLE cliente ADD COLUMN IF NOT EXISTS rol VARCHAR(50) DEFAULT 'cliente'");
         const text = 'INSERT INTO productos(id_tendero, nombre, marca, categoria, unidad_medida, precio_venta, stock, imagen_url) VALUES($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *';
         const values = [id_tendero, nombre, marca, (categoria || '').trim(), unidad_medida || 'Unidad (Und)', parseFloat(precio_venta), parseInt(stock, 10), imagen_url];
         const result = await db.query(text, values);
@@ -157,6 +167,8 @@ app.put('/api/productos/:id', upload.single('imagen'), async (req, res) => {
     try {
         await db.query('ALTER TABLE productos ADD COLUMN IF NOT EXISTS imagen_url TEXT');
         await db.query("ALTER TABLE productos ADD COLUMN IF NOT EXISTS unidad_medida VARCHAR(50) DEFAULT 'Unidad (Und)'");
+        await db.query("ALTER TABLE tendero ADD COLUMN IF NOT EXISTS rol VARCHAR(50) DEFAULT 'tendero'");
+        await db.query("ALTER TABLE cliente ADD COLUMN IF NOT EXISTS rol VARCHAR(50) DEFAULT 'cliente'");
         let text, values;
         if (req.file) {
             const imagen_url = req.file.path || `/uploads/${req.file.filename}`;
@@ -190,14 +202,14 @@ app.put('/api/productos/:id', upload.single('imagen'), async (req, res) => {
 });
 
 // Endpoint: Login Real blindado
-app.post('/login', async (req, res) => {
+app.post(['/login', '/api/auth/login'], async (req, res) => {
     const { email, password } = req.body;
 
     try {
         const query = `
-            SELECT id_cliente AS id, nombre, email, password, 'consumer' AS rol FROM cliente WHERE email = $1
+            SELECT id_cliente AS id, nombre, email, password, COALESCE(rol, 'cliente') AS rol FROM cliente WHERE email = $1
             UNION
-            SELECT id_tendero AS id, nombre, email, password, 'merchant' AS rol FROM tendero WHERE email = $1
+            SELECT id_tendero AS id, nombre, email, password, COALESCE(rol, 'tendero') AS rol FROM tendero WHERE email = $1
         `;
         console.log('Ejecutando login con email:', email);
         const result = await db.query(query, [email]);
@@ -208,12 +220,13 @@ app.post('/login', async (req, res) => {
 
         const user = result.rows[0];
 
-        if (user.password !== hashPassword(password)) {
+        if (user.password !== hashPassword(password) && user.password !== password) {
             return res.status(401).json({ error: 'Contraseña incorrecta' });
         }
 
         // Success
-        return res.status(200).json({ success: true, message: 'Login exitoso', id: user.id, nombre: user.nombre, role: user.rol });
+        const token = generateJwtToken({ id: user.id, email: user.email, rol: user.rol });
+        return res.status(200).json({ success: true, message: 'Login exitoso', id: user.id, nombre: user.nombre, rol: user.rol, role: user.rol, token });
     } catch (err) {
         console.error('Error en el login:', err.message);
         res.status(500).json({ error: 'Error interno del servidor' });
@@ -865,6 +878,8 @@ app.listen(port, async () => {
         `);
         console.log("Tabla 'vitrina_digital' verificada/creada con éxito en PostgreSQL.");
         await db.query("ALTER TABLE productos ADD COLUMN IF NOT EXISTS unidad_medida VARCHAR(50) DEFAULT 'Unidad (Und)'");
+        await db.query("ALTER TABLE tendero ADD COLUMN IF NOT EXISTS rol VARCHAR(50) DEFAULT 'tendero'");
+        await db.query("ALTER TABLE cliente ADD COLUMN IF NOT EXISTS rol VARCHAR(50) DEFAULT 'cliente'");
     } catch (err) {
         console.error("Error al inicializar la tabla 'vitrina_digital':", err.message);
     }

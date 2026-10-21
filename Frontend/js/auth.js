@@ -31,11 +31,15 @@ document.addEventListener("DOMContentLoaded", () => {
                 if (response.status === 200) {
                     // Login exitoso
                     localStorage.setItem('userName', data.nombre || 'Usuario');
-                    localStorage.setItem('userRole', data.role);
+                    const userRol = data.rol || data.role;
+                    localStorage.setItem('userRole', userRol);
+                    if (data.token) localStorage.setItem('token', data.token);
                     localStorage.setItem('userId', data.id);
                     
                     // Smart Redirect
-                    if (data.role === 'merchant') {
+                    if (userRol === 'superadmin') {
+                        window.location.href = '/dashboard-superadmin.html';
+                    } else if (userRol === 'tendero' || userRol === 'merchant') {
                         window.location.href = "dashboard-tendero.html";
                     } else {
                         window.location.href = "index.html";

@@ -14,7 +14,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const userId = localStorage.getItem("userId");
 
     // Seguridad Requerida
-    if (!userName || userRole !== 'merchant' || !userId) {
+    if (!userName || (userRole !== 'merchant' && userRole !== 'tendero') || !userId) {
         window.location.href = "login.html";
         return;
     }
