@@ -193,9 +193,138 @@ document.addEventListener("DOMContentLoaded", () => {
     };
 
     // Close dropdowns when clicking outside
-    window.addEventListener('click', () => {
+    window.addEventListener('click', (e) => {
         const dropdowns = document.querySelectorAll('[id^="dropdown-"]');
-        dropdowns.forEach(dd => dd.classList.add('hidden'));
+        dropdowns.forEach(dd => {
+        if (dd.parentElement && dd.parentElement.contains(e.target)) return;
+            dd.classList.add('hidden');
+        });
+    });
+
+    window.__setupAllCreatableSelects = () => {
+        const getCategoryOptions = () => {
+            const base = ['Alimentos', 'Artesanías', 'Dulces', 'Bebidas', 'Abarrotes', 'Lácteos', 'Aseo'];
+            const dynamic = (window.loadedProducts || []).map(p => (p.categoria || '').trim()).filter(Boolean);
+            const seen = new Set();
+            return [...dynamic, ...base].filter(item => {
+                const key = item.toLowerCase();
+                if (seen.has(key)) return false;
+                seen.add(key);
+                return true;
+            });
+        };
+
+        const getUnitOptions = () => {
+            const base = ['Unidad (Und)', 'Kilogramo (Kg)', 'Libra (Lb)', 'Gramo (g)', 'Litro (L)', 'Mililitro (ml)', 'Docena', 'Cubeta', 'Paca'];
+            const dynamic = (window.loadedProducts || []).map(p => (p.unidad_medida || '').trim()).filter(Boolean);
+            const seen = new Set();
+            return [...base, ...dynamic].filter(item => {
+                const key = item.toLowerCase();
+                if (seen.has(key)) return false;
+                seen.add(key);
+                return true;
+            });
+        };
+
+        if (true) {
+            window.__creatableSelectsInitialized = true;
+            const initCreatableSelect = (inputId, clearBtnId, dropdownId, getOptionsFn) => {
+                const input = document.getElementById(inputId);
+                const clearBtn = document.getElementById(clearBtnId);
+                const dropdown = document.getElementById(dropdownId);
+                if (!input || !clearBtn || !dropdown) return;
+
+                const updateClearBtn = () => {
+                    if (input.value && input.value.trim().length > 0) {
+                        clearBtn.classList.remove('hidden');
+                    } else {
+                        clearBtn.classList.add('hidden');
+                    }
+                };
+
+                const renderDropdown = (filterText = '', showAllOnExactMatch = false) => {
+                    const options = getOptionsFn();
+                    const query = filterText.trim().toLowerCase();
+                    const isExactMatch = showAllOnExactMatch && options.some(opt => opt.toLowerCase() === query);
+                    const filtered = (query && !isExactMatch)
+                        ? options.filter(opt => opt.toLowerCase().includes(query))
+                        : options;
+
+                    dropdown.innerHTML = '';
+
+                    if (filtered.length === 0 && query) {
+                        const customItem = document.createElement('button');
+                        customItem.type = 'button';
+                        customItem.className = 'w-full text-left px-4 py-2.5 text-sm text-primary font-semibold hover:bg-emerald-50 transition-colors flex items-center justify-between';
+                        customItem.innerHTML = `<span>Usar "${filterText.trim()}"</span><span class="text-[10px] uppercase bg-primary/10 text-primary px-2 py-0.5 rounded-full">Personalizado</span>`;
+                        customItem.addEventListener('mousedown', (ev) => {
+                            ev.preventDefault();
+                            input.value = filterText.trim();
+                            updateClearBtn();
+                            dropdown.classList.add('hidden');
+                        });
+                        dropdown.appendChild(customItem);
+                    } else {
+                        filtered.forEach(opt => {
+                            const item = document.createElement('button');
+                            item.type = 'button';
+                            item.className = 'w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-emerald-50 hover:text-[#006c49] font-medium transition-colors flex items-center justify-between';
+                            item.textContent = opt;
+                            item.addEventListener('mousedown', (ev) => {
+                                ev.preventDefault();
+                                input.value = opt;
+                                updateClearBtn();
+                                dropdown.classList.add('hidden');
+                            });
+                            dropdown.appendChild(item);
+                        });
+                    }
+
+                    if (dropdown.children.length > 0) {
+                        dropdown.classList.remove('hidden');
+                    } else {
+                        dropdown.classList.add('hidden');
+                    }
+                };
+
+                input.addEventListener('focus', () => {
+                    updateClearBtn();
+                    renderDropdown(input.value, true);
+                });
+
+                input.addEventListener('click', (ev) => {
+                    ev.stopPropagation();
+                    updateClearBtn();
+                    renderDropdown(input.value, true);
+                });
+
+                input.addEventListener('input', () => {
+                    updateClearBtn();
+                    renderDropdown(input.value, false);
+                });
+
+                clearBtn.addEventListener('click', (ev) => {
+                    ev.preventDefault();
+                    ev.stopPropagation();
+                    input.value = '';
+                    updateClearBtn();
+                    renderDropdown('', true);
+                    input.focus();
+                });
+
+                updateClearBtn();
+            };
+
+            initCreatableSelect('reg-prod-categoria', 'clear-reg-prod-categoria', 'dropdown-reg-prod-categoria', getCategoryOptions);
+            initCreatableSelect('reg-prod-unidad', 'clear-reg-prod-unidad', 'dropdown-reg-prod-unidad', getUnitOptions);
+            initCreatableSelect('edit-prod-categoria', 'clear-edit-prod-categoria', 'dropdown-edit-prod-categoria', getCategoryOptions);
+            initCreatableSelect('edit-prod-unidad', 'clear-edit-prod-unidad', 'dropdown-edit-prod-unidad', getUnitOptions);
+        }
+    };
+    window.__setupAllCreatableSelects();
+    (() => {
+        if (false) {
+        }
     });
 
     // Edit Product logic
@@ -213,6 +342,10 @@ document.addEventListener("DOMContentLoaded", () => {
         document.getElementById('edit-prod-categoria').value = product.categoria;
         const editUnidadEl = document.getElementById('edit-prod-unidad');
         if (editUnidadEl) editUnidadEl.value = product.unidad_medida || 'Unidad (Und)';
+        const clearEditCat = document.getElementById('clear-edit-prod-categoria');
+        if (clearEditCat) clearEditCat.classList.toggle('hidden', !product.categoria);
+        const clearEditUni = document.getElementById('clear-edit-prod-unidad');
+        if (clearEditUni) clearEditUni.classList.remove('hidden');
         document.getElementById('edit-prod-precio').value = product.precio_venta;
         document.getElementById('edit-prod-stock').value = product.stock;
 
