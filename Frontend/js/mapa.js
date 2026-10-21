@@ -377,7 +377,50 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     // ==========================================
-    // 8. Filtrado en Tiempo Real (Buscador)
+    // 8. Deseleccionar Tienda y Evento Global Escape
+    // ==========================================
+    function deseleccionarTienda() {
+        // 1. Cerrar cualquier popup abierto en el mapa de Leaflet
+        map.closePopup();
+
+        // 2. Quitar animación de marcadores y resaltado activo en la lista lateral
+        Object.values(markersMap).forEach(marker => {
+            if (marker && marker._icon) {
+                marker._icon.classList.remove("marker-active-bounce");
+            }
+            if (marker) {
+                marker.closePopup();
+            }
+        });
+
+        Object.values(listItemsMap).forEach(listItem => {
+            if (listItem) {
+                listItem.classList.remove(
+                    "bg-emerald-50/40",
+                    "border-emerald-200",
+                    "ring-1",
+                    "ring-emerald-100",
+                    "bg-emerald-50/20",
+                    "border-emerald-100"
+                );
+            }
+        });
+
+        activeMarkerId = null;
+
+        // 3. Restablecer el panel derecho de detalles a su estado por defecto
+        if (detallesPlaceholder) detallesPlaceholder.classList.remove("hidden");
+        if (detallesContenido) detallesContenido.classList.add("hidden");
+    }
+
+    document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") {
+            deseleccionarTienda();
+        }
+    });
+
+    // ==========================================
+    // 9. Filtrado en Tiempo Real (Buscador)
     // ==========================================
     if (searchInput) {
         searchInput.addEventListener("input", (e) => {
