@@ -870,15 +870,15 @@
     <div class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
         id="modal-overlay">
         <div
-            class="bg-surface-container-lowest w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
-            <div class="px-8 py-6 border-b border-surface-container flex items-center justify-between">
+            class="bg-surface-container-lowest w-full max-w-lg max-h-[90vh] flex flex-col rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div class="px-6 sm:px-8 py-5 border-b border-surface-container flex items-center justify-between shrink-0 bg-surface-container-lowest">
                 <h3 class="text-xl font-bold text-on-surface">Agregar Nuevo Producto</h3>
                 <button
                     class="material-symbols-outlined text-on-surface-variant hover:text-on-surface transition-colors"
                     data-icon="close" id="btn-close-modal">close</button>
             </div>
-            <form id="add-product-form" class="p-8 space-y-6">
-                <div class="grid grid-cols-1 gap-6">
+            <form id="add-product-form" class="flex flex-col flex-1 min-h-0 overflow-hidden">
+                <div class="flex-1 overflow-y-auto px-6 sm:px-8 py-6 grid grid-cols-1 gap-5">
                     <div>
                         <label class="block text-sm font-bold text-on-surface-variant mb-2">Nombre del Producto</label>
                         <input id="reg-prod-nombre"
@@ -926,7 +926,7 @@
                         <input id="reg-prod-imagen" type="file" accept="image/*" class="w-full text-sm text-on-surface-variant file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 transition-all"/>
                     </div>
                 </div>
-                <div class="flex items-center gap-4 pt-4">
+                <div class="shrink-0 px-6 sm:px-8 py-4 border-t border-surface-container bg-surface-container-lowest flex items-center gap-4">
                     <button
                         class="flex-1 py-3 px-6 rounded-2xl font-bold text-on-surface-variant hover:bg-surface-container-high transition-colors"
                         id="btn-cancel-modal" type="button">
@@ -946,16 +946,16 @@
     <div class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
         id="edit-modal-overlay">
         <div
-            class="bg-surface-container-lowest w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
-            <div class="px-8 py-6 border-b border-surface-container flex items-center justify-between">
+            class="bg-surface-container-lowest w-full max-w-lg max-h-[90vh] flex flex-col rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div class="px-6 sm:px-8 py-5 border-b border-surface-container flex items-center justify-between shrink-0 bg-surface-container-lowest">
                 <h3 class="text-xl font-bold text-on-surface">Editar Producto</h3>
                 <button
                     class="material-symbols-outlined text-on-surface-variant hover:text-on-surface transition-colors"
                     data-icon="close" id="btn-close-edit-modal">close</button>
             </div>
-            <form id="edit-product-form" class="p-8 space-y-6">
+            <form id="edit-product-form" class="flex flex-col flex-1 min-h-0 overflow-hidden">
                 <input type="hidden" id="edit-prod-id" />
-                <div class="grid grid-cols-1 gap-6">
+                <div class="flex-1 overflow-y-auto px-6 sm:px-8 py-6 grid grid-cols-1 gap-5">
                     <div>
                         <label class="block text-sm font-bold text-on-surface-variant mb-2">Nombre del Producto</label>
                         <input id="edit-prod-nombre"
@@ -1003,7 +1003,7 @@
                         <input id="edit-prod-imagen" type="file" accept="image/*" class="w-full text-sm text-on-surface-variant file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 transition-all"/>
                     </div>
                 </div>
-                <div class="flex items-center gap-4 pt-4">
+                <div class="shrink-0 px-6 sm:px-8 py-4 border-t border-surface-container bg-surface-container-lowest flex items-center gap-4">
                     <button
                         class="flex-1 py-3 px-6 rounded-2xl font-bold text-on-surface-variant hover:bg-surface-container-high transition-colors"
                         id="btn-cancel-edit-modal" type="button">
