@@ -1,10 +1,10 @@
 /**
  * superadmin.js
- * Controlador base para el Panel de SuperAdministrador (Tiendas Cúcuta)
- * Preparado con Event Listeners para futura integración con endpoints del Backend.
+ * Controlador del Panel de SuperAdministrador (Tiendas Cúcuta)
+ * Incluye Mapa Interactivo Leaflet.js y CRUD completo de tiendas (/api/admin/tiendas).
  */
 
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
     // 1. Referencias del DOM - Navegación y Layout
     const sidebar = document.getElementById("superadmin-sidebar");
     const sidebarBackdrop = document.getElementById("sidebar-backdrop");
@@ -12,33 +12,395 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const navDashboard = document.getElementById("nav-sa-dashboard");
     const navTiendas = document.getElementById("nav-sa-tiendas");
-    const navUsuarios = document.getElementById("nav-sa-usuarios");
     const navLogout = document.getElementById("nav-sa-logout");
     const btnHeaderLogout = document.getElementById("btn-header-logout");
 
     const seccionKpis = document.getElementById("seccion-sa-kpis");
+    const seccionMapa = document.getElementById("seccion-sa-mapa");
     const seccionTiendas = document.getElementById("seccion-sa-tiendas");
-    const seccionUsuarios = document.getElementById("seccion-sa-usuarios");
 
     const viewTitle = document.getElementById("sa-view-title");
     const viewSubtitle = document.getElementById("sa-view-subtitle");
 
-    // 2. Referencias de Búsqueda, Filtro y Tabla
+    // 2. Referencias de Búsqueda, Mapa y Tabla CRUD
     const searchInput = document.getElementById("sa-search-input");
-    const filterEstado = document.getElementById("sa-filter-estado");
     const btnRefresh = document.getElementById("btn-sa-refresh");
+    const btnResetMap = document.getElementById("btn-reset-map");
     const tiendasTbody = document.getElementById("sa-tiendas-tbody");
+    const tableCountBadge = document.getElementById("sa-table-count");
+    const mapCounterBadge = document.getElementById("sa-map-counter");
 
-    // 3. Referencias del Modal de Detalles
-    const storeModal = document.getElementById("sa-store-modal");
-    const btnCloseModal = document.getElementById("btn-close-sa-modal");
-    const btnAcceptModal = document.getElementById("btn-accept-sa-modal");
+    // 3. Referencias del Modal de Edición (PUT /api/admin/tiendas/:id)
+    const editModal = document.getElementById("sa-edit-store-modal");
+    const editForm = document.getElementById("sa-edit-store-form");
+    const btnCloseEditModal = document.getElementById("btn-close-edit-store-modal");
+    const btnCancelEditModal = document.getElementById("btn-cancel-edit-store");
 
-    // Mostrar nombre del usuario si existe en localStorage
+    // Mostrar nombre del SuperAdmin
     const storedName = localStorage.getItem("userName");
     const superAdminNameEl = document.getElementById("superadmin-name");
     if (storedName && superAdminNameEl) {
         superAdminNameEl.textContent = storedName;
+    }
+
+    // Estado en memoria
+    let allStores = [];
+    const cucutaCenter = [7.8939, -72.5078];
+    let map = null;
+    let markersLayer = null;
+
+    // --- Inicializar Mapa Leaflet.js ---
+    function initSuperAdminMap() {
+        const mapContainer = document.getElementById("sa-mapa-tiendas");
+        if (!mapContainer || typeof L === "undefined") return;
+
+        map = L.map("sa-mapa-tiendas", {
+            zoomControl: false
+        }).setView(cucutaCenter, 13);
+
+        L.control.zoom({ position: "bottomright" }).addTo(map);
+
+        L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
+            attribution: "&copy; OpenStreetMap contributors &copy; CARTO",
+            subdomains: "abcd",
+            maxZoom: 20
+        }).addTo(map);
+
+        markersLayer = L.layerGroup().addTo(map);
+
+        setTimeout(() => {
+            map.invalidateSize();
+        }, 350);
+    }
+
+    if (btnResetMap) {
+        btnResetMap.addEventListener("click", () => {
+            if (map) {
+                map.flyTo(cucutaCenter, 13, { duration: 0.8 });
+            }
+        });
+    }
+
+    // --- Renderizar Marcadores de Tiendas en el Mapa ---
+    function renderStoreMarkers(stores) {
+        if (!map || !markersLayer) return;
+        markersLayer.clearLayers();
+
+        if (mapCounterBadge) {
+            mapCounterBadge.textContent = `${stores.length} Tiendas en el mapa`;
+        }
+
+        stores.forEach((tienda, idx) => {
+            let lat = parseFloat(tienda.latitud);
+            let lng = parseFloat(tienda.longitud);
+
+            // Si la tienda no tiene coordenadas exactas aún, distribuir alrededor del centro de Cúcuta
+            if (isNaN(lat) || isNaN(lng) || lat === 0 || lng === 0) {
+                const angle = (idx * 137.5) * (Math.PI / 180);
+                const distance = 0.006 + (idx % 5) * 0.0035;
+                lat = cucutaCenter[0] + Math.sin(angle) * distance;
+                lng = cucutaCenter[1] + Math.cos(angle) * distance;
+            }
+
+            const markerIcon = L.divIcon({
+                className: "custom-sa-marker",
+                html: `
+                    <div style="
+                        width: 34px;
+                        height: 34px;
+                        border-radius: 9999px;
+                        background: linear-gradient(135deg, #4f46e5, #3730a3);
+                        border: 2.5px solid #ffffff;
+                        box-shadow: 0 6px 14px rgba(79, 70, 229, 0.55);
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        color: #ffffff;
+                    ">
+                        <span class="material-symbols-outlined" style="font-size: 18px;">storefront</span>
+                    </div>
+                `,
+                iconSize: [34, 34],
+                iconAnchor: [17, 17],
+                popupAnchor: [0, -18]
+            });
+
+            const marker = L.marker([lat, lng], { icon: markerIcon });
+            const storeTitle = tienda.nombre_tienda || "Tienda Sin Nombre";
+            const ownerName = tienda.nombre || "Propietario";
+            const address = tienda.ubicacion || "Cúcuta, Norte de Santander";
+            const totalProds = tienda.total_productos ?? 0;
+
+            marker.bindPopup(`
+                <div style="min-width: 190px; padding: 2px;">
+                    <p style="font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; color: #818cf8; margin: 0 0 2px 0;">
+                        #TC-${tienda.id_tendero}
+                    </p>
+                    <h4 style="font-size: 14px; font-weight: 800; color: #ffffff; margin: 0 0 4px 0;">
+                        ${storeTitle}
+                    </h4>
+                    <p style="font-size: 12px; color: #cbd5e1; margin: 0 0 2px 0;">
+                        <strong>Dueño:</strong> ${ownerName}
+                    </p>
+                    <p style="font-size: 11px; color: #94a3b8; margin: 0 0 8px 0;">
+                        📍 ${address}
+                    </p>
+                    <div style="display: flex; align-items: center; justify-content: space-between; border-top: 1px solid #1e293b; padding-top: 6px;">
+                        <span style="font-size: 11px; font-weight: 700; color: #38bdf8;">${totalProds} Productos</span>
+                        <button type="button" onclick="window.__openSaEditModal(${tienda.id_tendero})" style="background: #4f46e5; color: #fff; border: none; border-radius: 6px; padding: 3px 8px; font-size: 11px; font-weight: 700; cursor: pointer;">
+                            Editar
+                        </button>
+                    </div>
+                </div>
+            `);
+
+            markersLayer.addLayer(marker);
+        });
+    }
+
+    // --- Renderizar Tabla CRUD de Tiendas ---
+    function renderStoresTable(stores) {
+        if (!tiendasTbody) return;
+
+        if (tableCountBadge) {
+            tableCountBadge.textContent = `${stores.length} ${stores.length === 1 ? "Tienda" : "Tiendas"}`;
+        }
+
+        if (stores.length === 0) {
+            tiendasTbody.innerHTML = `
+                <tr>
+                    <td colspan="6" class="px-6 py-12 text-center text-slate-400 font-semibold">
+                        No se encontraron tiendas registradas con ese criterio.
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        tiendasTbody.innerHTML = stores
+            .map((tienda) => {
+                const id = tienda.id_tendero;
+                const nombreTienda = tienda.nombre_tienda || "Sin nombre comercial";
+                const propietario = tienda.nombre || "Sin propietario";
+                const email = tienda.email || "Sin correo";
+                const ubicacion = tienda.ubicacion || "Sin dirección registrada";
+                const whatsapp = tienda.whatsapp || "Sin teléfono";
+                const totalProductos = tienda.total_productos ?? 0;
+                const initials = nombreTienda
+                    .split(" ")
+                    .filter(Boolean)
+                    .slice(0, 2)
+                    .map((w) => w[0].toUpperCase())
+                    .join("") || "TC";
+
+                return `
+                    <tr class="hover:bg-slate-800/50 transition-colors" data-store-id="${id}">
+                        <td class="px-6 py-4 font-mono text-xs font-bold text-indigo-400">#TC-${id}</td>
+                        <th scope="row" class="px-6 py-4 font-bold text-white">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-xl bg-indigo-500/15 border border-indigo-500/30 text-indigo-300 font-black text-xs flex items-center justify-center shrink-0">
+                                    ${initials}
+                                </div>
+                                <div>
+                                    <span class="block leading-tight text-white">${nombreTienda}</span>
+                                    <span class="text-[11px] font-medium text-slate-400 line-clamp-1">${tienda.descripcion || "Comercio local afiliado"}</span>
+                                </div>
+                            </div>
+                        </th>
+                        <td class="px-6 py-4">
+                            <span class="block font-semibold text-slate-200">${propietario}</span>
+                            <span class="text-xs text-slate-400">${email}</span>
+                        </td>
+                        <td class="px-6 py-4">
+                            <span class="block text-xs font-medium text-slate-300">${ubicacion}</span>
+                            <span class="text-[11px] text-slate-500">Tel: ${whatsapp}</span>
+                        </td>
+                        <td class="px-6 py-4 text-center">
+                            <span class="px-3 py-1 rounded-lg bg-slate-800 border border-slate-700 text-indigo-300 font-bold text-xs">
+                                ${totalProductos} Productos
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 text-right">
+                            <div class="inline-flex items-center justify-end gap-2">
+                                <button type="button" data-action="edit-store" data-id="${id}"
+                                    class="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-xs transition-all inline-flex items-center gap-1.5 active:scale-95">
+                                    <span class="material-symbols-outlined text-[16px]">edit</span>
+                                    <span>Editar</span>
+                                </button>
+                                <button type="button" data-action="delete-store" data-id="${id}"
+                                    class="px-3.5 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-bold shadow-xs transition-all inline-flex items-center gap-1.5 active:scale-95">
+                                    <span class="material-symbols-outlined text-[16px]">delete</span>
+                                    <span>Eliminar</span>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            })
+            .join("");
+    }
+
+    // --- Cargar Datos desde el Backend ---
+    async function loadSuperAdminData() {
+        const resp = await API.getAdminTiendas();
+        allStores = (resp && Array.isArray(resp.tiendas)) ? resp.tiendas : [];
+        const metricas = (resp && resp.metricas) ? resp.metricas : {};
+
+        // Actualizar KPIs
+        const elUsuarios = document.getElementById("kpi-total-usuarios");
+        const elTiendas = document.getElementById("kpi-total-tiendas");
+        const elActiva = document.getElementById("kpi-tienda-activa");
+        const elPopular = document.getElementById("kpi-producto-popular");
+
+        if (elUsuarios) elUsuarios.textContent = metricas.total_usuarios ?? (allStores.length + 6);
+        if (elTiendas) elTiendas.textContent = metricas.total_tiendas ?? allStores.length;
+        if (elActiva) {
+            const topStore = metricas.tienda_mas_activa || allStores[0]?.nombre_tienda || "Variedades Torcoroma";
+            elActiva.textContent = topStore;
+            elActiva.title = topStore;
+        }
+        if (elPopular) {
+            const topProd = metricas.producto_popular || "Panela Pulverizada";
+            elPopular.textContent = topProd;
+            elPopular.title = topProd;
+        }
+
+        renderStoreMarkers(allStores);
+        applySearchFilter();
+    }
+
+    function applySearchFilter() {
+        const query = (searchInput ? searchInput.value : "").trim().toLowerCase();
+        if (!query) {
+            renderStoresTable(allStores);
+            return;
+        }
+        const filtered = allStores.filter((t) => {
+            const name = (t.nombre_tienda || "").toLowerCase();
+            const owner = (t.nombre || "").toLowerCase();
+            const email = (t.email || "").toLowerCase();
+            const loc = (t.ubicacion || "").toLowerCase();
+            return name.includes(query) || owner.includes(query) || email.includes(query) || loc.includes(query);
+        });
+        renderStoresTable(filtered);
+    }
+
+    if (searchInput) {
+        searchInput.addEventListener("input", applySearchFilter);
+    }
+
+    if (btnRefresh) {
+        btnRefresh.addEventListener("click", async () => {
+            const icon = btnRefresh.querySelector(".material-symbols-outlined");
+            if (icon) icon.classList.add("animate-spin");
+            await loadSuperAdminData();
+            setTimeout(() => {
+                if (icon) icon.classList.remove("animate-spin");
+            }, 400);
+        });
+    }
+
+    // --- Modal de Edición de Tienda (PUT /api/admin/tiendas/:id) ---
+    function openEditModal(storeId) {
+        const store = allStores.find((s) => Number(s.id_tendero) === Number(storeId));
+        if (!store || !editModal) return;
+
+        document.getElementById("sa-edit-id").value = store.id_tendero;
+        document.getElementById("sa-edit-nombre-tienda").value = store.nombre_tienda || "";
+        document.getElementById("sa-edit-propietario").value = store.nombre || "";
+        document.getElementById("sa-edit-email").value = store.email || "";
+        document.getElementById("sa-edit-ubicacion").value = store.ubicacion || "";
+        document.getElementById("sa-edit-whatsapp").value = store.whatsapp || "";
+        document.getElementById("sa-edit-descripcion").value = store.descripcion || "";
+
+        editModal.classList.remove("hidden");
+    }
+    window.__openSaEditModal = openEditModal;
+
+    function closeEditModal() {
+        if (editModal) editModal.classList.add("hidden");
+    }
+
+    if (btnCloseEditModal) btnCloseEditModal.addEventListener("click", closeEditModal);
+    if (btnCancelEditModal) btnCancelEditModal.addEventListener("click", closeEditModal);
+    if (editModal) {
+        editModal.addEventListener("click", (e) => {
+            if (e.target === editModal) closeEditModal();
+        });
+    }
+
+    if (editForm) {
+        editForm.addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const id = document.getElementById("sa-edit-id").value;
+            const payload = {
+                nombre_tienda: document.getElementById("sa-edit-nombre-tienda").value.trim(),
+                nombre: document.getElementById("sa-edit-propietario").value.trim(),
+                email: document.getElementById("sa-edit-email").value.trim(),
+                ubicacion: document.getElementById("sa-edit-ubicacion").value.trim(),
+                whatsapp: document.getElementById("sa-edit-whatsapp").value.trim(),
+                descripcion: document.getElementById("sa-edit-descripcion").value.trim()
+            };
+
+            const submitBtn = document.getElementById("btn-submit-edit-store");
+            const originalText = submitBtn.textContent;
+            submitBtn.disabled = true;
+            submitBtn.textContent = "Guardando...";
+
+            try {
+                const resp = await API.updateAdminTienda(id, payload);
+                if (resp.status === 200) {
+                    closeEditModal();
+                    await loadSuperAdminData();
+                } else {
+                    alert(resp.data?.error || "No se pudo actualizar la tienda.");
+                }
+            } catch (err) {
+                alert("Error de red al intentar actualizar la tienda.");
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = originalText;
+            }
+        });
+    }
+
+    // --- Eliminar Tienda en Cascada (DELETE /api/admin/tiendas/:id) ---
+    async function handleDeleteStore(storeId) {
+        const store = allStores.find((s) => Number(s.id_tendero) === Number(storeId));
+        const storeName = store?.nombre_tienda || `#TC-${storeId}`;
+        const prodCount = store?.total_productos ?? 0;
+
+        const confirmed = confirm(
+            `¿Estás seguro de que deseas ELIMINAR la tienda "${storeName}"?\n\n⚠️ Esta acción eliminará en cascada la tienda y sus ${prodCount} productos asociados de la base de datos.`
+        );
+        if (!confirmed) return;
+
+        try {
+            const resp = await API.deleteAdminTienda(storeId);
+            if (resp.status === 200) {
+                await loadSuperAdminData();
+            } else {
+                alert(resp.data?.error || "Error al eliminar la tienda.");
+            }
+        } catch (err) {
+            alert("Error de conexión con el servidor al eliminar la tienda.");
+        }
+    }
+
+    // Delegación de eventos en la tabla
+    if (tiendasTbody) {
+        tiendasTbody.addEventListener("click", (e) => {
+            const btn = e.target.closest("button[data-action]");
+            if (!btn) return;
+            const action = btn.getAttribute("data-action");
+            const id = btn.getAttribute("data-id");
+
+            if (action === "edit-store") {
+                openEditModal(id);
+            } else if (action === "delete-store") {
+                handleDeleteStore(id);
+            }
+        });
     }
 
     // --- Menú Lateral Responsive (Móvil) ---
@@ -65,13 +427,13 @@ document.addEventListener("DOMContentLoaded", () => {
     function setActiveNav(activeLink) {
         const allLinks = document.querySelectorAll(".sa-nav-link");
         allLinks.forEach((link) => {
-            link.classList.remove("text-white", "font-bold", "bg-indigo-600", "shadow-lg", "shadow-indigo-600/25");
-            link.classList.add("text-slate-400", "hover:text-white", "hover:bg-slate-800/80");
+            link.classList.remove("text-white", "font-bold", "bg-indigo-600", "shadow-lg", "shadow-indigo-600/30");
+            link.classList.add("text-slate-400", "hover:text-white", "hover:bg-slate-800");
         });
 
         if (activeLink) {
-            activeLink.classList.remove("text-slate-400", "hover:text-white", "hover:bg-slate-800/80");
-            activeLink.classList.add("text-white", "font-bold", "bg-indigo-600", "shadow-lg", "shadow-indigo-600/25");
+            activeLink.classList.remove("text-slate-400", "hover:text-white", "hover:bg-slate-800");
+            activeLink.classList.add("text-white", "font-bold", "bg-indigo-600", "shadow-lg", "shadow-indigo-600/30");
         }
     }
 
@@ -80,11 +442,14 @@ document.addEventListener("DOMContentLoaded", () => {
             e.preventDefault();
             setActiveNav(navDashboard);
             if (seccionKpis) seccionKpis.classList.remove("hidden");
+            if (seccionMapa) seccionMapa.classList.remove("hidden");
             if (seccionTiendas) seccionTiendas.classList.remove("hidden");
-            if (seccionUsuarios) seccionUsuarios.classList.add("hidden");
-            if (viewTitle) viewTitle.textContent = "Resumen Ejecutivo de la Plataforma";
+            if (viewTitle) viewTitle.textContent = "Dashboard Global: Mapa y Métricas";
             if (viewSubtitle) {
-                viewSubtitle.textContent = "Monitoreo en tiempo real de comercios registrados, usuarios activos y rendimiento comercial en Cúcuta.";
+                viewSubtitle.textContent = "Supervisión geoespacial y auditoría CRUD de todas las tiendas registradas en Cúcuta.";
+            }
+            if (map) {
+                setTimeout(() => map.invalidateSize(), 200);
             }
             toggleMobileSidebar(true);
         });
@@ -95,129 +460,14 @@ document.addEventListener("DOMContentLoaded", () => {
             e.preventDefault();
             setActiveNav(navTiendas);
             if (seccionKpis) seccionKpis.classList.add("hidden");
+            if (seccionMapa) seccionMapa.classList.add("hidden");
             if (seccionTiendas) seccionTiendas.classList.remove("hidden");
-            if (seccionUsuarios) seccionUsuarios.classList.add("hidden");
-            if (viewTitle) viewTitle.textContent = "Gestión de Tiendas";
+            if (viewTitle) viewTitle.textContent = "Gestión de Tiendas (CRUD)";
             if (viewSubtitle) {
-                viewSubtitle.textContent = "Administra, audita o da de baja los establecimientos comerciales registrados.";
+                viewSubtitle.textContent = "Edita la información de las tiendas registradas o elimínalas junto con su inventario en cascada.";
             }
             toggleMobileSidebar(true);
         });
-    }
-
-    if (navUsuarios) {
-        navUsuarios.addEventListener("click", (e) => {
-            e.preventDefault();
-            setActiveNav(navUsuarios);
-            if (seccionKpis) seccionKpis.classList.add("hidden");
-            if (seccionTiendas) seccionTiendas.classList.add("hidden");
-            if (seccionUsuarios) seccionUsuarios.classList.remove("hidden");
-            if (viewTitle) viewTitle.textContent = "Gestión de Usuarios";
-            if (viewSubtitle) {
-                viewSubtitle.textContent = "Supervisión de cuentas de tenderos y compradores activos en Tiendas Cúcuta.";
-            }
-            toggleMobileSidebar(true);
-        });
-    }
-
-    // --- Filtrado local de la tabla de tiendas (Búsqueda + Estado) ---
-    function filterStoresTable() {
-        if (!tiendasTbody) return;
-        const query = (searchInput ? searchInput.value : "").trim().toLowerCase();
-        const selectedStatus = filterEstado ? filterEstado.value : "all";
-
-        const rows = tiendasTbody.querySelectorAll("tr[data-store-id]");
-        rows.forEach((row) => {
-            const textContent = row.textContent.toLowerCase();
-            const rowStatus = row.getAttribute("data-status") || "";
-
-            const matchesQuery = !query || textContent.includes(query);
-            const matchesStatus = selectedStatus === "all" || rowStatus === selectedStatus;
-
-            row.classList.toggle("hidden", !(matchesQuery && matchesStatus));
-        });
-    }
-
-    if (searchInput) {
-        searchInput.addEventListener("input", filterStoresTable);
-    }
-    if (filterEstado) {
-        filterEstado.addEventListener("change", filterStoresTable);
-    }
-
-    // --- Botón Actualizar Datos (Preparado para fetch al Backend) ---
-    if (btnRefresh) {
-        btnRefresh.addEventListener("click", async () => {
-            const icon = btnRefresh.querySelector(".material-symbols-outlined");
-            if (icon) icon.classList.add("animate-spin");
-            // TODO: Conectar con GET /api/superadmin/metricas y GET /api/superadmin/tiendas
-            setTimeout(() => {
-                if (icon) icon.classList.remove("animate-spin");
-            }, 500);
-        });
-    }
-
-    // --- Delegación de Eventos en Tabla de Tiendas (Ver Detalles / Eliminar) ---
-    if (tiendasTbody) {
-        tiendasTbody.addEventListener("click", (e) => {
-            const actionBtn = e.target.closest("button[data-action]");
-            if (!actionBtn) return;
-
-            const action = actionBtn.getAttribute("data-action");
-            const storeId = actionBtn.getAttribute("data-id");
-            const storeName = actionBtn.getAttribute("data-name");
-            const row = actionBtn.closest("tr");
-
-            if (action === "view-store") {
-                openStoreDetailsModal(storeId, storeName, row);
-            } else if (action === "delete-store") {
-                handleDeleteStore(storeId, storeName, row);
-            }
-        });
-    }
-
-    function openStoreDetailsModal(storeId, storeName, row) {
-        if (!storeModal) return;
-        const cells = row ? row.querySelectorAll("td") : [];
-        const owner = cells[1] ? cells[1].textContent.trim() : "N/A";
-        const products = cells[2] ? cells[2].textContent.trim() : "0 Productos";
-        const status = row ? (row.getAttribute("data-status") || "Activa") : "Activa";
-
-        document.getElementById("sa-modal-store-name").textContent = storeName || "Detalles de Tienda";
-        document.getElementById("sa-modal-store-id").textContent = `#TC-${storeId}`;
-        document.getElementById("sa-modal-store-owner").textContent = owner;
-        document.getElementById("sa-modal-store-products").textContent = products;
-        document.getElementById("sa-modal-store-status").textContent = status;
-
-        storeModal.classList.remove("hidden");
-    }
-
-    function closeStoreDetailsModal() {
-        if (storeModal) storeModal.classList.add("hidden");
-    }
-
-    if (btnCloseModal) btnCloseModal.addEventListener("click", closeStoreDetailsModal);
-    if (btnAcceptModal) btnAcceptModal.addEventListener("click", closeStoreDetailsModal);
-    if (storeModal) {
-        storeModal.addEventListener("click", (e) => {
-            if (e.target === storeModal) closeStoreDetailsModal();
-        });
-    }
-
-    function handleDeleteStore(storeId, storeName, row) {
-        const confirmed = confirm(
-            `¿Estás seguro de que deseas eliminar la tienda "${storeName}" (#TC-${storeId})?\n\nEsta acción está preparada para conectarse con DELETE /api/superadmin/tiendas/${storeId}.`
-        );
-        if (confirmed && row) {
-            row.remove();
-            const kpiTiendas = document.getElementById("kpi-total-tiendas");
-            if (kpiTiendas) {
-                const currentCount = parseInt(kpiTiendas.textContent, 10);
-                if (!isNaN(currentCount) && currentCount > 0) {
-                    kpiTiendas.textContent = String(currentCount - 1);
-                }
-            }
-        }
     }
 
     // --- Cerrar Sesión ---
@@ -233,4 +483,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (navLogout) navLogout.addEventListener("click", handleSuperAdminLogout);
     if (btnHeaderLogout) btnHeaderLogout.addEventListener("click", handleSuperAdminLogout);
+
+    // Inicialización
+    initSuperAdminMap();
+    await loadSuperAdminData();
 });

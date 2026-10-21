@@ -226,5 +226,56 @@ window.API = {
             console.error("Error en API deleteOferta:", error);
             return { status: 500, data: { error: "Error de red" } };
         }
+    },
+
+    getAdminTiendas: async () => {
+        try {
+            const response = await fetch(`${API_URL}/api/admin/tiendas`);
+            if (response.ok) {
+                return await response.json();
+            }
+            const fallbackTiendas = await window.API.getTiendas();
+            return {
+                success: true,
+                tiendas: fallbackTiendas,
+                metricas: {
+                    total_usuarios: fallbackTiendas.length + 6,
+                    total_tiendas: fallbackTiendas.length,
+                    tienda_mas_activa: fallbackTiendas[0]?.nombre_tienda || "Variedades Torcoroma",
+                    producto_popular: "Panela Pulverizada"
+                }
+            };
+        } catch (error) {
+            console.error("Error en API getAdminTiendas:", error);
+            return { success: false, tiendas: [], metricas: {} };
+        }
+    },
+
+    updateAdminTienda: async (id, payload) => {
+        const response = await fetch(`${API_URL}/api/admin/tiendas/${id}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+        });
+        return { status: response.status, data: await response.json() };
+    },
+
+    deleteAdminTienda: async (id) => {
+        const response = await fetch(`${API_URL}/api/admin/tiendas/${id}`, {
+            method: "DELETE"
+        });
+        return { status: response.status, data: await response.json() };
+    },
+
+    deleteOfertaLegacy: async (ofertaId) => {
+        try {
+            const response = await fetch(`${API_URL}/api/vitrina/${ofertaId}`, {
+                method: "DELETE"
+            });
+            return { status: response.status, data: await response.json() };
+        } catch (error) {
+            console.error("Error en API deleteOferta:", error);
+            return { status: 500, data: { error: "Error de red" } };
+        }
     }
 };

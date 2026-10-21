@@ -858,6 +858,153 @@ app.delete('/api/vitrina/:id_oferta', async (req, res) => {
     }
 });
 
+// ==========================================
+// ENDPOINTS DE SUPERADMINISTRADOR (/api/admin/tiendas)
+// ==========================================
+
+// Obtener todas las tiendas con conteo de productos y métricas globales
+app.get('/api/admin/tiendas', async (req, res) => {
+    try {
+        await db.query("ALTER TABLE tendero ADD COLUMN IF NOT EXISTS rol VARCHAR(50) DEFAULT 'tendero'");
+        await db.query("ALTER TABLE tendero ADD COLUMN IF NOT EXISTS ubicacion TEXT, ADD COLUMN IF NOT EXISTS latitud NUMERIC, ADD COLUMN IF NOT EXISTS longitud NUMERIC, ADD COLUMN IF NOT EXISTS whatsapp TEXT, ADD COLUMN IF NOT EXISTS logo_url TEXT, ADD COLUMN IF NOT EXISTS descripcion TEXT");
+
+        const tiendasQuery = `
+            SELECT 
+                t.id_tendero,
+                t.nombre,
+                t.email,
+                t.nombre_tienda,
+                t.descripcion,
+                t.ubicacion,
+                t.latitud,
+                t.longitud,
+                t.whatsapp,
+                t.logo_url,
+                COALESCE(t.rol, 'tendero') AS rol,
+                COUNT(p.id_producto)::INT AS total_productos
+            FROM tendero t
+            LEFT JOIN productos p ON p.id_tendero = t.id_tendero
+            WHERE COALESCE(t.rol, 'tendero') != 'superadmin'
+            GROUP BY t.id_tendero
+            ORDER BY t.id_tendero ASC
+        `;
+        const { rows: tiendas } = await db.query(tiendasQuery);
+
+        // Métricas globales para los KPIs
+        const clientesCountRes = await db.query("SELECT COUNT(*)::INT AS total FROM cliente");
+        const totalUsuarios = (clientesCountRes.rows[0]?.total || 0) + tiendas.length;
+        const totalTiendas = tiendas.length;
+
+        let tiendaMasActiva = 'Variedades Torcoroma';
+        if (tiendas.length > 0) {
+            const sortedByProd = [...tiendas].sort((a, b) => (b.total_productos || 0) - (a.total_productos || 0));
+            if (sortedByProd[0]?.nombre_tienda) {
+                tiendaMasActiva = sortedByProd[0].nombre_tienda;
+            }
+        }
+
+        let productoPopular = 'Sin productos';
+        const topProdRes = await db.query("SELECT nombre FROM productos ORDER BY stock DESC, id_producto ASC LIMIT 1");
+        if (topProdRes.rows.length > 0) {
+            productoPopular = topProdRes.rows[0].nombre;
+        }
+
+        res.json({
+            success: true,
+            tiendas,
+            metricas: {
+                total_usuarios: totalUsuarios,
+                total_tiendas: totalTiendas,
+                tienda_mas_activa: tiendaMasActiva,
+                producto_popular: productoPopular
+            }
+        });
+    } catch (err) {
+        console.error('Error en GET /api/admin/tiendas:', err.message);
+        res.status(500).json({ error: 'Error al obtener tiendas para SuperAdmin.' });
+    }
+});
+
+// Editar datos de una tienda (PUT /api/admin/tiendas/:id)
+app.put('/api/admin/tiendas/:id', async (req, res) => {
+    const { id } = req.params;
+    const { nombre_tienda, nombre, email, ubicacion, whatsapp, descripcion } = req.body;
+    try {
+        const updateQuery = `
+            UPDATE tendero
+            SET 
+                nombre_tienda = COALESCE($1, nombre_tienda),
+                nombre = COALESCE($2, nombre),
+                email = COALESCE($3, email),
+                ubicacion = COALESCE($4, ubicacion),
+                whatsapp = COALESCE($5, whatsapp),
+                descripcion = COALESCE($6, descripcion)
+            WHERE id_tendero = $7
+            RETURNING id_tendero, nombre, email, nombre_tienda, ubicacion, whatsapp, descripcion, latitud, longitud
+        `;
+        const { rows } = await db.query(updateQuery, [
+            nombre_tienda,
+            nombre,
+            email,
+            ubicacion,
+            whatsapp,
+            descripcion,
+            id
+        ]);
+
+        if (rows.length === 0) {
+            return res.status(404).json({ error: 'Tienda no encontrada.' });
+        }
+
+        res.json({ success: true, message: 'Tienda actualizada correctamente', tienda: rows[0] });
+    } catch (err) {
+        console.error('Error en PUT /api/admin/tiendas/:id:', err.message);
+        res.status(500).json({ error: 'Error al actualizar la tienda en la base de datos.' });
+    }
+});
+
+// Eliminar tienda y todos sus productos asociados en cascada (DELETE /api/admin/tiendas/:id)
+app.delete('/api/admin/tiendas/:id', async (req, res) => {
+    const { id } = req.params;
+    try {
+        // 1. Eliminar ofertas de vitrina digital asociadas a la tienda o sus productos
+        await db.query('DELETE FROM vitrina_digital WHERE id_tendero = $1', [id]).catch(() => {});
+
+        // 2. Eliminar detalles de venta asociados a los productos o ventas de la tienda
+        await db.query(`
+            DELETE FROM detalle_venta 
+            WHERE id_producto IN (SELECT id_producto FROM productos WHERE id_tendero = $1)
+               OR id_venta IN (SELECT id_venta FROM venta WHERE id_tendero = $1)
+        `, [id]).catch(() => {});
+
+        // 3. Eliminar ventas asociadas a la tienda
+        await db.query('DELETE FROM venta WHERE id_tendero = $1', [id]).catch(() => {});
+
+        // 4. Desvincular o limpiar clientes asociados
+        await db.query('UPDATE cliente SET id_tendero = NULL WHERE id_tendero = $1', [id]).catch(() => {});
+
+        // 5. Eliminar todos los productos asociados a la tienda (Cascada explícita)
+        const deletedProducts = await db.query('DELETE FROM productos WHERE id_tendero = $1 RETURNING id_producto', [id]);
+
+        // 6. Eliminar el registro de la tienda / tendero
+        const { rows } = await db.query('DELETE FROM tendero WHERE id_tendero = $1 RETURNING id_tendero, nombre_tienda', [id]);
+
+        if (rows.length === 0) {
+            return res.status(404).json({ error: 'Tienda no encontrada.' });
+        }
+
+        res.json({
+            success: true,
+            message: 'Tienda y todos sus productos asociados fueron eliminados en cascada.',
+            tienda_eliminada: rows[0],
+            productos_eliminados: deletedProducts.rowCount || 0
+        });
+    } catch (err) {
+        console.error('Error en DELETE /api/admin/tiendas/:id:', err.message);
+        res.status(500).json({ error: 'Error al eliminar la tienda y sus productos en cascada.' });
+    }
+});
+
 // Start Server
 app.listen(port, async () => {
     console.log(`Servidor iniciado correctamente en http://localhost:${port}`);

@@ -14,6 +14,10 @@ document.addEventListener("DOMContentLoaded", () => {
     const userId = localStorage.getItem("userId");
 
     // Seguridad Requerida
+    if (userRole === 'superadmin' || (userName && userName.toLowerCase().includes('super administrador'))) {
+        window.location.href = "dashboard-superadmin.html";
+        return;
+    }
     if (!userName || (userRole !== 'merchant' && userRole !== 'tendero') || !userId) {
         window.location.href = "login.html";
         return;
