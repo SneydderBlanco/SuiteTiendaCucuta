@@ -36,8 +36,13 @@ function hashPassword(password) {
 const app = express();
 const port = process.env.PORT || 3000;
 
-// Middlewares
-app.use(cors());
+// Middlewares (CORS habilitado explícitamente para Vercel y desarrollo local)
+const corsOptions = {
+    origin: '*',
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Accept']
+};
+app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -45,6 +50,8 @@ app.use(express.urlencoded({ extended: true }));
 // BLOQUE DE RUTAS DE ADMINISTRACIÓN (SUPERADMIN)
 // Ubicado al inicio del archivo antes de cualquier middleware estático o ruta genérica
 // ==========================================
+console.log('>>> [SuperAdmin] Registrando rutas administrativas: GET/PUT/DELETE /api/admin/tiendas y GET /api/admin/tiendas/:id/productos');
+
 app.get('/api/admin/tiendas', async (req, res) => {
     try {
         await db.query("ALTER TABLE tendero ADD COLUMN IF NOT EXISTS rol VARCHAR(50) DEFAULT 'tendero'");
@@ -362,7 +369,7 @@ app.put('/api/productos/:id', upload.single('imagen'), async (req, res) => {
 });
 
 // Endpoint: Login Real blindado
-app.post(['/login', '/api/auth/login'], async (req, res) => {
+const handleLogin = async (req, res) => {
     const { email, password } = req.body;
 
     try {
@@ -391,7 +398,9 @@ app.post(['/login', '/api/auth/login'], async (req, res) => {
         console.error('Error en el login:', err.message);
         res.status(500).json({ error: 'Error interno del servidor' });
     }
-});
+};
+app.post('/login', handleLogin);
+app.post('/api/auth/login', handleLogin);
 
 // Endpoint Unificado: Registro
 app.post('/api/registro', async (req, res) => {

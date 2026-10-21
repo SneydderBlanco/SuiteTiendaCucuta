@@ -1,7 +1,15 @@
-// Determinar dinámicamente la URL del servidor API backend
-const API_URL = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
+// Determinar dinámicamente la URL del servidor API backend (sin barras finales duplicadas)
+const RAW_API_URL = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
     ? "http://localhost:3000"
     : (localStorage.getItem("API_URL") || "https://tienda-cucuta-backend.onrender.com");
+
+const API_URL = String(RAW_API_URL).trim().replace(/\/+$/, "");
+
+// Helper para construir rutas limpias sin dobles barras (ej. https://dominio.com/api/admin/tiendas)
+function buildApiUrl(endpoint) {
+    const cleanEndpoint = String(endpoint || "").trim().replace(/^\/+/, "");
+    return `${API_URL}/${cleanEndpoint}`;
+}
 
 // Exponer globalmente para otros scripts (main.js, pos.js, dashboard.js, tienda.html)
 window.API_URL = API_URL;
@@ -11,7 +19,7 @@ window.API_URL = API_URL;
  */
 window.API = {
     login: async (email, password) => {
-        const response = await fetch(`${API_URL}/login`, {
+        const response = await fetch(buildApiUrl("/login"), {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ email, password })
@@ -20,7 +28,7 @@ window.API = {
     },
 
     registro: async (payload) => {
-        const response = await fetch(`${API_URL}/api/registro`, {
+        const response = await fetch(buildApiUrl("/api/registro"), {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload)
@@ -30,7 +38,7 @@ window.API = {
 
     getProductos: async () => {
         try {
-            const response = await fetch(`${API_URL}/productos`);
+            const response = await fetch(buildApiUrl("/productos"));
             if (!response.ok) throw new Error("Error al conectar con el servidor");
             return await response.json();
         } catch (error) {
@@ -41,7 +49,7 @@ window.API = {
 
     getTiendas: async () => {
         try {
-            const response = await fetch(`${API_URL}/api/tiendas`);
+            const response = await fetch(buildApiUrl("/api/tiendas"));
             if (!response.ok) throw new Error("Error al conectar con el servidor para obtener tiendas");
             return await response.json();
         } catch (error) {
@@ -52,7 +60,7 @@ window.API = {
 
     buscarProductosGlobal: async (query = "") => {
         try {
-            const response = await fetch(`${API_URL}/api/productos/buscar?q=${encodeURIComponent(query)}`);
+            const response = await fetch(buildApiUrl(`/api/productos/buscar?q=${encodeURIComponent(query)}`));
             if (!response.ok) throw new Error("Error al buscar productos globalmente");
             return await response.json();
         } catch (error) {
@@ -62,13 +70,13 @@ window.API = {
     },
 
     getProductosTendero: async (tenderoId) => {
-        const response = await fetch(`${API_URL}/api/productos/${tenderoId}`);
+        const response = await fetch(buildApiUrl(`/api/productos/${encodeURIComponent(tenderoId)}`));
         if (!response.ok) throw new Error("Fallo al obtener inventario del tendero");
         return { status: response.status, data: await response.json() };
     },
 
     createProducto: async (formData) => {
-        const response = await fetch(`${API_URL}/api/productos`, {
+        const response = await fetch(buildApiUrl("/api/productos"), {
             method: "POST",
             body: formData
         });
@@ -76,14 +84,14 @@ window.API = {
     },
 
     deleteProducto: async (id) => {
-        const response = await fetch(`${API_URL}/api/productos/${id}`, {
+        const response = await fetch(buildApiUrl(`/api/productos/${encodeURIComponent(id)}`), {
             method: "DELETE"
         });
         return { status: response.status, data: await response.json() };
     },
 
     updateProducto: async (id, formData) => {
-        const response = await fetch(`${API_URL}/api/productos/${id}`, {
+        const response = await fetch(buildApiUrl(`/api/productos/${encodeURIComponent(id)}`), {
             method: "PUT",
             body: formData
         });
@@ -91,33 +99,33 @@ window.API = {
     },
 
     getReportesKpis: async (tenderoId) => {
-        const response = await fetch(`${API_URL}/api/reportes/kpis/${tenderoId}`);
+        const response = await fetch(buildApiUrl(`/api/reportes/kpis/${encodeURIComponent(tenderoId)}`));
         if (!response.ok) throw new Error("Fallo al obtener KPIs");
         return { status: response.status, data: await response.json() };
     },
 
     getReportesTopProductos: async (tenderoId) => {
-        const response = await fetch(`${API_URL}/api/reportes/top-productos/${tenderoId}`);
+        const response = await fetch(buildApiUrl(`/api/reportes/top-productos/${encodeURIComponent(tenderoId)}`));
         if (!response.ok) throw new Error("Fallo al obtener top productos");
         return { status: response.status, data: await response.json() };
     },
 
     getReportesAlertasStock: async (tenderoId) => {
-        const response = await fetch(`${API_URL}/api/reportes/alertas-stock/${tenderoId}`);
+        const response = await fetch(buildApiUrl(`/api/reportes/alertas-stock/${encodeURIComponent(tenderoId)}`));
         if (!response.ok) throw new Error("Fallo al obtener alertas de stock");
         return { status: response.status, data: await response.json() };
     },
 
     getReportesGrafico: async (tenderoId, fecha) => {
-        let url = `${API_URL}/api/reportes/semana/${tenderoId}`;
-        if (fecha) url += `?fecha=${fecha}`;
-        const response = await fetch(url);
+        let endpoint = `/api/reportes/semana/${encodeURIComponent(tenderoId)}`;
+        if (fecha) endpoint += `?fecha=${encodeURIComponent(fecha)}`;
+        const response = await fetch(buildApiUrl(endpoint));
         if (!response.ok) throw new Error("Fallo al obtener datos del grafico");
         return { status: response.status, data: await response.json() };
     },
 
     validateEmail: async (email) => {
-        const response = await fetch(`${API_URL}/api/verificar-correo`, {
+        const response = await fetch(buildApiUrl("/api/verificar-correo"), {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ email })
@@ -125,12 +133,12 @@ window.API = {
         try {
             return { status: response.status, data: await response.json() };
         } catch {
-            return { status: 404, data: { error: "Error procesando validación." }};
+            return { status: 404, data: { error: "Error procesando validación." } };
         }
     },
 
     updatePassword: async (email, password) => {
-        const response = await fetch(`${API_URL}/api/actualizar-password`, {
+        const response = await fetch(buildApiUrl("/api/actualizar-password"), {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ email, password })
@@ -138,13 +146,13 @@ window.API = {
         try {
             return { status: response.status, data: await response.json() };
         } catch {
-            return { status: 500, data: { error: "Error procesando actualización." }};
+            return { status: 500, data: { error: "Error procesando actualización." } };
         }
     },
 
     procesarVenta: async (payload) => {
         try {
-            const response = await fetch(`${API_URL}/api/ventas`, {
+            const response = await fetch(buildApiUrl("/api/ventas"), {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(payload)
@@ -158,7 +166,7 @@ window.API = {
 
     getDashboardData: async (tenderoId) => {
         try {
-            const response = await fetch(`${API_URL}/api/dashboard/${tenderoId}`);
+            const response = await fetch(buildApiUrl(`/api/dashboard/${encodeURIComponent(tenderoId)}`));
             if (!response.ok) throw new Error("Fallo al obtener datos del dashboard");
             return { status: response.status, data: await response.json() };
         } catch (error) {
@@ -169,7 +177,7 @@ window.API = {
 
     getStoreSettings: async (tenderoId) => {
         try {
-            const response = await fetch(`${API_URL}/api/tienda/configurar/${tenderoId}`);
+            const response = await fetch(buildApiUrl(`/api/tienda/configurar/${encodeURIComponent(tenderoId)}`));
             if (!response.ok) throw new Error("Fallo al obtener configuración");
             return { status: response.status, data: await response.json() };
         } catch (error) {
@@ -180,7 +188,7 @@ window.API = {
 
     updateStoreSettings: async (tenderoId, formData) => {
         try {
-            const response = await fetch(`${API_URL}/api/tienda/configurar/${tenderoId}`, {
+            const response = await fetch(buildApiUrl(`/api/tienda/configurar/${encodeURIComponent(tenderoId)}`), {
                 method: "PUT",
                 body: formData
             });
@@ -193,7 +201,7 @@ window.API = {
 
     getVitrina: async (tenderoId) => {
         try {
-            const response = await fetch(`${API_URL}/api/vitrina/${tenderoId}`);
+            const response = await fetch(buildApiUrl(`/api/vitrina/${encodeURIComponent(tenderoId)}`));
             if (!response.ok) throw new Error("Fallo al obtener vitrina");
             return await response.json();
         } catch (error) {
@@ -204,7 +212,7 @@ window.API = {
 
     saveOferta: async (payload) => {
         try {
-            const response = await fetch(`${API_URL}/api/vitrina`, {
+            const response = await fetch(buildApiUrl("/api/vitrina"), {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(payload)
@@ -218,7 +226,7 @@ window.API = {
 
     deleteOferta: async (ofertaId) => {
         try {
-            const response = await fetch(`${API_URL}/api/vitrina/${ofertaId}`, {
+            const response = await fetch(buildApiUrl(`/api/vitrina/${encodeURIComponent(ofertaId)}`), {
                 method: "DELETE"
             });
             return { status: response.status, data: await response.json() };
@@ -229,11 +237,12 @@ window.API = {
     },
 
     getAdminTiendas: async () => {
+        const url = buildApiUrl("/api/admin/tiendas");
         try {
-            let response = await fetch(`${API_URL}/api/admin/tiendas`);
-            if (response.status === 404 && API_URL !== "http://localhost:3000") {
-                response = await fetch("http://localhost:3000/api/admin/tiendas").catch(() => response);
-            }
+            const response = await fetch(url, {
+                method: "GET",
+                headers: { "Accept": "application/json" }
+            });
             if (response.ok) {
                 return await response.json();
             }
@@ -246,10 +255,12 @@ window.API = {
                     if (tid != null) countsByStore[tid] = (countsByStore[tid] || 0) + 1;
                 });
             }
-            const enrichedTiendas = fallbackTiendas.map((t) => ({
-                ...t,
-                total_productos: t.total_productos != null ? parseInt(t.total_productos, 10) : (countsByStore[t.id_tendero] || 0)
-            }));
+            const enrichedTiendas = fallbackTiendas
+                .filter((t) => (t.rol || "tendero").toLowerCase() !== "superadmin" && t.nombre_tienda !== "Administración Central")
+                .map((t) => ({
+                    ...t,
+                    total_productos: t.total_productos != null ? parseInt(t.total_productos, 10) : (countsByStore[t.id_tendero] || 0)
+                }));
             const sortedFallback = [...enrichedTiendas].sort((a, b) => (parseInt(b.total_productos, 10) || 0) - (parseInt(a.total_productos, 10) || 0));
             return {
                 success: true,
@@ -269,13 +280,17 @@ window.API = {
 
     getAdminTiendaProductos: async (id) => {
         const targetId = encodeURIComponent(id);
+        const url = buildApiUrl(`/api/admin/tiendas/${targetId}/productos`);
         try {
-            let response = await fetch(`${API_URL}/api/admin/tiendas/${targetId}/productos`);
-            if (response.status === 404 && API_URL !== "http://localhost:3000") {
-                response = await fetch(`http://localhost:3000/api/admin/tiendas/${targetId}/productos`).catch(() => response);
-            }
+            let response = await fetch(url, {
+                method: "GET",
+                headers: { "Accept": "application/json" }
+            });
             if (response.status === 404) {
-                response = await fetch(`${API_URL}/api/productos/${targetId}`);
+                response = await fetch(buildApiUrl(`/api/productos/${targetId}`), {
+                    method: "GET",
+                    headers: { "Accept": "application/json" }
+                });
             }
             const isJson = (response.headers.get("content-type") || "").includes("application/json");
             const data = isJson ? await response.json() : [];
@@ -288,18 +303,12 @@ window.API = {
 
     updateAdminTienda: async (id, payload) => {
         const targetId = encodeURIComponent(id);
-        let response = await fetch(`${API_URL}/api/admin/tiendas/${targetId}`, {
+        const url = buildApiUrl(`/api/admin/tiendas/${targetId}`);
+        const response = await fetch(url, {
             method: "PUT",
-            headers: { "Content-Type": "application/json" },
+            headers: { "Content-Type": "application/json", "Accept": "application/json" },
             body: JSON.stringify(payload)
         });
-        if (response.status === 404 && API_URL !== "http://localhost:3000") {
-            response = await fetch(`http://localhost:3000/api/admin/tiendas/${targetId}`, {
-                method: "PUT",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload)
-            }).catch(() => response);
-        }
         const isJson = (response.headers.get("content-type") || "").includes("application/json");
         const data = isJson ? await response.json() : { error: `Error HTTP ${response.status}` };
         return { status: response.status, data };
@@ -307,16 +316,11 @@ window.API = {
 
     deleteAdminTienda: async (id) => {
         const targetId = encodeURIComponent(id);
-        let response = await fetch(`${API_URL}/api/admin/tiendas/${targetId}`, {
+        const url = buildApiUrl(`/api/admin/tiendas/${targetId}`);
+        const response = await fetch(url, {
             method: "DELETE",
-            headers: { "Content-Type": "application/json" }
+            headers: { "Content-Type": "application/json", "Accept": "application/json" }
         });
-        if (response.status === 404 && API_URL !== "http://localhost:3000") {
-            response = await fetch(`http://localhost:3000/api/admin/tiendas/${targetId}`, {
-                method: "DELETE",
-                headers: { "Content-Type": "application/json" }
-            }).catch(() => response);
-        }
         const isJson = (response.headers.get("content-type") || "").includes("application/json");
         const data = isJson ? await response.json() : { error: `Error HTTP ${response.status}` };
         return { status: response.status, data };
@@ -324,7 +328,7 @@ window.API = {
 
     deleteOfertaLegacy: async (ofertaId) => {
         try {
-            const response = await fetch(`${API_URL}/api/vitrina/${ofertaId}`, {
+            const response = await fetch(buildApiUrl(`/api/vitrina/${encodeURIComponent(ofertaId)}`), {
                 method: "DELETE"
             });
             return { status: response.status, data: await response.json() };
