@@ -204,6 +204,11 @@ document.addEventListener("DOMContentLoaded", async () => {
         const activeClasses = ["bg-emerald-600", "text-white", "shadow-md", "shadow-emerald-600/20"];
         const inactiveClasses = ["text-slate-600", "hover:text-emerald-700", "hover:bg-slate-50"];
 
+        // Limpiar el campo del buscador al alternar pestañas
+        if (searchInput) {
+            searchInput.value = "";
+        }
+
         if (mode === "tiendas") {
             if (tabTiendas && tabProductos) {
                 tabTiendas.classList.add(...activeClasses);
@@ -216,7 +221,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             }
             if (productosSection) productosSection.classList.add("hidden");
             if (tiendasSection) tiendasSection.classList.remove("hidden");
-            filterTiendas(searchInput ? searchInput.value : "");
+            renderTiendas(tiendas);
         } else {
             if (tabTiendas && tabProductos) {
                 tabProductos.classList.add(...activeClasses);
@@ -227,6 +232,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             if (searchInput) {
                 searchInput.placeholder = "¿Qué producto buscas hoy? (ej. arroz, panela, café...)";
             }
+            ejecutarBusquedaProductos();
         }
     }
 
@@ -262,12 +268,15 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     // Eventos de los Tabs
     if (tabTiendas) {
-        tabTiendas.addEventListener("click", () => setSearchMode("tiendas"));
+        tabTiendas.addEventListener("click", () => {
+            if (searchInput) searchInput.value = "";
+            setSearchMode("tiendas");
+        });
     }
     if (tabProductos) {
         tabProductos.addEventListener("click", () => {
+            if (searchInput) searchInput.value = "";
             setSearchMode("productos");
-            ejecutarBusquedaProductos();
         });
     }
     if (btnVolverTiendas) {
@@ -297,6 +306,8 @@ document.addEventListener("DOMContentLoaded", async () => {
         searchInput.addEventListener("input", (e) => {
             if (searchMode === "tiendas") {
                 filterTiendas(e.target.value);
+            } else if (e.target.value.trim() === "") {
+                ejecutarBusquedaProductos();
             }
         });
 
