@@ -65,7 +65,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
             card.innerHTML = `
                 <!-- Banner Section -->
-                <div class="h-32 w-full relative overflow-hidden bg-gradient-to-r from-emerald-500 to-teal-600">
+                <div class="h-32 w-full relative overflow-hidden bg-gradient-to-r from-emerald-500 via-teal-600 to-cyan-700">
                     ${fullBannerUrl 
                         ? `<img src="${fullBannerUrl}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt="Banner ${tienda.nombre_tienda}">` 
                         : `<div class="absolute inset-0 bg-gradient-to-tr from-emerald-600/10 via-teal-700/20 to-cyan-500/10 backdrop-blur-[1px]"></div>`
@@ -102,7 +102,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                     <!-- Card Action Footer -->
                     <div class="mt-5 pt-4 border-t border-slate-100 flex justify-between items-center text-xs">
                         <span class="text-slate-400 font-medium">Por: ${tienda.nombre}</span>
-                        <span class="text-emerald-600 font-bold flex items-center gap-0.5 group-hover:translate-x-1 transition-transform">
+                        <span class="text-emerald-600 hover:text-emerald-800 group-hover:text-emerald-700 hover:underline underline-offset-4 font-bold flex items-center gap-0.5 group-hover:translate-x-1 transition-all duration-200">
                             Visitar tienda
                             <span class="material-symbols-outlined text-xs">arrow_forward</span>
                         </span>
