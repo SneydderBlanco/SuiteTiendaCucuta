@@ -219,22 +219,31 @@ document.addEventListener("DOMContentLoaded", async () => {
                             </span>
                         </td>
                         <td class="px-6 py-4 text-right">
-                            <div class="inline-flex items-center justify-end gap-2">
-                                <button type="button" data-action="view-products" data-id="${id}"
-                                    class="px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-xs transition-all inline-flex items-center gap-1.5 active:scale-95">
-                                    <span class="material-symbols-outlined text-[16px]">visibility</span>
-                                    <span>Ver Productos</span>
+                            <div class="relative inline-block text-left" data-dropdown-container="${id}">
+                                <button type="button" data-action="toggle-dropdown" data-id="${id}"
+                                    aria-haspopup="true" aria-expanded="false"
+                                    class="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-emerald-50 text-slate-700 hover:text-emerald-700 border border-slate-200 text-xs font-bold transition-colors inline-flex items-center gap-1 active:scale-95">
+                                    <span>Opciones</span>
+                                    <span class="material-symbols-outlined text-[18px]">more_vert</span>
                                 </button>
-                                <button type="button" data-action="edit-store" data-id="${id}"
-                                    class="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs transition-all inline-flex items-center gap-1.5 active:scale-95">
-                                    <span class="material-symbols-outlined text-[16px]">edit</span>
-                                    <span>Editar</span>
-                                </button>
-                                <button type="button" data-action="delete-store" data-id="${id}"
-                                    class="px-3.5 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold shadow-xs transition-all inline-flex items-center gap-1.5 active:scale-95">
-                                    <span class="material-symbols-outlined text-[16px]">delete</span>
-                                    <span>Eliminar</span>
-                                </button>
+                                <div id="sa-dropdown-${id}"
+                                    class="sa-row-dropdown absolute right-0 mt-2 w-48 bg-white border border-slate-200 shadow-xl rounded-md hidden z-50 overflow-hidden">
+                                    <button type="button" data-action="view-products" data-id="${id}"
+                                        class="w-full text-left px-4 py-3 hover:bg-slate-50 transition-colors flex items-center gap-2 text-sm font-semibold text-blue-600">
+                                        <span class="material-symbols-outlined text-[18px] text-blue-600">visibility</span>
+                                        <span>Ver Productos</span>
+                                    </button>
+                                    <button type="button" data-action="edit-store" data-id="${id}"
+                                        class="w-full text-left px-4 py-3 hover:bg-slate-50 transition-colors flex items-center gap-2 text-sm font-semibold text-emerald-600 border-t border-slate-100">
+                                        <span class="material-symbols-outlined text-[18px] text-emerald-600">edit</span>
+                                        <span>Editar</span>
+                                    </button>
+                                    <button type="button" data-action="delete-store" data-id="${id}"
+                                        class="w-full text-left px-4 py-3 hover:bg-slate-50 transition-colors flex items-center gap-2 text-sm font-semibold text-red-600 border-t border-slate-100">
+                                        <span class="material-symbols-outlined text-[18px] text-red-600">delete</span>
+                                        <span>Eliminar</span>
+                                    </button>
+                                </div>
                             </div>
                         </td>
                     </tr>
@@ -496,6 +505,15 @@ document.addEventListener("DOMContentLoaded", async () => {
         });
     }
 
+    // Helper para cerrar todos los menús desplegables abiertos de la tabla
+    function closeAllRowDropdowns(exceptId = null) {
+        const dropdowns = document.querySelectorAll(".sa-row-dropdown");
+        dropdowns.forEach((menu) => {
+            if (exceptId && menu.id === `sa-dropdown-${exceptId}`) return;
+            menu.classList.add("hidden");
+        });
+    }
+
     // Delegación de eventos en la tabla
     if (tiendasTbody) {
         tiendasTbody.addEventListener("click", (e) => {
@@ -503,6 +521,19 @@ document.addEventListener("DOMContentLoaded", async () => {
             if (!btn) return;
             const action = btn.getAttribute("data-action");
             const id = btn.getAttribute("data-id");
+
+            if (action === "toggle-dropdown") {
+                e.stopPropagation();
+                closeAllRowDropdowns(id);
+                const targetMenu = document.getElementById(`sa-dropdown-${id}`);
+                if (targetMenu) {
+                    targetMenu.classList.toggle("hidden");
+                }
+                return;
+            }
+
+            // Al seleccionar una opción del menú, cerrar todos los menús abiertos
+            closeAllRowDropdowns();
 
             if (action === "view-products") {
                 openViewProductsModal(id);
@@ -513,6 +544,13 @@ document.addEventListener("DOMContentLoaded", async () => {
             }
         });
     }
+
+    // Cerrar cualquier menú desplegable abierto si se hace clic fuera
+    document.addEventListener("click", (e) => {
+        if (!e.target.closest("[data-dropdown-container]")) {
+            closeAllRowDropdowns();
+        }
+    });
 
     // --- Menú Lateral Responsive (Móvil) ---
     function toggleMobileSidebar(forceClose = false) {
