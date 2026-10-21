@@ -40,45 +40,10 @@ const port = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-
-// Routes
-// Endpoint solicitado por el frontend para cargar los productos globales
-app.get('/productos', async (req, res) => {
-    try {
-        const text = 'SELECT nombre, marca, precio_venta, categoria, stock, imagen_url FROM productos';
-        const { rows } = await db.query(text);
-        res.json(rows);
-    } catch (err) {
-        console.error('Error ejecutando query libre:', err.message);
-        res.status(500).json({ error: 'Error del servidor al obtener productos' });
-    }
-});
-
-// Endpoint público para obtener todas las tiendas registradas con su perfil
-app.get('/api/tiendas', async (req, res) => {
-    try {
-        // Asegurarse de que las columnas necesarias existen
-        await db.query('ALTER TABLE tendero ADD COLUMN IF NOT EXISTS banner_url TEXT');
-        await db.query('ALTER TABLE tendero ADD COLUMN IF NOT EXISTS latitud NUMERIC, ADD COLUMN IF NOT EXISTS longitud NUMERIC');
-        await db.query('ALTER TABLE tendero ADD COLUMN IF NOT EXISTS whatsapp TEXT');
-        
-        const queryText = `
-            SELECT id_tendero, nombre, nombre_tienda, descripcion, ubicacion, logo_url, banner_url, latitud, longitud, whatsapp 
-            FROM tendero 
-            WHERE nombre_tienda IS NOT NULL AND nombre_tienda != '' AND COALESCE(rol, 'tendero') != 'superadmin'
-        `;
-        const { rows } = await db.query(queryText);
-        res.json(rows);
-    } catch (err) {
-        console.error('Error al obtener tiendas:', err.message);
-        res.status(500).json({ error: 'Error del servidor al obtener tiendas' });
-    }
-});
-
 
 // ==========================================
-// BLOQUE DE RUTAS DE ADMINISTRACIÓN (/api/admin/tiendas)
+// BLOQUE DE RUTAS DE ADMINISTRACIÓN (SUPERADMIN)
+// Ubicado al inicio del archivo antes de cualquier middleware estático o ruta genérica
 // ==========================================
 app.get('/api/admin/tiendas', async (req, res) => {
     try {
@@ -233,6 +198,42 @@ app.delete('/api/admin/tiendas/:id', async (req, res) => {
     } catch (err) {
         console.error('Error en DELETE /api/admin/tiendas/:id:', err.message);
         res.status(500).json({ error: 'Error al eliminar la tienda y sus productos en cascada: ' + err.message });
+    }
+});
+
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+// Routes
+// Endpoint solicitado por el frontend para cargar los productos globales
+app.get('/productos', async (req, res) => {
+    try {
+        const text = 'SELECT nombre, marca, precio_venta, categoria, stock, imagen_url FROM productos';
+        const { rows } = await db.query(text);
+        res.json(rows);
+    } catch (err) {
+        console.error('Error ejecutando query libre:', err.message);
+        res.status(500).json({ error: 'Error del servidor al obtener productos' });
+    }
+});
+
+// Endpoint público para obtener todas las tiendas registradas con su perfil
+app.get('/api/tiendas', async (req, res) => {
+    try {
+        // Asegurarse de que las columnas necesarias existen
+        await db.query('ALTER TABLE tendero ADD COLUMN IF NOT EXISTS banner_url TEXT');
+        await db.query('ALTER TABLE tendero ADD COLUMN IF NOT EXISTS latitud NUMERIC, ADD COLUMN IF NOT EXISTS longitud NUMERIC');
+        await db.query('ALTER TABLE tendero ADD COLUMN IF NOT EXISTS whatsapp TEXT');
+        
+        const queryText = `
+            SELECT id_tendero, nombre, nombre_tienda, descripcion, ubicacion, logo_url, banner_url, latitud, longitud, whatsapp 
+            FROM tendero 
+            WHERE nombre_tienda IS NOT NULL AND nombre_tienda != '' AND COALESCE(rol, 'tendero') != 'superadmin'
+        `;
+        const { rows } = await db.query(queryText);
+        res.json(rows);
+    } catch (err) {
+        console.error('Error al obtener tiendas:', err.message);
+        res.status(500).json({ error: 'Error del servidor al obtener tiendas' });
     }
 });
 
