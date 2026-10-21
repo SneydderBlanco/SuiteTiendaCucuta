@@ -266,6 +266,92 @@ document.addEventListener("DOMContentLoaded", async () => {
         renderProductosGlobal(productos, query);
     }
 
+    // 2.3 Fórmula de Haversine para calcular distancia en kilómetros entre dos coordenadas
+    function calcularDistanciaKm(lat1, lon1, lat2, lon2) {
+        const R = 6371; // Radio de la Tierra en km
+        const toRad = (deg) => (deg * Math.PI) / 180;
+        const dLat = toRad(lat2 - lat1);
+        const dLon = toRad(lon2 - lon1);
+        const a =
+            Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+            Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return R * c;
+    }
+
+    // 2.4 Botones de Filtro: "Todos" y "Cerca de mí"
+    const sectionButtons = tiendasSection ? tiendasSection.querySelectorAll("button") : [];
+    let btnTodos = document.getElementById("btn-filtro-todos");
+    let btnCercaDeMi = document.getElementById("btn-filtro-cerca");
+
+    if (!btnTodos || !btnCercaDeMi) {
+        sectionButtons.forEach(btn => {
+            const txt = btn.textContent.trim().toLowerCase();
+            if (txt === "todos") btnTodos = btn;
+            if (txt.includes("cerca de m")) btnCercaDeMi = btn;
+        });
+    }
+
+    function activarEstiloBotonFiltro(botonActivo, botonInactivo) {
+        if (!botonActivo || !botonInactivo) return;
+        botonActivo.className = "px-4 py-2 bg-white text-emerald-700 font-bold rounded-lg text-xs shadow-sm transition-all cursor-pointer";
+        botonInactivo.className = "px-4 py-2 text-slate-600 hover:text-slate-900 font-semibold rounded-lg text-xs transition-all cursor-pointer";
+    }
+
+    if (btnTodos) {
+        btnTodos.addEventListener("click", () => {
+            activarEstiloBotonFiltro(btnTodos, btnCercaDeMi);
+            if (searchInput && searchInput.value.trim() !== "") {
+                filterTiendas(searchInput.value);
+            } else {
+                renderTiendas(tiendas);
+            }
+        });
+    }
+
+    if (btnCercaDeMi) {
+        btnCercaDeMi.addEventListener("click", () => {
+            if (!navigator.geolocation) {
+                alert("Tu navegador no soporta geolocalización.");
+                return;
+            }
+
+            activarEstiloBotonFiltro(btnCercaDeMi, btnTodos);
+
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    const userLat = position.coords.latitude;
+                    const userLon = position.coords.longitude;
+
+                    const tiendasCercanas = tiendas.filter(tienda => {
+                        const tLat = parseFloat(tienda.latitud);
+                        const tLon = parseFloat(tienda.longitud);
+                        if (isNaN(tLat) || isNaN(tLon)) return false;
+
+                        const distanciaKm = calcularDistanciaKm(userLat, userLon, tLat, tLon);
+                        return distanciaKm <= 0.5;
+                    });
+
+                    renderTiendas(tiendasCercanas);
+                },
+                (error) => {
+                    activarEstiloBotonFiltro(btnTodos, btnCercaDeMi);
+                    let mensaje = "No pudimos obtener tu ubicación actual. Por favor verifica tus permisos de ubicación e inténtalo de nuevo.";
+                    if (error.code === error.PERMISSION_DENIED) {
+                        mensaje = "Permiso de ubicación denegado. Activa el acceso a tu ubicación en el navegador para ver las tiendas a menos de 500 metros.";
+                    }
+                    alert(mensaje);
+                },
+                {
+                    enableHighAccuracy: true,
+                    timeout: 10000,
+                    maximumAge: 0
+                }
+            );
+        });
+    }
+
     // Eventos de los Tabs
     if (tabTiendas) {
         tabTiendas.addEventListener("click", () => {
