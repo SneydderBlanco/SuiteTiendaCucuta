@@ -247,7 +247,8 @@ document.addEventListener("DOMContentLoaded", () => {
         formData.append("precio_venta", document.getElementById("reg-prod-precio").value);
         formData.append("stock", document.getElementById("reg-prod-stock").value);
         
-        const imageFile = document.getElementById("reg-prod-imagen").files[0];
+        const imageInput = document.getElementById("reg-prod-imagen") || document.getElementById("imagen-producto");
+        const imageFile = imageInput && imageInput.files ? imageInput.files[0] : null;
         if (imageFile) {
             formData.append("imagen", imageFile);
         }
@@ -303,7 +304,8 @@ document.addEventListener("DOMContentLoaded", () => {
             formData.append("precio_venta", precio);
             formData.append("stock", stock);
 
-            const imageFile = document.getElementById("edit-prod-imagen").files[0];
+            const editImageInput = document.getElementById("edit-prod-imagen");
+            const imageFile = editImageInput && editImageInput.files ? editImageInput.files[0] : null;
             if (imageFile) {
                 formData.append("imagen", imageFile);
             }
@@ -399,7 +401,7 @@ async function loadProducts(tenderoId) {
     <td class="px-8 py-6 font-mono text-xs text-on-surface-variant">#LM-${p.id || p.id_producto || 'XX'}</td>
     <td class="px-8 py-6">
         <div class="flex items-center gap-3">
-            ${p.imagen_url ? `<img src="${window.API_URL}${p.imagen_url}" alt="${p.nombre}" class="w-10 h-10 rounded-lg object-cover bg-white shrink-0"/>` : `<div class="w-10 h-10 rounded-lg bg-surface-container-high flex items-center justify-center shrink-0"><span class="material-symbols-outlined text-on-surface-variant text-sm">image</span></div>`}
+            ${p.imagen_url ? `<img src="${p.imagen_url.startsWith('http') ? p.imagen_url : window.API_URL + p.imagen_url}" alt="${p.nombre}" class="w-10 h-10 rounded-lg object-cover bg-white shrink-0"/>` : `<div class="w-10 h-10 rounded-lg bg-surface-container-high flex items-center justify-center shrink-0"><span class="material-symbols-outlined text-on-surface-variant text-sm">image</span></div>`}
             <div>
                 <span class="font-bold text-on-surface block leading-tight">${p.nombre}</span>
                 <span class="text-[10px] text-slate-400 uppercase">(${p.marca || 'S/M'})</span>

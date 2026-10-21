@@ -67,10 +67,10 @@ window.API = {
         return { status: response.status, data: await response.json() };
     },
 
-    createProducto: async (payload) => {
+    createProducto: async (formData) => {
         const response = await fetch(`${API_URL}/api/productos`, {
             method: "POST",
-            body: payload
+            body: formData
         });
         return { status: response.status, data: await response.json() };
     },
@@ -82,10 +82,10 @@ window.API = {
         return { status: response.status, data: await response.json() };
     },
 
-    updateProducto: async (id, payload) => {
+    updateProducto: async (id, formData) => {
         const response = await fetch(`${API_URL}/api/productos/${id}`, {
             method: "PUT",
-            body: payload
+            body: formData
         });
         return { status: response.status, data: await response.json() };
     },
@@ -178,11 +178,11 @@ window.API = {
         }
     },
 
-    updateStoreSettings: async (tenderoId, payload) => {
+    updateStoreSettings: async (tenderoId, formData) => {
         try {
             const response = await fetch(`${API_URL}/api/tienda/configurar/${tenderoId}`, {
                 method: "PUT",
-                body: payload
+                body: formData
             });
             return { status: response.status, data: await response.json() };
         } catch (error) {
