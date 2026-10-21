@@ -49,7 +49,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     let map = null;
     let markersLayer = null;
 
-    // --- Inicializar Mapa Leaflet.js con OpenStreetMap ---
+    // --- Inicializar Mapa Leaflet.js con Esri World Street Map ---
     function initSuperAdminMap() {
         const mapContainer = document.getElementById("sa-mapa-tiendas");
         if (!mapContainer || typeof L === "undefined") return;
@@ -60,8 +60,8 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         L.control.zoom({ position: "bottomright" }).addTo(map);
 
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; OpenStreetMap contributors'
+        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
+            attribution: 'Tiles &copy; Esri'
         }).addTo(map);
 
         markersLayer = L.layerGroup().addTo(map);
@@ -81,46 +81,46 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     // --- Renderizar Marcadores de Tiendas en el Mapa ---
     function renderStoreMarkers(stores) {
-        if (!map || !markersLayer) return;
-        markersLayer.clearLayers();
-
-        if (mapCounterBadge) {
-            mapCounterBadge.textContent = `${stores.length} Tiendas en el mapa`;
+        if (!map || !markersLayer) {
+            initSuperAdminMap();
         }
+        if (!map || !markersLayer) return;
 
-        stores.forEach((tienda, idx) => {
+        markersLayer.clearLayers();
+        const storeList = Array.isArray(stores) ? stores : [];
+        let renderedCount = 0;
+
+        storeList.forEach((tienda) => {
             let lat = parseFloat(tienda.latitud);
             let lng = parseFloat(tienda.longitud);
 
-            // Si la tienda no tiene coordenadas exactas aún, distribuir alrededor del centro de Cúcuta
-            if (isNaN(lat) || isNaN(lng) || lat === 0 || lng === 0) {
-                const angle = (idx * 137.5) * (Math.PI / 180);
-                const distance = 0.006 + (idx % 5) * 0.0035;
-                lat = cucutaCenter[0] + Math.sin(angle) * distance;
-                lng = cucutaCenter[1] + Math.cos(angle) * distance;
+            // Manejo de Coordenadas Nulas: asignar coordenadas de respaldo cerca del centro de Cúcuta
+            if (!Number.isFinite(lat) || !Number.isFinite(lng) || lat === 0 || lng === 0) {
+                lat = 7.8939 + (Math.random() * 0.02 - 0.01);
+                lng = -72.5078 + (Math.random() * 0.02 - 0.01);
             }
 
+            tienda.final_lat = lat;
+            tienda.final_lng = lng;
+            renderedCount++;
+
+            // Icono de pin verde esmeralda acorde a la paleta de la marca
             const markerIcon = L.divIcon({
                 className: "custom-sa-marker",
                 html: `
-                    <div style="
-                        width: 34px;
-                        height: 34px;
-                        border-radius: 9999px;
-                        background: linear-gradient(135deg, #059669, #047857);
-                        border: 2.5px solid #ffffff;
-                        box-shadow: 0 6px 14px rgba(5, 150, 105, 0.45);
-                        display: flex;
-                        align-items: center;
-                        justify-content: center;
-                        color: #ffffff;
-                    ">
-                        <span class="material-symbols-outlined" style="font-size: 18px;">storefront</span>
+                    <div class="marker-pin-wrapper flex flex-col items-center justify-center">
+                        <div class="relative flex items-center justify-center">
+                            <div class="absolute w-9 h-9 rounded-full bg-emerald-500/30 animate-pulse"></div>
+                            <div class="w-8 h-8 rounded-full bg-emerald-600 border-2 border-white shadow-lg flex items-center justify-center text-white" style="background-color: #059669;">
+                                <span class="material-symbols-outlined text-white text-[16px] select-none">storefront</span>
+                            </div>
+                        </div>
+                        <div class="w-2.5 h-2.5 bg-emerald-600 rotate-45 -mt-1.5 border-r border-b border-white shadow-md" style="background-color: #059669;"></div>
                     </div>
                 `,
-                iconSize: [34, 34],
-                iconAnchor: [17, 17],
-                popupAnchor: [0, -18]
+                iconSize: [36, 42],
+                iconAnchor: [18, 40],
+                popupAnchor: [0, -38]
             });
 
             const marker = L.marker([lat, lng], { icon: markerIcon });
@@ -154,6 +154,10 @@ document.addEventListener("DOMContentLoaded", async () => {
 
             markersLayer.addLayer(marker);
         });
+
+        if (mapCounterBadge) {
+            mapCounterBadge.textContent = `${renderedCount} ${renderedCount === 1 ? "Tienda en el mapa" : "Tiendas en el mapa"}`;
+        }
     }
 
     // --- Renderizar Tabla CRUD de Tiendas ---
