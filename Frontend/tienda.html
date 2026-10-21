@@ -88,9 +88,9 @@
 
                         <!-- Store Badges / Location -->
                         <div class="flex flex-wrap items-center justify-center md:justify-start gap-4 pt-2 text-xs">
-                            <span id="store-location" class="flex items-center gap-1 text-slate-500 font-medium bg-slate-100 px-3 py-1.5 rounded-full">
-                                <span class="material-symbols-outlined text-[16px] text-slate-400">location_on</span>
-                                <span>Cargando ubicación...</span>
+                            <span id="store-location" class="flex items-center gap-1.5 text-slate-700 font-semibold bg-slate-100/90 hover:bg-slate-200/70 px-3.5 py-1.5 rounded-full border border-slate-200/60 transition-colors">
+                                <span class="material-symbols-outlined text-[16px] text-emerald-600 shrink-0">location_on</span>
+                                <span id="store-location-text">Cargando ubicación...</span>
                             </span>
                             <span class="flex items-center gap-1 text-emerald-700 font-medium bg-emerald-50 px-3 py-1.5 rounded-full border border-emerald-100/50">
                                 <span class="material-symbols-outlined text-[16px] text-emerald-600 font-bold">verified_user</span>
@@ -344,7 +344,7 @@
                     document.getElementById('store-title').querySelector('span').textContent = store.nombre_tienda;
                     document.getElementById('store-owner').textContent = `Por: ${store.nombre}`;
                     document.getElementById('store-description').textContent = store.descripcion || '¡Bienvenido a nuestra tienda! Explora nuestros productos y disfruta de la mejor atención personalizada.';
-                    document.getElementById('store-location').querySelector('span').textContent = store.ubicacion || 'Cúcuta, Norte de Santander';
+                    document.getElementById('store-location-text').textContent = store.ubicacion || 'Cúcuta, Norte de Santander';
 
                     // Cargar Imágenes
                     const logoEl = document.getElementById('store-logo-img');
