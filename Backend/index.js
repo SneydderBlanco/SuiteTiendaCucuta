@@ -8,12 +8,25 @@ const nodemailer = require('nodemailer');
 const path = require('path');
 const fs = require('fs');
 
-// Configuración de Nodemailer con Gmail y variables de entorno
+// Configuración SMTP explícita de Nodemailer con Gmail y variables de entorno
 const transporter = nodemailer.createTransport({
-    service: 'gmail',
+    host: 'smtp.gmail.com',
+    port: 465,
+    secure: true,
+    connectionTimeout: 10000,
+    greetingTimeout: 10000,
+    socketTimeout: 15000,
     auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS
+    }
+});
+
+transporter.verify((error, success) => {
+    if (error) {
+        console.error('Error SMTP al iniciar:', error);
+    } else {
+        console.log('Servidor SMTP de Google listo para enviar correos');
     }
 });
 
@@ -52,12 +65,18 @@ async function sendClientVerificationEmail(email, nombre, codigoVerificacion) {
         </div>
     `;
 
-    return transporter.sendMail({
-        from: `"Tiendas Cúcuta" <${process.env.EMAIL_USER}>`,
-        to: email,
-        subject: 'Confirma tu cuenta en Tiendas Cúcuta',
-        html: htmlContent
-    });
+    try {
+        const info = await transporter.sendMail({
+            from: `"Tiendas Cúcuta" <${process.env.EMAIL_USER}>`,
+            to: email,
+            subject: 'Confirma tu cuenta en Tiendas Cúcuta',
+            html: htmlContent
+        });
+        return info;
+    } catch (error) {
+        console.error('Error detallado de Nodemailer:', error);
+        throw error;
+    }
 }
 
 const storage = multer.diskStorage({
@@ -485,12 +504,13 @@ async function registerClienteWithVerification(req, res) {
         const nuevoCliente = result.rows[0];
         console.log("Resultado DB (cliente):", nuevoCliente);
 
-        // Enviar correo corporativo de confirmación
+        // Enviar correo corporativo de confirmación (propaga el error al catch si falla)
         try {
             await sendClientVerificationEmail(email.trim(), nombre, codigoVerificacion);
             console.log(`Correo de confirmación enviado exitosamente a ${email}`);
         } catch (mailErr) {
-            console.error("Error enviando correo de verificación con Nodemailer:", mailErr.message);
+            await db.query('DELETE FROM cliente WHERE id_cliente = $1', [nuevoCliente.id_cliente]).catch(() => {});
+            return res.status(500).json({ error: 'Fallo al enviar correo' });
         }
 
         return res.json({
@@ -508,7 +528,7 @@ async function registerClienteWithVerification(req, res) {
         if (err.code === '23505') {
             return res.status(400).json({ error: 'Este correo ya está registrado. Por favor, inicia sesión.' });
         }
-        return res.status(500).json({ error: 'Error en la base de datos al registrar el cliente.' });
+        return res.status(500).json({ error: 'Fallo al enviar correo' });
     }
 }
 
