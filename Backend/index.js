@@ -469,6 +469,12 @@ async function registerClienteWithVerification(req, res) {
         await db.query("ALTER TABLE cliente ADD COLUMN IF NOT EXISTS codigo_verificacion VARCHAR(20)");
         await db.query("ALTER TABLE cliente ADD COLUMN IF NOT EXISTS verificado BOOLEAN DEFAULT FALSE");
 
+        // Verificar también si el correo ya existe antes de insertar
+        const existingClient = await db.query('SELECT id_cliente FROM cliente WHERE LOWER(email) = LOWER($1)', [email.trim()]);
+        if (existingClient.rows.length > 0) {
+            return res.status(400).json({ error: 'Este correo ya está registrado. Por favor, inicia sesión.' });
+        }
+
         const text = `
             INSERT INTO cliente(nombre, email, password, codigo_verificacion, verificado)
             VALUES($1, $2, $3, $4, FALSE)
@@ -499,6 +505,9 @@ async function registerClienteWithVerification(req, res) {
         });
     } catch (err) {
         console.error("ERROR DETALLADO DB (registro cliente):", err);
+        if (err.code === '23505') {
+            return res.status(400).json({ error: 'Este correo ya está registrado. Por favor, inicia sesión.' });
+        }
         return res.status(500).json({ error: 'Error en la base de datos al registrar el cliente.' });
     }
 }
@@ -592,6 +601,10 @@ app.post('/api/registro', async (req, res) => {
             return res.status(403).json({ error: 'Código de invitación inválido. No cuenta con permisos.' });
         }
         try {
+            const existingMerchant = await db.query('SELECT id_tendero FROM tendero WHERE LOWER(email) = LOWER($1)', [email.trim()]);
+            if (existingMerchant.rows.length > 0) {
+                return res.status(400).json({ error: 'Este correo ya está registrado. Por favor, inicia sesión.' });
+            }
             const text = 'INSERT INTO tendero(nombre, email, password, nombre_tienda, codigo_invitacion) VALUES($1, $2, $3, $4, $5) RETURNING *';
             const values = [nombre, email, hashedPassword, nombre_tienda, codigo];
             const result = await db.query(text, values);
@@ -599,6 +612,9 @@ app.post('/api/registro', async (req, res) => {
             return res.json({ success: true, message: 'Usuario tendero registrado en TENDERO', role: 'merchant', nombre: result.rows[0].nombre, id: result.rows[0].id_tendero || result.rows[0].id });
         } catch (err) {
             console.error("ERROR DETALLADO DB:", err);
+            if (err.code === '23505') {
+                return res.status(400).json({ error: 'Este correo ya está registrado. Por favor, inicia sesión.' });
+            }
             return res.status(500).json({ error: 'Error en la base de datos' });
         }
     } else {

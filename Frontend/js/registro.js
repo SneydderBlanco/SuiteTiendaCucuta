@@ -114,12 +114,39 @@ document.addEventListener("DOMContentLoaded", () => {
                 submitBtn.disabled = false;
                 submitBtn.innerHTML = originalText;
             } else {
-                Utils.showAlert(data.error || "Error al registrar la cuenta");
+                const errorMsg = data.error || "Error al registrar la cuenta";
+                if (verificationModal) {
+                    verificationModal.classList.add('hidden');
+                }
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Atención',
+                        text: errorMsg,
+                        confirmButtonColor: '#059669',
+                        confirmButtonText: 'Entendido'
+                    });
+                } else {
+                    Utils.showAlert(errorMsg);
+                }
                 submitBtn.disabled = false;
                 submitBtn.innerHTML = originalText;
+                return;
             }
         } catch (error) {
-            Utils.showAlert("Error de conexión");
+            if (verificationModal) {
+                verificationModal.classList.add('hidden');
+            }
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Error de conexión',
+                    text: 'No se pudo conectar con el servidor. Inténtalo nuevamente.',
+                    confirmButtonColor: '#059669'
+                });
+            } else {
+                Utils.showAlert("Error de conexión");
+            }
             submitBtn.disabled = false;
             submitBtn.innerHTML = originalText;
         }
