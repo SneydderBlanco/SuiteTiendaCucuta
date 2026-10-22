@@ -53,6 +53,108 @@ document.addEventListener("DOMContentLoaded", () => {
     const verificationCodeInput = document.getElementById('verification-code');
     const verificationEmailDisplay = document.getElementById('verification-email-display');
     const btnVerify = document.getElementById('btn-verify');
+    const btnCloseVerification = document.getElementById('btn-close-verification-modal');
+    const btnCancelVerification = document.getElementById('btn-cancel-verification');
+    const otpInputs = Array.from(document.querySelectorAll('.otp-digit-input'));
+
+    function syncOtpToHiddenInput() {
+        if (!verificationCodeInput || otpInputs.length === 0) return;
+        const fullCode = otpInputs.map((inp) => inp.value.trim()).join('');
+        verificationCodeInput.value = fullCode;
+
+        otpInputs.forEach((inp) => {
+            if (inp.value.trim() !== '') {
+                inp.classList.add('border-emerald-500', 'bg-emerald-50/40');
+                inp.classList.remove('border-slate-200', 'bg-slate-50');
+            } else {
+                inp.classList.remove('border-emerald-500', 'bg-emerald-50/40');
+                inp.classList.add('border-slate-200', 'bg-slate-50');
+            }
+        });
+    }
+
+    function clearOtpInputs() {
+        otpInputs.forEach((inp) => {
+            inp.value = '';
+            inp.classList.remove('border-emerald-500', 'bg-emerald-50/40');
+            inp.classList.add('border-slate-200', 'bg-slate-50');
+        });
+        if (verificationCodeInput) {
+            verificationCodeInput.value = '';
+        }
+    }
+
+    // Configurar navegación interactiva de las 6 casillas OTP
+    otpInputs.forEach((input, idx) => {
+        input.addEventListener('input', (e) => {
+            const cleanDigit = e.target.value.replace(/\D/g, '').slice(-1);
+            e.target.value = cleanDigit;
+            syncOtpToHiddenInput();
+
+            if (cleanDigit && idx < otpInputs.length - 1) {
+                otpInputs[idx + 1].focus();
+                otpInputs[idx + 1].select();
+            }
+        });
+
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Backspace') {
+                if (!input.value && idx > 0) {
+                    otpInputs[idx - 1].value = '';
+                    syncOtpToHiddenInput();
+                    otpInputs[idx - 1].focus();
+                } else {
+                    input.value = '';
+                    syncOtpToHiddenInput();
+                }
+            } else if (e.key === 'ArrowLeft' && idx > 0) {
+                e.preventDefault();
+                otpInputs[idx - 1].focus();
+            } else if (e.key === 'ArrowRight' && idx < otpInputs.length - 1) {
+                e.preventDefault();
+                otpInputs[idx + 1].focus();
+            } else if (e.key === 'Enter') {
+                e.preventDefault();
+                handleVerifyCode();
+            }
+        });
+
+        input.addEventListener('paste', (e) => {
+            e.preventDefault();
+            const pastedData = (e.clipboardData || window.clipboardData).getData('text') || '';
+            const digits = pastedData.replace(/\D/g, '').slice(0, 6).split('');
+            if (digits.length === 0) return;
+
+            digits.forEach((digit, i) => {
+                if (otpInputs[i]) {
+                    otpInputs[i].value = digit;
+                }
+            });
+            syncOtpToHiddenInput();
+
+            const nextFocusIndex = Math.min(digits.length, otpInputs.length - 1);
+            if (otpInputs[nextFocusIndex]) {
+                otpInputs[nextFocusIndex].focus();
+            }
+        });
+    });
+
+    function closeVerificationModal() {
+        if (verificationModal) {
+            verificationModal.classList.add('hidden');
+        }
+    }
+
+    if (btnCloseVerification) {
+        btnCloseVerification.addEventListener('click', closeVerificationModal);
+    }
+    if (btnCancelVerification) {
+        btnCancelVerification.addEventListener('click', () => {
+            closeVerificationModal();
+            const emailInput = document.getElementById('reg-email');
+            if (emailInput) emailInput.focus();
+        });
+    }
 
     form.addEventListener("submit", async (e) => {
         e.preventDefault();
@@ -101,13 +203,13 @@ document.addEventListener("DOMContentLoaded", () => {
                 if (verificationEmailDisplay) {
                     verificationEmailDisplay.textContent = pendingVerificationEmail;
                 }
-                if (verificationCodeInput) {
-                    verificationCodeInput.value = '';
-                }
+                clearOtpInputs();
                 if (verificationModal) {
                     verificationModal.classList.remove('hidden');
                 }
-                if (verificationCodeInput) {
+                if (otpInputs.length > 0) {
+                    setTimeout(() => otpInputs[0].focus(), 100);
+                } else if (verificationCodeInput) {
                     setTimeout(() => verificationCodeInput.focus(), 100);
                 }
 
@@ -153,6 +255,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     async function handleVerifyCode() {
+        syncOtpToHiddenInput();
         const codigo = verificationCodeInput ? verificationCodeInput.value.trim() : '';
 
         if (!codigo || codigo.length < 6) {
@@ -160,7 +263,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 Swal.fire({
                     icon: 'warning',
                     title: 'Código incompleto',
-                    text: 'Por favor ingresa el código de 6 dígitos enviado a tu correo.',
+                    text: 'Por favor ingresa los 6 dígitos enviados a tu correo electrónico.',
                     confirmButtonColor: '#059669'
                 });
             } else {
@@ -169,10 +272,10 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
         }
 
-        const originalBtnHtml = btnVerify ? btnVerify.innerHTML : 'Verificar';
+        const originalBtnHtml = btnVerify ? btnVerify.innerHTML : 'Confirmar y Activar Cuenta';
         if (btnVerify) {
             btnVerify.disabled = true;
-            btnVerify.innerHTML = '<span>Verificando...</span>';
+            btnVerify.innerHTML = '<span>Verificando código...</span>';
         }
 
         try {
