@@ -4,8 +4,61 @@ const cors = require('cors');
 const db = require('./db');
 const crypto = require('crypto');
 const multer = require('multer');
+const nodemailer = require('nodemailer');
 const path = require('path');
 const fs = require('fs');
+
+// Configuración de Nodemailer con Gmail y variables de entorno
+const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS
+    }
+});
+
+async function sendClientVerificationEmail(email, nombre, codigoVerificacion) {
+    const htmlContent = `
+        <div style="font-family: 'Plus Jakarta Sans', 'Segoe UI', Arial, sans-serif; max-width: 560px; margin: 0 auto; background-color: #f8fafc; padding: 32px 20px; border-radius: 16px; border: 1px solid #e2e8f0;">
+            <div style="background-color: #ffffff; border-radius: 16px; padding: 32px; box-shadow: 0 4px 12px rgba(15, 23, 42, 0.05);">
+                <div style="text-align: center; margin-bottom: 24px;">
+                    <div style="display: inline-block; background-color: #059669; color: #ffffff; font-weight: 800; font-size: 14px; padding: 8px 16px; border-radius: 9999px; letter-spacing: 0.06em; text-transform: uppercase;">
+                        Tiendas Cúcuta
+                    </div>
+                    <h1 style="color: #0f172a; font-size: 22px; font-weight: 800; margin: 16px 0 8px 0;">
+                        ¡Bienvenido(a), ${nombre || 'Cliente'}!
+                    </h1>
+                    <p style="color: #475569; font-size: 14px; line-height: 1.6; margin: 0;">
+                        Gracias por registrarte en <strong>Tiendas Cúcuta</strong>. Para activar tu cuenta y empezar a explorar los comercios locales de San José de Cúcuta, ingresa el siguiente código de verificación:
+                    </p>
+                </div>
+
+                <div style="background-color: #ecfdf5; border: 2px dashed #10b981; border-radius: 12px; padding: 20px; text-align: center; margin: 24px 0;">
+                    <span style="display: block; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: #047857; margin-bottom: 6px;">
+                        Tu código de verificación
+                    </span>
+                    <span style="font-size: 32px; font-weight: 800; letter-spacing: 0.25em; color: #065f46; font-family: monospace;">
+                        ${codigoVerificacion}
+                    </span>
+                </div>
+
+                <p style="color: #64748b; font-size: 12px; line-height: 1.5; text-align: center; margin: 20px 0 0 0;">
+                    Si tú no solicitaste la creación de esta cuenta, puedes ignorar este mensaje de forma segura.
+                </p>
+            </div>
+            <div style="text-align: center; margin-top: 16px; color: #94a3b8; font-size: 11px;">
+                &copy; 2026 Tiendas Cúcuta &bull; Comercio Local Digital
+            </div>
+        </div>
+    `;
+
+    return transporter.sendMail({
+        from: `"Tiendas Cúcuta" <${process.env.EMAIL_USER}>`,
+        to: email,
+        subject: 'Confirma tu cuenta en Tiendas Cúcuta',
+        html: htmlContent
+    });
+}
 
 const storage = multer.diskStorage({
     destination: function (req, file, cb) {
@@ -402,23 +455,125 @@ const handleLogin = async (req, res) => {
 app.post('/login', handleLogin);
 app.post('/api/auth/login', handleLogin);
 
+// Helper para registrar cliente con código de verificación de 6 dígitos y envío de correo
+async function registerClienteWithVerification(req, res) {
+    const { nombre, email, password } = req.body;
+    if (!nombre || !email || !password) {
+        return res.status(400).json({ error: 'Nombre, correo y contraseña son obligatorios.' });
+    }
+
+    const hashedPassword = hashPassword(password);
+    const codigoVerificacion = Math.floor(100000 + Math.random() * 900000).toString();
+
+    try {
+        await db.query("ALTER TABLE cliente ADD COLUMN IF NOT EXISTS codigo_verificacion VARCHAR(20)");
+        await db.query("ALTER TABLE cliente ADD COLUMN IF NOT EXISTS verificado BOOLEAN DEFAULT FALSE");
+
+        const text = `
+            INSERT INTO cliente(nombre, email, password, codigo_verificacion, verificado)
+            VALUES($1, $2, $3, $4, FALSE)
+            RETURNING *
+        `;
+        const values = [nombre, email.trim(), hashedPassword, codigoVerificacion];
+        const result = await db.query(text, values);
+        const nuevoCliente = result.rows[0];
+        console.log("Resultado DB (cliente):", nuevoCliente);
+
+        // Enviar correo corporativo de confirmación
+        try {
+            await sendClientVerificationEmail(email.trim(), nombre, codigoVerificacion);
+            console.log(`Correo de confirmación enviado exitosamente a ${email}`);
+        } catch (mailErr) {
+            console.error("Error enviando correo de verificación con Nodemailer:", mailErr.message);
+        }
+
+        return res.json({
+            success: true,
+            requiresVerification: true,
+            message: 'Usuario cliente registrado. Se ha enviado un código de verificación de 6 dígitos a tu correo.',
+            role: 'consumer',
+            nombre: nuevoCliente.nombre,
+            email: nuevoCliente.email,
+            verificado: nuevoCliente.verificado,
+            id: nuevoCliente.id_cliente || nuevoCliente.id
+        });
+    } catch (err) {
+        console.error("ERROR DETALLADO DB (registro cliente):", err);
+        return res.status(500).json({ error: 'Error en la base de datos al registrar el cliente.' });
+    }
+}
+
+// Endpoint dedicado para registro de clientes con confirmación por correo
+app.post('/api/auth/registro-cliente', registerClienteWithVerification);
+
+// Endpoint de Verificación de Cuenta para Clientes (POST /api/auth/verificar-cliente)
+const handleVerificarCliente = async (req, res) => {
+    const email = (req.body.email || req.body.correo || '').trim();
+    const codigo = String(req.body.codigo || req.body.codigo_verificacion || '').trim();
+
+    if (!email || !codigo) {
+        return res.status(400).json({ error: 'El correo y el código de verificación son obligatorios.' });
+    }
+
+    try {
+        await db.query("ALTER TABLE cliente ADD COLUMN IF NOT EXISTS codigo_verificacion VARCHAR(20)");
+        await db.query("ALTER TABLE cliente ADD COLUMN IF NOT EXISTS verificado BOOLEAN DEFAULT FALSE");
+
+        const selectQuery = 'SELECT * FROM cliente WHERE LOWER(email) = LOWER($1)';
+        const { rows } = await db.query(selectQuery, [email]);
+
+        if (rows.length === 0) {
+            return res.status(404).json({ error: 'Cliente no encontrado con ese correo electrónico.' });
+        }
+
+        const cliente = rows[0];
+
+        if (cliente.verificado === true && !cliente.codigo_verificacion) {
+            return res.status(200).json({
+                success: true,
+                message: 'La cuenta ya se encuentra verificada.',
+                cliente: {
+                    id: cliente.id_cliente,
+                    nombre: cliente.nombre,
+                    email: cliente.email,
+                    verificado: true
+                }
+            });
+        }
+
+        if (!cliente.codigo_verificacion || String(cliente.codigo_verificacion).trim() !== codigo) {
+            return res.status(400).json({ error: 'Código de verificación inválido o expirado.' });
+        }
+
+        const updateQuery = `
+            UPDATE cliente
+            SET verificado = TRUE, codigo_verificacion = NULL
+            WHERE id_cliente = $1
+            RETURNING id_cliente, nombre, email, verificado, COALESCE(rol, 'cliente') AS rol
+        `;
+        const updated = await db.query(updateQuery, [cliente.id_cliente]);
+
+        return res.status(200).json({
+            success: true,
+            message: 'Cuenta verificada correctamente.',
+            cliente: updated.rows[0]
+        });
+    } catch (err) {
+        console.error('Error en POST /api/auth/verificar-cliente:', err.message);
+        return res.status(500).json({ error: 'Error interno al verificar la cuenta del cliente.' });
+    }
+};
+app.post('/api/auth/verificar-cliente', handleVerificarCliente);
+app.post('/api/verificar-cliente', handleVerificarCliente);
+
 // Endpoint Unificado: Registro
 app.post('/api/registro', async (req, res) => {
     console.log("Datos recibidos:", req.body);
     const { role, nombre, email, password, nombre_tienda, codigo } = req.body;
-    const hashedPassword = hashPassword(password);
+    const hashedPassword = hashPassword(password || '');
 
-    if (role === 'consumer') {
-        try {
-            const text = 'INSERT INTO cliente(nombre, email, password) VALUES($1, $2, $3) RETURNING *';
-            const values = [nombre, email, hashedPassword];
-            const result = await db.query(text, values);
-            console.log("Resultado DB (cliente):", result.rows[0]);
-            return res.json({ success: true, message: 'Usuario cliente registrado en CLIENTE', role: 'consumer', nombre: result.rows[0].nombre, id: result.rows[0].id_cliente || result.rows[0].id });
-        } catch (err) {
-            console.error("ERROR DETALLADO DB:", err);
-            return res.status(500).json({ error: 'Error en la base de datos' });
-        }
+    if (role === 'consumer' || role === 'cliente') {
+        return registerClienteWithVerification(req, res);
     } else if (role === 'merchant') {
         if (codigo !== 'CUCUTA2026') {
             return res.status(403).json({ error: 'Código de invitación inválido. No cuenta con permisos.' });
@@ -1051,6 +1206,9 @@ app.listen(port, async () => {
         await db.query("ALTER TABLE productos ADD COLUMN IF NOT EXISTS unidad_medida VARCHAR(50) DEFAULT 'Unidad (Und)'");
         await db.query("ALTER TABLE tendero ADD COLUMN IF NOT EXISTS rol VARCHAR(50) DEFAULT 'tendero'");
         await db.query("ALTER TABLE cliente ADD COLUMN IF NOT EXISTS rol VARCHAR(50) DEFAULT 'cliente'");
+        await db.query("ALTER TABLE cliente ADD COLUMN IF NOT EXISTS codigo_verificacion VARCHAR(20)");
+        await db.query("ALTER TABLE cliente ADD COLUMN IF NOT EXISTS verificado BOOLEAN DEFAULT FALSE");
+        console.log("Columnas 'codigo_verificacion' y 'verificado' verificadas en tabla 'cliente'.");
     } catch (err) {
         console.error("Error al inicializar la tabla 'vitrina_digital':", err.message);
     }
