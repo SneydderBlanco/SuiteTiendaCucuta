@@ -61,23 +61,11 @@ document.addEventListener("DOMContentLoaded", () => {
         if (!verificationCodeInput || otpInputs.length === 0) return;
         const fullCode = otpInputs.map((inp) => inp.value.trim()).join('');
         verificationCodeInput.value = fullCode;
-
-        otpInputs.forEach((inp) => {
-            if (inp.value.trim() !== '') {
-                inp.classList.add('border-emerald-500', 'bg-emerald-50/40');
-                inp.classList.remove('border-slate-200', 'bg-slate-50');
-            } else {
-                inp.classList.remove('border-emerald-500', 'bg-emerald-50/40');
-                inp.classList.add('border-slate-200', 'bg-slate-50');
-            }
-        });
     }
 
     function clearOtpInputs() {
         otpInputs.forEach((inp) => {
             inp.value = '';
-            inp.classList.remove('border-emerald-500', 'bg-emerald-50/40');
-            inp.classList.add('border-slate-200', 'bg-slate-50');
         });
         if (verificationCodeInput) {
             verificationCodeInput.value = '';
