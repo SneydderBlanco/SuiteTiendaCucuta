@@ -4,80 +4,42 @@ const cors = require('cors');
 const db = require('./db');
 const crypto = require('crypto');
 const multer = require('multer');
-const nodemailer = require('nodemailer');
 const path = require('path');
 const fs = require('fs');
 
-// Configuración SMTP explícita de Nodemailer con Gmail y variables de entorno
-const transporter = nodemailer.createTransport({
-    host: 'smtp.gmail.com',
-    port: 587,
-    secure: false,
-    requireTLS: true,
-    connectionTimeout: 10000,
-    greetingTimeout: 10000,
-    socketTimeout: 15000,
-    auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS
-    }
-});
+// Envío de correo de verificación mediante la API HTTP de Brevo (evita bloqueo de puertos SMTP en Render)
+async function sendClientVerificationEmail(email, codigo) {
+    const htmlContent = '<div style="font-family: \'Plus Jakarta Sans\', \'Segoe UI\', Arial, sans-serif; max-width: 560px; margin: 0 auto; background-color: #f8fafc; padding: 32px 20px; border-radius: 16px; border: 1px solid #e2e8f0;">' +
+        '<div style="background-color: #ffffff; border-radius: 16px; padding: 32px; box-shadow: 0 4px 12px rgba(15, 23, 42, 0.05); text-align: center;">' +
+        '<div style="display: inline-block; background-color: #059669; color: #ffffff; font-weight: 800; font-size: 14px; padding: 8px 16px; border-radius: 9999px; letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 16px;">Tiendas Cúcuta</div>' +
+        '<h1 style="color: #0f172a; font-size: 22px; font-weight: 800; margin: 0 0 12px 0;">Confirma tu cuenta en Tiendas Cúcuta</h1>' +
+        '<p style="color: #475569; font-size: 14px; line-height: 1.6; margin: 0 0 24px 0;">Gracias por registrarte. Tu código de verificación es: <strong style="display: block; margin-top: 12px; font-size: 32px; font-weight: 800; letter-spacing: 0.25em; color: #065f46; background-color: #ecfdf5; border: 2px dashed #10b981; border-radius: 12px; padding: 16px; font-family: monospace;">' + codigo + '</strong></p>' +
+        '<p style="color: #64748b; font-size: 12px; margin: 0;">Ingresa este código de 6 dígitos en la ventana de registro para activar tu cuenta.</p>' +
+        '</div>' +
+        '</div>';
 
-transporter.verify((error, success) => {
-    if (error) {
-        console.error('Error SMTP al iniciar:', error);
-    } else {
-        console.log('Servidor SMTP de Google listo para enviar correos');
-    }
-});
-
-async function sendClientVerificationEmail(email, nombre, codigoVerificacion) {
-    const htmlContent = `
-        <div style="font-family: 'Plus Jakarta Sans', 'Segoe UI', Arial, sans-serif; max-width: 560px; margin: 0 auto; background-color: #f8fafc; padding: 32px 20px; border-radius: 16px; border: 1px solid #e2e8f0;">
-            <div style="background-color: #ffffff; border-radius: 16px; padding: 32px; box-shadow: 0 4px 12px rgba(15, 23, 42, 0.05);">
-                <div style="text-align: center; margin-bottom: 24px;">
-                    <div style="display: inline-block; background-color: #059669; color: #ffffff; font-weight: 800; font-size: 14px; padding: 8px 16px; border-radius: 9999px; letter-spacing: 0.06em; text-transform: uppercase;">
-                        Tiendas Cúcuta
-                    </div>
-                    <h1 style="color: #0f172a; font-size: 22px; font-weight: 800; margin: 16px 0 8px 0;">
-                        ¡Bienvenido(a), ${nombre || 'Cliente'}!
-                    </h1>
-                    <p style="color: #475569; font-size: 14px; line-height: 1.6; margin: 0;">
-                        Gracias por registrarte en <strong>Tiendas Cúcuta</strong>. Para activar tu cuenta y empezar a explorar los comercios locales de San José de Cúcuta, ingresa el siguiente código de verificación:
-                    </p>
-                </div>
-
-                <div style="background-color: #ecfdf5; border: 2px dashed #10b981; border-radius: 12px; padding: 20px; text-align: center; margin: 24px 0;">
-                    <span style="display: block; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: #047857; margin-bottom: 6px;">
-                        Tu código de verificación
-                    </span>
-                    <span style="font-size: 32px; font-weight: 800; letter-spacing: 0.25em; color: #065f46; font-family: monospace;">
-                        ${codigoVerificacion}
-                    </span>
-                </div>
-
-                <p style="color: #64748b; font-size: 12px; line-height: 1.5; text-align: center; margin: 20px 0 0 0;">
-                    Si tú no solicitaste la creación de esta cuenta, puedes ignorar este mensaje de forma segura.
-                </p>
-            </div>
-            <div style="text-align: center; margin-top: 16px; color: #94a3b8; font-size: 11px;">
-                &copy; 2026 Tiendas Cúcuta &bull; Comercio Local Digital
-            </div>
-        </div>
-    `;
-
-    try {
-        const info = await transporter.sendMail({
-            from: `"Tiendas Cúcuta" <${process.env.EMAIL_USER}>`,
-            to: email,
+    const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+        method: 'POST',
+        headers: {
+            'accept': 'application/json',
+            'api-key': process.env.BREVO_API_KEY,
+            'content-type': 'application/json'
+        },
+        body: JSON.stringify({
+            sender: { name: 'Tiendas Cúcuta', email: process.env.EMAIL_USER },
+            to: [{ email: email }],
             subject: 'Confirma tu cuenta en Tiendas Cúcuta',
-            html: htmlContent
-        });
-        return info;
-    } catch (error) {
-        console.error('Error detallado de Nodemailer:', error);
-        throw error;
+            htmlContent: htmlContent
+        })
+    });
+
+    if (!response.ok) {
+        const errorBody = await response.text().catch(() => '');
+        console.error('Error detallado de Brevo API HTTP:', response.status, errorBody);
+        throw new Error(`Fallo en Brevo API HTTP (${response.status}): ${errorBody}`);
     }
+
+    return await response.json();
 }
 
 const storage = multer.diskStorage({
@@ -507,11 +469,11 @@ async function registerClienteWithVerification(req, res) {
 
         // Enviar correo corporativo de confirmación (propaga el error al catch si falla)
         try {
-            await sendClientVerificationEmail(email.trim(), nombre, codigoVerificacion);
+            await sendClientVerificationEmail(email.trim(), codigoVerificacion);
             console.log(`Correo de confirmación enviado exitosamente a ${email}`);
         } catch (mailErr) {
             await db.query('DELETE FROM cliente WHERE id_cliente = $1', [nuevoCliente.id_cliente]).catch(() => {});
-            return res.status(500).json({ error: 'Fallo al enviar correo' });
+            throw mailErr;
         }
 
         return res.json({
