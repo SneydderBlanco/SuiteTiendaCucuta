@@ -36,6 +36,15 @@ window.API = {
         return { status: response.status, data: await response.json() };
     },
 
+    verificarCliente: async (email, codigo) => {
+        const response = await fetch(buildApiUrl("/api/auth/verificar-cliente"), {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email, codigo })
+        });
+        return { status: response.status, data: await response.json() };
+    },
+
     getProductos: async () => {
         try {
             const response = await fetch(buildApiUrl("/productos"));

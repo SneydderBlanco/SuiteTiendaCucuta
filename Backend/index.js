@@ -552,11 +552,24 @@ const handleVerificarCliente = async (req, res) => {
             RETURNING id_cliente, nombre, email, verificado, COALESCE(rol, 'cliente') AS rol
         `;
         const updated = await db.query(updateQuery, [cliente.id_cliente]);
+        const verifiedClient = updated.rows[0];
+        const token = generateJwtToken({
+            id: verifiedClient.id_cliente,
+            email: verifiedClient.email,
+            rol: verifiedClient.rol || 'cliente'
+        });
 
         return res.status(200).json({
             success: true,
             message: 'Cuenta verificada correctamente.',
-            cliente: updated.rows[0]
+            token,
+            id: verifiedClient.id_cliente,
+            nombre: verifiedClient.nombre,
+            email: verifiedClient.email,
+            role: 'consumer',
+            rol: verifiedClient.rol || 'cliente',
+            cliente: verifiedClient,
+            user: verifiedClient
         });
     } catch (err) {
         console.error('Error en POST /api/auth/verificar-cliente:', err.message);
