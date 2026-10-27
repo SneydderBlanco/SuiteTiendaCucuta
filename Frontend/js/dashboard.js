@@ -990,6 +990,37 @@ async function loadStorefront(tenderoId) {
     }
 }
 
+function getStorefrontPresentaciones(p) {
+    let raw = p && p.presentaciones;
+    if (typeof raw === 'string') {
+        try { raw = JSON.parse(raw); } catch (_) { raw = []; }
+    }
+    if (Array.isArray(raw) && raw.length > 0) {
+        return raw.map(item => ({
+            unidad: String(item.unidad || item.unidad_medida || p.unidad_medida || 'Unidad').trim(),
+            precio: parseFloat(item.precio ?? item.precio_venta ?? p.precio_venta ?? 0) || 0,
+            stock: parseInt(item.stock ?? p.stock ?? 0, 10) || 0
+        }));
+    }
+    return [{
+        unidad: String((p && p.unidad_medida) || 'Unidad').trim(),
+        precio: parseFloat(p && p.precio_venta) || 0,
+        stock: parseInt(p && p.stock, 10) || 0
+    }];
+}
+
+window.cambiarPresentacionStorefront = function(productId, idxStr, event) {
+    if (event) event.stopPropagation();
+    const prod = (storefrontProducts || []).find(item => (item.id || item.id_producto) === productId);
+    if (!prod) return;
+    const presentaciones = getStorefrontPresentaciones(prod);
+    const chosen = presentaciones[parseInt(idxStr, 10) || 0] || presentaciones[0];
+    const priceSpan = document.getElementById(`storefront-price-${productId}`);
+    if (priceSpan) {
+        priceSpan.textContent = Utils.formatCurrency(chosen.precio);
+    }
+};
+
 function renderStorefrontGrid(products) {
     const grid = document.getElementById("storefront-grid");
     grid.innerHTML = "";
@@ -1006,20 +1037,43 @@ function renderStorefrontGrid(products) {
     products.forEach(p => {
         const idProd = p.id || p.id_producto;
         const imgUrl = resolveProductImage(p);
+        const presentaciones = getStorefrontPresentaciones(p);
+        const initialPres = presentaciones[0];
         
         const activeOffer = getActiveStorefrontOffer(idProd);
         
+        let presentacionHTML = '';
+        if (presentaciones.length > 1) {
+            const opts = presentaciones.map((pr, idx) => `<option value="${idx}">${pr.unidad}</option>`).join('');
+            presentacionHTML = `
+                <div class="mb-2" onclick="event.stopPropagation();">
+                    <select onchange="cambiarPresentacionStorefront(${idProd}, this.value, event)"
+                        class="w-full max-w-[140px] text-[11px] font-bold text-emerald-800 bg-emerald-50/90 border border-emerald-200 rounded-lg px-2.5 py-1 pr-6 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none cursor-pointer transition-all">
+                        ${opts}
+                    </select>
+                </div>
+            `;
+        } else {
+            presentacionHTML = `
+                <div class="mb-2">
+                    <span class="inline-block text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">
+                        ${initialPres.unidad || 'Unidad'}
+                    </span>
+                </div>
+            `;
+        }
+
         let priceHTML = '';
         let discountBadge = '';
         if (activeOffer) {
-            const original = parseFloat(p.precio_venta);
+            const original = parseFloat(initialPres.precio);
             const promo = parseFloat(activeOffer.precio_oferta);
             const descuentoPct = Math.round(((original - promo) / original) * 100);
             
             priceHTML = `
                 <div class="flex items-baseline gap-2 mt-auto">
                     <span class="text-xs text-slate-400 line-through">${Utils.formatCurrency(original)}</span>
-                    <span class="text-sm font-black text-emerald-600 tracking-tight">${Utils.formatCurrency(promo)}</span>
+                    <span id="storefront-price-${idProd}" class="text-sm font-black text-emerald-600 tracking-tight">${Utils.formatCurrency(promo)}</span>
                 </div>
             `;
             discountBadge = `
@@ -1030,7 +1084,7 @@ function renderStorefrontGrid(products) {
         } else {
             priceHTML = `
                 <div class="mt-auto">
-                    <span class="text-lg font-black text-emerald-600 tracking-tight">${Utils.formatCurrency(p.precio_venta)}</span>
+                    <span id="storefront-price-${idProd}" class="text-lg font-black text-emerald-600 tracking-tight">${Utils.formatCurrency(initialPres.precio)}</span>
                 </div>
             `;
         }
@@ -1061,8 +1115,8 @@ function renderStorefrontGrid(products) {
                         <span class="material-symbols-outlined text-[20px]">favorite_border</span>
                     </button>
                 </div>
-                <span class="text-xs text-slate-400 font-semibold mb-3">${p.marca || 'Sin marca'}</span>
-                
+                <span class="text-xs text-slate-400 font-semibold mb-2">${p.marca || 'Sin marca'}</span>
+                ${presentacionHTML}
                 ${priceHTML}
             </div>
         `;

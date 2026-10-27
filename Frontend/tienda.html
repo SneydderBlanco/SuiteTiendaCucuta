@@ -286,6 +286,65 @@
         let activeCategory = 'all';
         let cart = [];
         let pendingProductToConfirm = null;
+        const selectedVariantByProduct = {};
+
+        const DEFAULT_PRODUCT_PLACEHOLDER = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiB2aWV3Qm94PSIwIDAgMjAwIDIwMCIgZmlsbD0ibm9uZSI+PHJlY3Qgd2lkdGg9IjIwMCIgaGVpZ2h0PSIyMDAiIHJ4PSIyNCIgZmlsbD0iI2YxZjVmOSIvPjxwYXRoIGQ9Ik0xMDAgNTJMMTQ0IDc2VjEyNEwxMDAgMTQ4TDU2IDEyNFY3NkwxMDAgNTJaIiBzdHJva2U9IiMxMGI5ODEiIHN0cm9rZS13aWR0aD0iOCIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIiBmaWxsPSIjZWNmZGY1Ii8+PHBhdGggZD0iTTU2IDc2TDEwMCAxMDBMMTQ0IDc2IiBzdHJva2U9IiMxMGI5ODEiIHN0cm9rZS13aWR0aD0iOCIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+PHBhdGggZD0iTTEwMCAxMDBWMTQ4IiBzdHJva2U9IiMxMGI5ODEiIHN0cm9rZS13aWR0aD0iOCIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+PC9zdmc+";
+        window.DEFAULT_PRODUCT_PLACEHOLDER = DEFAULT_PRODUCT_PLACEHOLDER;
+
+        // 0.1 Helper para resolver la imagen del producto (soporta /uploads/, http, data: y fallback placeholder)
+        function resolveProductImageUrl(prodOrUrl) {
+            const raw = typeof prodOrUrl === 'string'
+                ? prodOrUrl
+                : (prodOrUrl && (prodOrUrl.imagen_url || prodOrUrl.imagen));
+            if (!raw || typeof raw !== 'string' || raw.trim() === '') {
+                return DEFAULT_PRODUCT_PLACEHOLDER;
+            }
+            const clean = raw.trim();
+            if (clean.startsWith('http') || clean.startsWith('data:')) {
+                return clean;
+            }
+            const base = (window.API_URL || 'https://tienda-cucuta-backend.onrender.com').replace(/\/+$/, '');
+            if (clean.startsWith('/uploads/')) {
+                return `${base}${clean}`;
+            }
+            return `${base}${clean.startsWith('/') ? '' : '/'}${clean}`;
+        }
+
+        // 0.2 Helper para normalizar el array JSONB de presentaciones de un producto
+        function getProductPresentaciones(prod) {
+            if (!prod) return [{ unidad: 'Unidad', precio: 0, stock: 0 }];
+            let rawPres = prod.presentaciones;
+            if (typeof rawPres === 'string') {
+                try {
+                    rawPres = JSON.parse(rawPres);
+                } catch (_) {
+                    rawPres = [];
+                }
+            }
+            if (Array.isArray(rawPres) && rawPres.length > 0) {
+                return rawPres.map(item => ({
+                    unidad: String(item.unidad || item.unidad_medida || prod.unidad_medida || 'Unidad').trim(),
+                    precio: parseFloat(item.precio ?? item.precio_venta ?? prod.precio_venta ?? 0) || 0,
+                    stock: parseInt(item.stock ?? prod.stock ?? 0, 10) || 0
+                }));
+            }
+            return [{
+                unidad: String(prod.unidad_medida || 'Unidad').trim(),
+                precio: parseFloat(prod.precio_venta) || 0,
+                stock: parseInt(prod.stock, 10) || 0
+            }];
+        }
+
+        // 0.3 Obtener la presentación actualmente seleccionada para un producto
+        function getSelectedPresentacion(prod) {
+            const presentaciones = getProductPresentaciones(prod);
+            const idx = selectedVariantByProduct[prod.id_producto] ?? 0;
+            return presentaciones[idx] || presentaciones[0];
+        }
+
+        function getCartItemKey(productId, unidad) {
+            return `${productId}__${String(unidad || 'Unidad').trim().toLowerCase()}`;
+        }
 
         // Función para validar y obtener la oferta activa no expirada
         function getActiveOffer(productId) {
@@ -527,7 +586,7 @@
             });
         }
 
-        // 5. Renderizar Tarjetas de Productos
+        // 5. Renderizar Tarjetas de Productos (con arreglo de imágenes y selector dinámico de presentaciones)
         function renderProducts(productsList) {
             const grid = document.getElementById('store-products-grid');
             grid.innerHTML = "";
@@ -547,35 +606,38 @@
                 card.className = "group bg-white rounded-2xl overflow-hidden border border-slate-100 hover:border-emerald-100 hover:shadow-lg transition-all duration-300 flex flex-col cursor-pointer";
                 card.addEventListener('click', () => showProductModal(prod));
 
-                const imgUrl = prod.imagen_url 
-                    ? (prod.imagen_url.startsWith('http') ? prod.imagen_url : `${window.API_URL}${prod.imagen_url}`) 
-                    : 'https://placehold.co/300x300/e2e8f0/475569?text=Sin+Imagen';
+                const imgUrl = resolveProductImageUrl(prod);
+                const presentaciones = getProductPresentaciones(prod);
+                const selectedIdx = Math.min(selectedVariantByProduct[prod.id_producto] ?? 0, presentaciones.length - 1);
+                selectedVariantByProduct[prod.id_producto] = selectedIdx;
+                const currentVariant = presentaciones[selectedIdx];
 
-                // Buscar cantidad en el carrito
-                const cartItem = cart.find(item => item.id_producto === prod.id_producto);
+                // Buscar cantidad en el carrito para la presentación seleccionada
+                const variantKey = getCartItemKey(prod.id_producto, currentVariant.unidad);
+                const cartItem = cart.find(item => (item.cartKey || getCartItemKey(item.id_producto, item.unidad)) === variantKey);
                 const qty = cartItem ? cartItem.cantidad : 0;
 
                 // Obtener oferta activa si existe
                 const activeOffer = getActiveOffer(prod.id_producto);
+                const variantStock = currentVariant.stock !== undefined ? currentVariant.stock : prod.stock;
 
                 let actionBtnHTML = '';
-                if (prod.stock > 0) {
+                if (variantStock > 0 || prod.stock > 0) {
                     if (qty > 0) {
                         actionBtnHTML = `
                             <div class="flex items-center bg-emerald-50 rounded-full border border-emerald-200/50 p-0.5 shadow-sm" onclick="event.stopPropagation();">
-                                <button onclick="actualizarCantidadClick(${prod.id_producto}, -1, event)" class="w-6 h-6 rounded-full bg-white hover:bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold transition-colors">
+                                <button onclick="actualizarCantidadVarianteClick(${prod.id_producto}, -1, event)" class="w-6 h-6 rounded-full bg-white hover:bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold transition-colors">
                                     <span class="material-symbols-outlined text-[14px]">remove</span>
                                 </button>
-                                <span class="px-2 text-xs font-black text-emerald-800 min-w-[12px] text-center">${qty}</span>
-                                <button onclick="actualizarCantidadClick(${prod.id_producto}, 1, event)" class="w-6 h-6 rounded-full bg-emerald-600 text-white hover:bg-emerald-500 flex items-center justify-center font-bold transition-colors">
+                                <span id="qty-badge-${prod.id_producto}" class="px-2 text-xs font-black text-emerald-800 min-w-[12px] text-center">${qty}</span>
+                                <button onclick="actualizarCantidadVarianteClick(${prod.id_producto}, 1, event)" class="w-6 h-6 rounded-full bg-emerald-600 text-white hover:bg-emerald-500 flex items-center justify-center font-bold transition-colors">
                                     <span class="material-symbols-outlined text-[14px]">add</span>
                                 </button>
                             </div>
                         `;
                     } else {
-                        const prodEscaped = JSON.stringify(prod).replace(/"/g, '&quot;');
                         actionBtnHTML = `
-                            <button onclick="agregarAlCarritoClick(${prodEscaped}, event)" class="w-8 h-8 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white flex items-center justify-center transition-all duration-300 shadow hover:scale-110 active:scale-95 cursor-pointer" title="Añadir al carrito">
+                            <button onclick="agregarPresentacionSeleccionadaClick(${prod.id_producto}, event)" class="w-8 h-8 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white flex items-center justify-center transition-all duration-300 shadow hover:scale-110 active:scale-95 cursor-pointer" title="Añadir al carrito">
                                 <span class="material-symbols-outlined text-[18px]">add</span>
                             </button>
                         `;
@@ -586,24 +648,51 @@
                     `;
                 }
 
+                // Selector de presentaciones (si > 1) o etiqueta estática pequeña (si === 1)
+                let presentacionSelectorHTML = '';
+                if (presentaciones.length > 1) {
+                    const optionsHTML = presentaciones.map((pres, idx) => `
+                        <option value="${idx}" ${idx === selectedIdx ? 'selected' : ''}>${pres.unidad}</option>
+                    `).join('');
+                    presentacionSelectorHTML = `
+                        <div class="mb-1.5" onclick="event.stopPropagation();">
+                            <select
+                                onchange="cambiarPresentacionProducto(${prod.id_producto}, this.value, event)"
+                                class="w-full max-w-[140px] text-[11px] font-bold text-emerald-800 bg-emerald-50/90 hover:bg-emerald-100/80 border border-emerald-200 rounded-lg px-2.5 py-1 pr-6 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none cursor-pointer transition-all">
+                                ${optionsHTML}
+                            </select>
+                        </div>
+                    `;
+                } else {
+                    presentacionSelectorHTML = `
+                        <div class="mb-1">
+                            <span class="inline-block text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">
+                                ${currentVariant.unidad || 'Unidad'}
+                            </span>
+                        </div>
+                    `;
+                }
+
                 let priceHTML = '';
-                if (activeOffer) {
+                if (activeOffer && selectedIdx === 0) {
                     priceHTML = `
-                        <div class="flex flex-col">
-                            <span class="text-[10px] text-slate-400 line-through leading-tight">${Utils.formatCurrency(prod.precio_venta)}</span>
-                            <span class="text-sm font-extrabold text-emerald-600 leading-tight">${Utils.formatCurrency(activeOffer.precio_oferta)}</span>
+                        <div class="flex flex-col" id="price-container-${prod.id_producto}">
+                            <span class="text-[10px] text-slate-400 line-through leading-tight">${Utils.formatCurrency(currentVariant.precio)}</span>
+                            <span id="price-display-${prod.id_producto}" class="text-sm font-extrabold text-emerald-600 leading-tight">${Utils.formatCurrency(activeOffer.precio_oferta)}</span>
                         </div>
                     `;
                 } else {
                     priceHTML = `
-                        <span class="text-base font-extrabold text-slate-800">${Utils.formatCurrency(prod.precio_venta)}</span>
+                        <div id="price-container-${prod.id_producto}">
+                            <span id="price-display-${prod.id_producto}" class="text-base font-extrabold text-slate-800">${Utils.formatCurrency(currentVariant.precio)}</span>
+                        </div>
                     `;
                 }
 
                 card.innerHTML = `
                     <!-- Product Image -->
                     <div class="aspect-square bg-slate-50 relative overflow-hidden flex items-center justify-center">
-                        <img src="${imgUrl}" class="object-cover w-full h-full group-hover:scale-105 transition-transform duration-500" alt="${prod.nombre}">
+                        <img src="${imgUrl}" onerror="this.onerror=null;this.src=window.DEFAULT_PRODUCT_PLACEHOLDER;" class="object-cover w-full h-full group-hover:scale-105 transition-transform duration-500" alt="${prod.nombre}">
                         
                         <!-- Category Tag -->
                         <span class="absolute top-3 left-3 bg-white/95 backdrop-blur-sm text-[9px] font-black text-slate-700 uppercase tracking-widest px-2.5 py-1 rounded-md shadow-sm border border-slate-100">
@@ -626,12 +715,13 @@
                             </h3>
                         </div>
 
-                        <div class="mt-4 pt-3 border-t border-slate-50 flex items-center justify-between">
-                            <div>
-                                <span class="block text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-none mb-1">Precio</span>
+                        <div class="mt-3 pt-3 border-t border-slate-50 flex items-end justify-between gap-2">
+                            <div class="min-w-0 flex-1">
+                                ${presentacionSelectorHTML}
+                                <span class="block text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-none mb-0.5">Precio</span>
                                 ${priceHTML}
                             </div>
-                            <div class="shrink-0 flex items-center gap-1.5" onclick="event.stopPropagation();">
+                            <div id="action-btn-container-${prod.id_producto}" class="shrink-0 flex items-center gap-1.5" onclick="event.stopPropagation();">
                                 ${actionBtnHTML}
                             </div>
                         </div>
@@ -640,6 +730,53 @@
                 grid.appendChild(card);
             });
         }
+
+        // 5.1 Cambiar presentación dinámicamente desde el <select> de la tarjeta
+        window.cambiarPresentacionProducto = function(productId, optionIndex, event) {
+            if (event) event.stopPropagation();
+            const prod = productsGlobal.find(p => p.id_producto === productId);
+            if (!prod) return;
+
+            const idx = parseInt(optionIndex, 10) || 0;
+            selectedVariantByProduct[productId] = idx;
+
+            const presentaciones = getProductPresentaciones(prod);
+            const selectedPres = presentaciones[idx] || presentaciones[0];
+
+            // Actualizar dinámicamente el precio principal en la tarjeta
+            const priceEl = document.getElementById(`price-display-${productId}`);
+            if (priceEl) {
+                priceEl.textContent = Utils.formatCurrency(selectedPres.precio);
+            }
+
+            // Actualizar el botón de acción (+ o contador) según si esta variante ya está en el carrito
+            const actionContainer = document.getElementById(`action-btn-container-${productId}`);
+            if (actionContainer) {
+                const variantKey = getCartItemKey(prod.id_producto, selectedPres.unidad);
+                const cartItem = cart.find(item => (item.cartKey || getCartItemKey(item.id_producto, item.unidad)) === variantKey);
+                const qty = cartItem ? cartItem.cantidad : 0;
+
+                if (qty > 0) {
+                    actionContainer.innerHTML = `
+                        <div class="flex items-center bg-emerald-50 rounded-full border border-emerald-200/50 p-0.5 shadow-sm" onclick="event.stopPropagation();">
+                            <button onclick="actualizarCantidadVarianteClick(${prod.id_producto}, -1, event)" class="w-6 h-6 rounded-full bg-white hover:bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold transition-colors">
+                                <span class="material-symbols-outlined text-[14px]">remove</span>
+                            </button>
+                            <span id="qty-badge-${prod.id_producto}" class="px-2 text-xs font-black text-emerald-800 min-w-[12px] text-center">${qty}</span>
+                            <button onclick="actualizarCantidadVarianteClick(${prod.id_producto}, 1, event)" class="w-6 h-6 rounded-full bg-emerald-600 text-white hover:bg-emerald-500 flex items-center justify-center font-bold transition-colors">
+                                <span class="material-symbols-outlined text-[14px]">add</span>
+                            </button>
+                        </div>
+                    `;
+                } else {
+                    actionContainer.innerHTML = `
+                        <button onclick="agregarPresentacionSeleccionadaClick(${prod.id_producto}, event)" class="w-8 h-8 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white flex items-center justify-center transition-all duration-300 shadow hover:scale-110 active:scale-95 cursor-pointer" title="Añadir al carrito">
+                            <span class="material-symbols-outlined text-[18px]">add</span>
+                        </button>
+                    `;
+                }
+            }
+        };
 
         // 6. Generar Filtros de Categoría Dinámicamente
         function buildCategoryPills(products) {
@@ -823,26 +960,33 @@
             filterCatalog();
         }
 
-        function agregarAlCarrito(product) {
-            if (product.stock <= 0) return;
+        function agregarAlCarrito(product, customVariant = null) {
+            const selectedPres = customVariant || getSelectedPresentacion(product);
+            const variantStock = selectedPres.stock !== undefined ? selectedPres.stock : product.stock;
+            if (variantStock <= 0 && product.stock <= 0) return;
 
             const currentStoreId = tenderoId;
+            const unidadElegida = selectedPres.unidad || product.unidad_medida || 'Unidad';
+            const precioElegido = parseFloat(selectedPres.precio ?? product.precio_venta ?? 0) || 0;
+            const cartKey = getCartItemKey(product.id_producto, unidadElegida);
             
             // Guardrail Multi-tienda: verificar si hay productos de otra tienda
             if (cart.length > 0 && cart[0].id_tendero !== currentStoreId) {
-                pendingProductToConfirm = product;
+                pendingProductToConfirm = { product, selectedPres };
                 showGuardrailModal();
                 return;
             }
 
-            const existing = cart.find(item => item.id_producto === product.id_producto);
+            const existing = cart.find(item => (item.cartKey || getCartItemKey(item.id_producto, item.unidad)) === cartKey);
             if (existing) {
                 existing.cantidad += 1;
             } else {
                 cart.push({
+                    cartKey: cartKey,
                     id_producto: product.id_producto,
                     nombre: product.nombre,
-                    precio_venta: product.precio_venta,
+                    unidad: unidadElegida,
+                    precio_venta: precioElegido,
                     cantidad: 1,
                     imagen_url: product.imagen_url,
                     id_tendero: currentStoreId
@@ -851,20 +995,20 @@
             saveCart();
         }
 
-        function actualizarCantidad(productId, delta) {
-            const item = cart.find(i => i.id_producto === productId);
+        function actualizarCantidad(productIdOrKey, delta) {
+            const item = cart.find(i => i.cartKey === productIdOrKey || i.id_producto === productIdOrKey);
             if (!item) return;
 
             item.cantidad += delta;
             if (item.cantidad <= 0) {
-                eliminarDelCarrito(productId);
+                eliminarDelCarrito(item.cartKey || item.id_producto);
             } else {
                 saveCart();
             }
         }
 
-        function eliminarDelCarrito(productId) {
-            cart = cart.filter(i => i.id_producto !== productId);
+        function eliminarDelCarrito(productIdOrKey) {
+            cart = cart.filter(i => (i.cartKey || i.id_producto) !== productIdOrKey && i.id_producto !== productIdOrKey);
             saveCart();
         }
 
@@ -901,33 +1045,33 @@
             let subtotal = 0;
 
             cart.forEach(item => {
-                const activePrice = getActivePrice(item.id_producto, item.precio_venta);
+                const itemKey = item.cartKey || getCartItemKey(item.id_producto, item.unidad);
+                const activePrice = parseFloat(item.precio_venta) || getActivePrice(item.id_producto, item.precio_venta);
                 const itemSubtotal = activePrice * item.cantidad;
                 subtotal += itemSubtotal;
 
-                const imgUrl = item.imagen_url 
-                    ? (item.imagen_url.startsWith('http') ? item.imagen_url : `${window.API_URL}${item.imagen_url}`) 
-                    : 'https://placehold.co/100x100/e2e8f0/475569?text=Item';
+                const imgUrl = resolveProductImageUrl(item);
+                const unidadLabel = item.unidad ? ` (${item.unidad})` : '';
 
                 const itemDiv = document.createElement("div");
                 itemDiv.className = "flex items-center gap-4 bg-slate-50 p-3 rounded-2xl border border-slate-100 hover:shadow-sm transition-all";
                 itemDiv.innerHTML = `
-                    <img src="${imgUrl}" class="w-14 h-14 rounded-xl object-cover bg-white shadow-sm shrink-0" alt="${item.nombre}">
+                    <img src="${imgUrl}" onerror="this.onerror=null;this.src=window.DEFAULT_PRODUCT_PLACEHOLDER;" class="w-14 h-14 rounded-xl object-cover bg-white shadow-sm shrink-0" alt="${item.nombre}">
                     <div class="flex-grow min-w-0">
-                        <h4 class="font-bold text-xs text-slate-800 truncate leading-tight">${item.nombre}</h4>
+                        <h4 class="font-bold text-xs text-slate-800 truncate leading-tight">${item.nombre}${unidadLabel}</h4>
                         <span class="text-[10px] text-slate-400 font-bold block mt-0.5">${Utils.formatCurrency(activePrice)} c/u</span>
                         <span class="text-xs font-extrabold text-emerald-600 mt-1 block">${Utils.formatCurrency(itemSubtotal)}</span>
                     </div>
                     <div class="flex flex-col items-end justify-between self-stretch shrink-0">
-                        <button onclick="eliminarDelCarrito(${item.id_producto})" class="text-slate-300 hover:text-red-500 transition-colors cursor-pointer" title="Eliminar artículo">
+                        <button onclick="eliminarDelCarrito('${itemKey}')" class="text-slate-300 hover:text-red-500 transition-colors cursor-pointer" title="Eliminar artículo">
                             <span class="material-symbols-outlined text-[16px]">delete</span>
                         </button>
                         <div class="flex items-center bg-white rounded-full border border-slate-200/80 p-0.5 shadow-sm">
-                            <button onclick="actualizarCantidad(${item.id_producto}, -1)" class="w-5 h-5 rounded-full bg-slate-50 hover:bg-emerald-100 text-slate-600 hover:text-emerald-800 flex items-center justify-center font-bold transition-colors cursor-pointer">
+                            <button onclick="actualizarCantidad('${itemKey}', -1)" class="w-5 h-5 rounded-full bg-slate-50 hover:bg-emerald-100 text-slate-600 hover:text-emerald-800 flex items-center justify-center font-bold transition-colors cursor-pointer">
                                 <span class="material-symbols-outlined text-[10px]">remove</span>
                             </button>
                             <span class="px-2 text-xs font-black text-slate-700 min-w-[12px] text-center">${item.cantidad}</span>
-                            <button onclick="actualizarCantidad(${item.id_producto}, 1)" class="w-5 h-5 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white flex items-center justify-center font-bold transition-colors cursor-pointer">
+                            <button onclick="actualizarCantidad('${itemKey}', 1)" class="w-5 h-5 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white flex items-center justify-center font-bold transition-colors cursor-pointer">
                                 <span class="material-symbols-outlined text-[10px]">add</span>
                             </button>
                         </div>
@@ -993,7 +1137,11 @@
             document.getElementById("btn-guardrail-aceptar").addEventListener("click", () => {
                 vaciarCarrito();
                 if (pendingProductToConfirm) {
-                    agregarAlCarrito(pendingProductToConfirm);
+                    if (pendingProductToConfirm.product) {
+                        agregarAlCarrito(pendingProductToConfirm.product, pendingProductToConfirm.selectedPres);
+                    } else {
+                        agregarAlCarrito(pendingProductToConfirm);
+                    }
                     pendingProductToConfirm = null;
                 }
                 closeGuardrailModal();
@@ -1010,11 +1158,12 @@
                 if (cart.length === 0) return;
                 
                 const itemsText = cart.map(item => {
-                    const price = getActivePrice(item.id_producto, item.precio_venta);
-                    return `• ${item.cantidad}x *${item.nombre}* (${Utils.formatCurrency(price)}) = *${Utils.formatCurrency(price * item.cantidad)}*`;
+                    const price = parseFloat(item.precio_venta) || getActivePrice(item.id_producto, item.precio_venta);
+                    const unidadTxt = item.unidad ? ` - ${item.unidad}` : '';
+                    return `• ${item.cantidad}x *${item.nombre}${unidadTxt}* (${Utils.formatCurrency(price)}) = *${Utils.formatCurrency(price * item.cantidad)}*`;
                 }).join('\n');
                 
-                const subtotal = cart.reduce((sum, item) => sum + (getActivePrice(item.id_producto, item.precio_venta) * item.cantidad), 0);
+                const subtotal = cart.reduce((sum, item) => sum + ((parseFloat(item.precio_venta) || getActivePrice(item.id_producto, item.precio_venta)) * item.cantidad), 0);
                 const totalText = Utils.formatCurrency(subtotal);
                 
                 const message = `¡Hola! Vengo de la Vitrina Local SuiteTiendaCúcuta. Me gustaría realizar el siguiente pedido a tu tienda *${storeDataGlobal.nombre_tienda}*:\n\n${itemsText}\n\n*Total Estimado: ${totalText}*\n\n¿Me podrías confirmar la disponibilidad y el proceso de entrega?`;
@@ -1030,6 +1179,23 @@
         window.agregarAlCarritoClick = function(product, event) {
             if (event) event.stopPropagation();
             agregarAlCarrito(product);
+        };
+
+        window.agregarPresentacionSeleccionadaClick = function(productId, event) {
+            if (event) event.stopPropagation();
+            const prod = productsGlobal.find(p => p.id_producto === productId);
+            if (!prod) return;
+            const selectedPres = getSelectedPresentacion(prod);
+            agregarAlCarrito(prod, selectedPres);
+        };
+
+        window.actualizarCantidadVarianteClick = function(productId, delta, event) {
+            if (event) event.stopPropagation();
+            const prod = productsGlobal.find(p => p.id_producto === productId);
+            if (!prod) return;
+            const selectedPres = getSelectedPresentacion(prod);
+            const variantKey = getCartItemKey(prod.id_producto, selectedPres.unidad);
+            actualizarCantidad(variantKey, delta);
         };
 
         window.actualizarCantidadClick = function(productId, delta, event) {
