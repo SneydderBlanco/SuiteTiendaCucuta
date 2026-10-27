@@ -604,9 +604,18 @@ document.addEventListener("DOMContentLoaded", () => {
         btnSubmit.innerHTML = "Guardando...";
 
         try {
-            const resp = await API.createProducto(formData);
+            const apiUrlBase = (window.API_URL || 'http://localhost:3000').replace(/\/+$/, '');
+            const response = await fetch(`${apiUrlBase}/api/productos`, {
+                method: 'POST',
+                body: formData
+            });
 
-            if(resp.status === 200) {
+            const contentType = response.headers.get('content-type') || '';
+            const data = contentType.includes('application/json')
+                ? await response.json()
+                : { error: await response.text() };
+
+            if (response.ok && (response.status === 200 || response.status === 201)) {
                 form.reset();
                 if (customCatContainer) customCatContainer.classList.add('hidden');
                 if (regCatCustomInput) regCatCustomInput.required = false;
@@ -615,11 +624,13 @@ document.addEventListener("DOMContentLoaded", () => {
                 toggleModal();
                 loadProducts(userId);
             } else {
-                const data = resp.data;
-                Utils.showAlert(data.error || "Fallo al crear producto en BD");
+                const serverError = data.error || data.message || `Error HTTP ${response.status} al crear producto`;
+                console.error("Error del servidor al guardar producto:", serverError, data);
+                Utils.showAlert(serverError);
             }
-        } catch(e) {
-            Utils.showAlert("Error de red enviando producto al servidor");
+        } catch (error) {
+            console.error("Error detallado enviando producto al servidor:", error);
+            Utils.showAlert(`Error enviando producto al servidor: ${error.message || error}`);
         } finally {
             btnSubmit.disabled = false;
             btnSubmit.innerHTML = initText;

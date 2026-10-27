@@ -329,77 +329,117 @@ app.get('/api/productos/buscar', async (req, res) => {
     }
 });
 
+// Endpoint GET /api/productos (con soporte opcional por query ?id_tendero= para evitar Cannot GET /api/productos)
+app.get('/api/productos', async (req, res) => {
+    const { id_tendero } = req.query;
+    try {
+        if (id_tendero) {
+            const { rows } = await db.query(
+                'SELECT * FROM productos WHERE id_tendero = $1 ORDER BY id_producto DESC',
+                [id_tendero]
+            );
+            return res.json(rows);
+        }
+        const { rows } = await db.query('SELECT * FROM productos ORDER BY id_producto DESC');
+        return res.json(rows);
+    } catch (err) {
+        console.error('Error en GET /api/productos:', err.message);
+        return res.status(500).json({ error: `Error al consultar productos: ${err.message}` });
+    }
+});
+
 app.get('/api/productos/:id_tendero', async (req, res) => {
     const { id_tendero } = req.params;
     try {
-        const text = 'SELECT * FROM productos WHERE id_tendero = $1';
+        const text = 'SELECT * FROM productos WHERE id_tendero = $1 ORDER BY id_producto DESC';
         const { rows } = await db.query(text, [id_tendero]);
         res.json(rows);
     } catch (err) {
         console.error('Error fetching prod:', err.message);
-        res.status(500).json({ error: 'Error en BD de inventario' });
+        res.status(500).json({ error: `Error en BD de inventario: ${err.message}` });
     }
 });
 
-// Endpoint para INSERTAR mediante Modal un producto (y sus presentaciones/variantes) al tendero individual
+// Endpoint para INSERTAR mediante Modal un producto y su columna JSONB presentaciones
 app.post('/api/productos', upload.single('imagen'), async (req, res) => {
     const { id_tendero, nombre, marca, categoria, unidad_medida, precio_venta, stock, presentaciones } = req.body;
     const imagen_url = req.file ? (req.file.path || `/uploads/${req.file.filename}`) : null;
+
     try {
         await db.query('ALTER TABLE productos ADD COLUMN IF NOT EXISTS imagen_url TEXT');
+        await db.query('ALTER TABLE productos ALTER COLUMN imagen_url TYPE TEXT');
         await db.query("ALTER TABLE productos ADD COLUMN IF NOT EXISTS unidad_medida VARCHAR(50) DEFAULT 'Unidad (Und)'");
-        await db.query("ALTER TABLE tendero ADD COLUMN IF NOT EXISTS rol VARCHAR(50) DEFAULT 'tendero'");
-        await db.query("ALTER TABLE cliente ADD COLUMN IF NOT EXISTS rol VARCHAR(50) DEFAULT 'cliente'");
+        await db.query("ALTER TABLE productos ADD COLUMN IF NOT EXISTS presentaciones JSONB DEFAULT '[]'::jsonb");
+        await db.query("ALTER TABLE productos ALTER COLUMN imagen_url TYPE TEXT");
+        await db.query("ALTER TABLE productos ADD COLUMN IF NOT EXISTS presentaciones JSONB DEFAULT '[]'::jsonb");
 
         let listaPresentaciones = [];
         if (presentaciones) {
             try {
                 const parsed = typeof presentaciones === 'string' ? JSON.parse(presentaciones) : presentaciones;
                 if (Array.isArray(parsed) && parsed.length > 0) {
-                    listaPresentaciones = parsed;
+                    listaPresentaciones = parsed.map((p) => ({
+                        unidad: String(p.unidad || p.unidad_medida || 'Unidad (Und)').trim(),
+                        precio: parseFloat(p.precio ?? p.precio_venta ?? 0) || 0,
+                        stock: parseInt(p.stock ?? 0, 10) || 0
+                    }));
                 }
-            } catch (_) {
+            } catch (parseErr) {
+                console.warn('Error parseando presentaciones JSON:', parseErr.message);
                 listaPresentaciones = [];
             }
         }
 
         if (listaPresentaciones.length === 0) {
             listaPresentaciones = [{
-                unidad: unidad_medida || 'Unidad (Und)',
-                precio: precio_venta,
-                stock: stock
+                unidad: String(unidad_medida || 'Unidad (Und)').trim(),
+                precio: parseFloat(precio_venta) || 0,
+                stock: parseInt(stock, 10) || 0
             }];
         }
 
-        const insertedProducts = [];
-        const text = 'INSERT INTO productos(id_tendero, nombre, marca, categoria, unidad_medida, precio_venta, stock, imagen_url) VALUES($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *';
+        const primera = listaPresentaciones[0];
+        const unidadPrincipal = primera.unidad || 'Unidad (Und)';
+        const precioPrincipal = parseFloat(primera.precio) || 0;
+        const stockTotal = listaPresentaciones.reduce((acc, item) => acc + (parseInt(item.stock, 10) || 0), 0);
 
-        for (const pres of listaPresentaciones) {
-            const unidadFinal = (pres.unidad || pres.unidad_medida || 'Unidad (Und)').trim();
-            const precioFinal = parseFloat(pres.precio ?? pres.precio_venta ?? 0);
-            const stockFinal = parseInt(pres.stock ?? 0, 10);
-            const values = [
+        const text = `
+            INSERT INTO productos(
                 id_tendero,
                 nombre,
                 marca,
-                (categoria || '').trim(),
-                unidadFinal,
-                precioFinal,
-                stockFinal,
-                imagen_url
-            ];
-            const result = await db.query(text, values);
-            insertedProducts.push(result.rows[0]);
-        }
+                categoria,
+                unidad_medida,
+                precio_venta,
+                stock,
+                imagen_url,
+                presentaciones
+            )
+            VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb)
+            RETURNING *
+        `;
+        const values = [
+            parseInt(id_tendero, 10),
+            (nombre || '').trim(),
+            (marca || '').trim(),
+            (categoria || '').trim(),
+            unidadPrincipal,
+            precioPrincipal,
+            stockTotal,
+            imagen_url,
+            JSON.stringify(listaPresentaciones)
+        ];
 
-        res.json({
+        const result = await db.query(text, values);
+        return res.status(200).json({
             success: true,
-            producto: insertedProducts[0],
-            productos: insertedProducts
+            producto: result.rows[0]
         });
     } catch (err) {
-        console.error('Error inserting prod:', err.message);
-        res.status(500).json({ error: 'Error al reservar en BD. Posible causa: Tabla `productos` no se encuentra estructurada.' });
+        console.error('Error detallado en POST /api/productos:', err);
+        return res.status(500).json({
+            error: `Error al guardar el producto en la base de datos: ${err.message}`
+        });
     }
 });
 
@@ -427,6 +467,8 @@ app.put('/api/productos/:id', upload.single('imagen'), async (req, res) => {
     try {
         await db.query('ALTER TABLE productos ADD COLUMN IF NOT EXISTS imagen_url TEXT');
         await db.query("ALTER TABLE productos ADD COLUMN IF NOT EXISTS unidad_medida VARCHAR(50) DEFAULT 'Unidad (Und)'");
+        await db.query("ALTER TABLE productos ADD COLUMN IF NOT EXISTS presentaciones JSONB DEFAULT '[]'::jsonb");
+        await db.query("ALTER TABLE productos ALTER COLUMN imagen_url TYPE TEXT");
         await db.query("ALTER TABLE tendero ADD COLUMN IF NOT EXISTS rol VARCHAR(50) DEFAULT 'tendero'");
         await db.query("ALTER TABLE cliente ADD COLUMN IF NOT EXISTS rol VARCHAR(50) DEFAULT 'cliente'");
         let text, values;
@@ -1465,6 +1507,8 @@ app.listen(port, async () => {
         `);
         console.log("Tabla 'vitrina_digital' verificada/creada con éxito en PostgreSQL.");
         await db.query("ALTER TABLE productos ADD COLUMN IF NOT EXISTS unidad_medida VARCHAR(50) DEFAULT 'Unidad (Und)'");
+        await db.query("ALTER TABLE productos ADD COLUMN IF NOT EXISTS presentaciones JSONB DEFAULT '[]'::jsonb");
+        await db.query("ALTER TABLE productos ALTER COLUMN imagen_url TYPE TEXT");
         await db.query("ALTER TABLE tendero ADD COLUMN IF NOT EXISTS rol VARCHAR(50) DEFAULT 'tendero'");
         await db.query("ALTER TABLE tendero ADD COLUMN IF NOT EXISTS codigo_verificacion VARCHAR(20)");
         await db.query("ALTER TABLE tendero ADD COLUMN IF NOT EXISTS verificado BOOLEAN DEFAULT FALSE");

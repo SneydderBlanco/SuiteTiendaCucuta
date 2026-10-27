@@ -89,7 +89,15 @@ window.API = {
             method: "POST",
             body: formData
         });
-        return { status: response.status, data: await response.json() };
+        const contentType = response.headers.get("content-type") || "";
+        if (contentType.includes("application/json")) {
+            return { status: response.status, data: await response.json() };
+        }
+        const rawText = await response.text().catch(() => "");
+        return {
+            status: response.status,
+            data: { error: rawText || `Error HTTP ${response.status} en /api/productos` }
+        };
     },
 
     deleteProducto: async (id) => {
