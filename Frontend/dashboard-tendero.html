@@ -870,7 +870,7 @@
     <div class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
         id="modal-overlay">
         <div
-            class="bg-surface-container-lowest w-full max-w-lg max-h-[90vh] flex flex-col rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+            class="bg-surface-container-lowest w-full max-w-xl max-h-[90vh] flex flex-col rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
             <div class="px-6 sm:px-8 py-5 border-b border-surface-container flex items-center justify-between shrink-0 bg-surface-container-lowest">
                 <h3 class="text-xl font-bold text-on-surface">Agregar Nuevo Producto</h3>
                 <button
@@ -893,34 +893,59 @@
                     </div>
                     <div>
                         <label class="block text-sm font-bold text-on-surface-variant mb-2">Categoría</label>
-                        <div class="relative" id="wrapper-reg-categoria"><div class="relative flex items-center"><input id="reg-prod-categoria" type="text" autocomplete="off" class="w-full pl-4 pr-10 py-3 bg-surface-container-low border-none rounded-xl focus:ring-2 focus:ring-primary text-sm placeholder:text-on-surface-variant/40" placeholder="Seleccionar o escribir nueva categoría..." required /><button type="button" id="clear-reg-prod-categoria" data-clear-input="reg-prod-categoria" class="hidden absolute right-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full flex items-center justify-center text-on-surface-variant/60 hover:text-error hover:bg-error/10 transition-colors" title="Limpiar campo">✕</button></div><div id="dropdown-reg-prod-categoria" class="hidden absolute left-0 top-full mt-1 bg-white shadow-lg rounded-md border border-slate-100 z-50 w-full max-h-48 overflow-y-auto py-1"></div></div></div><div><label class="block text-sm font-bold text-on-surface-variant mb-2">Unidad de Medida</label><div class="relative" id="wrapper-reg-unidad"><div class="relative flex items-center"><input id="reg-prod-unidad" type="text" autocomplete="off" value="Unidad (Und)" class="w-full pl-4 pr-10 py-3 bg-surface-container-low border-none rounded-xl focus:ring-2 focus:ring-primary text-sm placeholder:text-on-surface-variant/40" placeholder="Ej. Kg, Lb, Unidad, Docena, Cubeta..." required /><button type="button" id="clear-reg-prod-unidad" data-clear-input="reg-prod-unidad" class="absolute right-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full flex items-center justify-center text-on-surface-variant/60 hover:text-error hover:bg-error/10 transition-colors" title="Limpiar campo">✕</button></div><div id="dropdown-reg-prod-unidad" class="hidden absolute left-0 top-full mt-1 bg-white shadow-lg rounded-md border border-slate-100 z-50 w-full max-h-48 overflow-y-auto py-1"></div></div><!--
-                            class="w-full px-4 py-3 bg-surface-container-low border-none rounded-xl focus:ring-2 focus:ring-primary text-sm"
+                        <select id="reg-prod-categoria-select"
+                            class="w-full px-4 py-3 bg-surface-container-low border-none rounded-xl focus:ring-2 focus:ring-primary text-sm text-on-surface font-medium cursor-pointer transition-all"
                             required>
                             <option value="">Seleccionar categoría...</option>
-                            <option value="alimentos">Alimentos</option>
-                            <option value="artesanias">Artesanías</option>
-                            <option value="dulces">Dulces</option>
-                            <option value="bebidas">Bebidas</option>
-                        </select> -->
-                    </div>
-                    <div class="grid grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-sm font-bold text-on-surface-variant mb-2">Precio de Venta</label>
-                            <div class="relative">
-                                <span
-                                    class="absolute left-4 top-1/2 -translate-y-1/2 text-xs font-bold text-on-surface-variant/60">COP</span>
-                                <input id="reg-prod-precio"
-                                    class="w-full pl-12 pr-4 py-3 bg-surface-container-low border-none rounded-xl focus:ring-2 focus:ring-primary text-sm placeholder:text-on-surface-variant/40"
-                                    placeholder="0.00" type="number" required />
+                            <option value="Alimentos">Alimentos</option>
+                            <option value="Artesanías">Artesanías</option>
+                            <option value="Dulces">Dulces</option>
+                            <option value="Bebidas">Bebidas</option>
+                            <option value="Abarrotes">Abarrotes</option>
+                            <option value="Lácteos">Lácteos</option>
+                            <option value="Aseo">Aseo</option>
+                            <option value="__nueva_categoria__" class="font-bold text-emerald-700 bg-emerald-50">+ Añadir categoría</option>
+                        </select>
+                        <div id="custom-categoria-container" class="hidden mt-2.5 animate-in fade-in duration-150">
+                            <div class="relative flex items-center">
+                                <input id="reg-prod-categoria-custom" type="text" autocomplete="off"
+                                    class="w-full px-4 py-3 bg-emerald-50/50 border border-emerald-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:bg-white text-sm text-on-surface placeholder:text-on-surface-variant/50 transition-all"
+                                    placeholder="Escribe el nombre de la nueva categoría..." />
                             </div>
                         </div>
-                        <div>
-                            <label class="block text-sm font-bold text-on-surface-variant mb-2">Stock Inicial</label>
-                            <input id="reg-prod-stock"
-                                class="w-full px-4 py-3 bg-surface-container-low border-none rounded-xl focus:ring-2 focus:ring-primary text-sm placeholder:text-on-surface-variant/40"
-                                placeholder="0" type="number" required />
-                        </div>
+                        <input id="reg-prod-categoria" type="hidden" />
                     </div>
+
+                    <!-- Sección Dinámica: Presentaciones (Variantes) -->
+                    <div class="pt-1 border-t border-surface-container">
+                        <div class="flex items-center justify-between mb-3">
+                            <div>
+                                <label class="block text-sm font-bold text-on-surface-variant">Presentaciones</label>
+                                <p class="text-xs text-slate-400">Define las unidades de medida, precios y stock disponible.</p>
+                            </div>
+                            <span id="presentaciones-count-badge" class="text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200/70 px-2.5 py-1 rounded-full">1 variante</span>
+                        </div>
+
+                        <!-- Cabeceras compactas de las columnas -->
+                        <div class="grid grid-cols-12 gap-2 px-1 mb-1.5 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                            <div class="col-span-5">Unidad / Medida</div>
+                            <div class="col-span-4">Precio (COP)</div>
+                            <div class="col-span-2">Stock</div>
+                            <div class="col-span-1 text-center"></div>
+                        </div>
+
+                        <!-- Lista dinámica de filas de presentaciones -->
+                        <div id="presentaciones-rows-container" class="space-y-2.5">
+                            <!-- Filas inyectadas dinámicamente por dashboard.js -->
+                        </div>
+
+                        <button id="btn-add-presentacion" type="button"
+                            class="mt-3 w-full py-2.5 px-4 rounded-xl border border-dashed border-emerald-300 bg-emerald-50/40 hover:bg-emerald-50 text-emerald-700 font-bold text-xs flex items-center justify-center gap-1.5 transition-all">
+                            <span class="material-symbols-outlined text-[16px]">add_circle</span>
+                            <span>+ Agregar presentación</span>
+                        </button>
+                    </div>
+
                     <div>
                         <label class="block text-sm font-bold text-on-surface-variant mb-2">Imagen del Producto</label>
                         <input id="reg-prod-imagen" type="file" accept="image/*" class="w-full text-sm text-on-surface-variant file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 transition-all"/>

@@ -341,19 +341,62 @@ app.get('/api/productos/:id_tendero', async (req, res) => {
     }
 });
 
-// Endpoint para INSERTAR mediante Modal un producto al tendero individual
+// Endpoint para INSERTAR mediante Modal un producto (y sus presentaciones/variantes) al tendero individual
 app.post('/api/productos', upload.single('imagen'), async (req, res) => {
-    const { id_tendero, nombre, marca, categoria, unidad_medida, precio_venta, stock } = req.body;
+    const { id_tendero, nombre, marca, categoria, unidad_medida, precio_venta, stock, presentaciones } = req.body;
     const imagen_url = req.file ? (req.file.path || `/uploads/${req.file.filename}`) : null;
     try {
         await db.query('ALTER TABLE productos ADD COLUMN IF NOT EXISTS imagen_url TEXT');
         await db.query("ALTER TABLE productos ADD COLUMN IF NOT EXISTS unidad_medida VARCHAR(50) DEFAULT 'Unidad (Und)'");
         await db.query("ALTER TABLE tendero ADD COLUMN IF NOT EXISTS rol VARCHAR(50) DEFAULT 'tendero'");
         await db.query("ALTER TABLE cliente ADD COLUMN IF NOT EXISTS rol VARCHAR(50) DEFAULT 'cliente'");
+
+        let listaPresentaciones = [];
+        if (presentaciones) {
+            try {
+                const parsed = typeof presentaciones === 'string' ? JSON.parse(presentaciones) : presentaciones;
+                if (Array.isArray(parsed) && parsed.length > 0) {
+                    listaPresentaciones = parsed;
+                }
+            } catch (_) {
+                listaPresentaciones = [];
+            }
+        }
+
+        if (listaPresentaciones.length === 0) {
+            listaPresentaciones = [{
+                unidad: unidad_medida || 'Unidad (Und)',
+                precio: precio_venta,
+                stock: stock
+            }];
+        }
+
+        const insertedProducts = [];
         const text = 'INSERT INTO productos(id_tendero, nombre, marca, categoria, unidad_medida, precio_venta, stock, imagen_url) VALUES($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *';
-        const values = [id_tendero, nombre, marca, (categoria || '').trim(), unidad_medida || 'Unidad (Und)', parseFloat(precio_venta), parseInt(stock, 10), imagen_url];
-        const result = await db.query(text, values);
-        res.json({ success: true, producto: result.rows[0] });
+
+        for (const pres of listaPresentaciones) {
+            const unidadFinal = (pres.unidad || pres.unidad_medida || 'Unidad (Und)').trim();
+            const precioFinal = parseFloat(pres.precio ?? pres.precio_venta ?? 0);
+            const stockFinal = parseInt(pres.stock ?? 0, 10);
+            const values = [
+                id_tendero,
+                nombre,
+                marca,
+                (categoria || '').trim(),
+                unidadFinal,
+                precioFinal,
+                stockFinal,
+                imagen_url
+            ];
+            const result = await db.query(text, values);
+            insertedProducts.push(result.rows[0]);
+        }
+
+        res.json({
+            success: true,
+            producto: insertedProducts[0],
+            productos: insertedProducts
+        });
     } catch (err) {
         console.error('Error inserting prod:', err.message);
         res.status(500).json({ error: 'Error al reservar en BD. Posible causa: Tabla `productos` no se encuentra estructurada.' });

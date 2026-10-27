@@ -333,13 +333,183 @@ document.addEventListener("DOMContentLoaded", () => {
             initCreatableSelect('reg-prod-unidad', 'clear-reg-prod-unidad', 'dropdown-reg-prod-unidad', getUnitOptions);
             initCreatableSelect('edit-prod-categoria', 'clear-edit-prod-categoria', 'dropdown-edit-prod-categoria', getCategoryOptions);
             initCreatableSelect('edit-prod-unidad', 'clear-edit-prod-unidad', 'dropdown-edit-prod-unidad', getUnitOptions);
+
+            // Poblar select de Categoría del modal "Agregar Nuevo Producto" manteniendo "+ Añadir categoría" al final
+            const catSelect = document.getElementById('reg-prod-categoria-select');
+            if (catSelect) {
+                const currentVal = catSelect.value;
+                const categories = getCategoryOptions();
+                catSelect.innerHTML = '<option value="">Seleccionar categoría...</option>';
+                categories.forEach(cat => {
+                    const opt = document.createElement('option');
+                    opt.value = cat;
+                    opt.textContent = cat;
+                    catSelect.appendChild(opt);
+                });
+                const addOpt = document.createElement('option');
+                addOpt.value = '__nueva_categoria__';
+                addOpt.textContent = '+ Añadir categoría';
+                addOpt.className = 'font-bold text-emerald-700 bg-emerald-50';
+                catSelect.appendChild(addOpt);
+
+                if (currentVal && (categories.includes(currentVal) || currentVal === '__nueva_categoria__')) {
+                    catSelect.value = currentVal;
+                }
+            }
         }
     };
     window.__setupAllCreatableSelects();
-    (() => {
-        if (false) {
+
+    // Lógica de Categoría Personalizada (+ Añadir categoría) y Presentaciones Dinámicas (Variantes)
+    const regCatSelect = document.getElementById('reg-prod-categoria-select');
+    const customCatContainer = document.getElementById('custom-categoria-container');
+    const regCatCustomInput = document.getElementById('reg-prod-categoria-custom');
+    const regCatHiddenInput = document.getElementById('reg-prod-categoria');
+
+    if (regCatSelect) {
+        regCatSelect.addEventListener('change', () => {
+            if (regCatSelect.value === '__nueva_categoria__') {
+                if (customCatContainer) customCatContainer.classList.remove('hidden');
+                if (regCatCustomInput) {
+                    regCatCustomInput.required = true;
+                    regCatCustomInput.focus();
+                }
+                if (regCatHiddenInput) regCatHiddenInput.value = regCatCustomInput ? regCatCustomInput.value.trim() : '';
+            } else {
+                if (customCatContainer) customCatContainer.classList.add('hidden');
+                if (regCatCustomInput) {
+                    regCatCustomInput.required = false;
+                    regCatCustomInput.value = '';
+                }
+                if (regCatHiddenInput) regCatHiddenInput.value = regCatSelect.value;
+            }
+        });
+    }
+
+    if (regCatCustomInput) {
+        regCatCustomInput.addEventListener('input', () => {
+            if (regCatHiddenInput) regCatHiddenInput.value = regCatCustomInput.value.trim();
+        });
+    }
+
+    // Estado reactivo para Presentaciones (Variantes) del modal "Agregar Nuevo Producto"
+    let presentacionesState = [
+        { unidad: '', precio: '', stock: '' }
+    ];
+
+    const presentacionesContainer = document.getElementById('presentaciones-rows-container');
+    const btnAddPresentacion = document.getElementById('btn-add-presentacion');
+    const presentacionesBadge = document.getElementById('presentaciones-count-badge');
+
+    function renderPresentacionesRows() {
+        if (!presentacionesContainer) return;
+        presentacionesContainer.innerHTML = '';
+
+        if (presentacionesBadge) {
+            const count = presentacionesState.length;
+            presentacionesBadge.textContent = `${count} ${count === 1 ? 'variante' : 'variantes'}`;
         }
-    });
+
+        // Asegurar datalist de sugerencias de unidades
+        if (!document.getElementById('datalist-unidades-medida')) {
+            const dl = document.createElement('datalist');
+            dl.id = 'datalist-unidades-medida';
+            ['Unidad (Und)', 'Kilogramo (Kg)', 'Libra (Lb)', 'Gramo (g)', 'Litro (L)', 'Mililitro (ml)', 'Docena', 'Cubeta', 'Paca'].forEach(u => {
+                const o = document.createElement('option');
+                o.value = u;
+                dl.appendChild(o);
+            });
+            document.body.appendChild(dl);
+        }
+
+        presentacionesState.forEach((item, index) => {
+            const row = document.createElement('div');
+            row.className = 'grid grid-cols-12 gap-2 items-center bg-surface-container-low/60 p-2 rounded-xl border border-slate-200/70 transition-all';
+
+            // Columna 1: Unidad de Medida (5 cols)
+            const colUnidad = document.createElement('div');
+            colUnidad.className = 'col-span-5';
+            const inputUnidad = document.createElement('input');
+            inputUnidad.type = 'text';
+            inputUnidad.setAttribute('list', 'datalist-unidades-medida');
+            inputUnidad.required = true;
+            inputUnidad.placeholder = 'Ej. Kg, Lb, Und...';
+            inputUnidad.value = item.unidad;
+            inputUnidad.className = 'w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 text-xs font-medium text-on-surface placeholder:text-slate-400 transition-all';
+            inputUnidad.addEventListener('input', (ev) => {
+                presentacionesState[index].unidad = ev.target.value;
+            });
+            colUnidad.appendChild(inputUnidad);
+
+            // Columna 2: Precio de Venta (4 cols)
+            const colPrecio = document.createElement('div');
+            colPrecio.className = 'col-span-4 relative';
+            const spanCop = document.createElement('span');
+            spanCop.className = 'absolute left-2.5 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400 pointer-events-none';
+            spanCop.textContent = '$';
+            const inputPrecio = document.createElement('input');
+            inputPrecio.type = 'number';
+            inputPrecio.min = '0';
+            inputPrecio.step = 'any';
+            inputPrecio.required = true;
+            inputPrecio.placeholder = '0.00';
+            inputPrecio.value = item.precio;
+            inputPrecio.className = 'w-full pl-6 pr-2.5 py-2.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 text-xs font-medium text-on-surface placeholder:text-slate-400 transition-all';
+            inputPrecio.addEventListener('input', (ev) => {
+                presentacionesState[index].precio = ev.target.value;
+            });
+            colPrecio.appendChild(spanCop);
+            colPrecio.appendChild(inputPrecio);
+
+            // Columna 3: Stock Inicial (2 cols)
+            const colStock = document.createElement('div');
+            colStock.className = 'col-span-2';
+            const inputStock = document.createElement('input');
+            inputStock.type = 'number';
+            inputStock.min = '0';
+            inputStock.required = true;
+            inputStock.placeholder = '0';
+            inputStock.value = item.stock;
+            inputStock.className = 'w-full px-2.5 py-2.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 text-xs font-medium text-center text-on-surface placeholder:text-slate-400 transition-all';
+            inputStock.addEventListener('input', (ev) => {
+                presentacionesState[index].stock = ev.target.value;
+            });
+            colStock.appendChild(inputStock);
+
+            // Columna 4: Botón Eliminar con ícono de papelera (1 col)
+            const colAction = document.createElement('div');
+            colAction.className = 'col-span-1 flex justify-center';
+            const btnDelete = document.createElement('button');
+            btnDelete.type = 'button';
+            btnDelete.title = presentacionesState.length > 1 ? 'Eliminar presentación' : 'Debe existir al menos una presentación';
+            btnDelete.disabled = presentacionesState.length <= 1;
+            btnDelete.className = presentacionesState.length > 1
+                ? 'w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors'
+                : 'w-8 h-8 rounded-lg flex items-center justify-center text-slate-300 cursor-not-allowed';
+            btnDelete.innerHTML = '<span class="material-symbols-outlined text-[18px]">delete</span>';
+            btnDelete.addEventListener('click', () => {
+                if (presentacionesState.length <= 1) return;
+                presentacionesState.splice(index, 1);
+                renderPresentacionesRows();
+            });
+            colAction.appendChild(btnDelete);
+
+            row.appendChild(colUnidad);
+            row.appendChild(colPrecio);
+            row.appendChild(colStock);
+            row.appendChild(colAction);
+            presentacionesContainer.appendChild(row);
+        });
+    }
+
+    if (btnAddPresentacion) {
+        btnAddPresentacion.addEventListener('click', () => {
+            presentacionesState.push({ unidad: '', precio: '', stock: '' });
+            renderPresentacionesRows();
+        });
+    }
+
+    renderPresentacionesRows();
 
     // Edit Product logic
     window.editProduct = function(id, nombre) {
@@ -387,16 +557,40 @@ document.addEventListener("DOMContentLoaded", () => {
     const form = document.getElementById("add-product-form");
     form.addEventListener("submit", async(e) => {
         e.preventDefault();
-        
+
+        const categoriaFinal = (regCatSelect && regCatSelect.value === '__nueva_categoria__')
+            ? (regCatCustomInput ? regCatCustomInput.value.trim() : '')
+            : (regCatSelect ? regCatSelect.value.trim() : (document.getElementById("reg-prod-categoria")?.value || '').trim());
+
+        if (!categoriaFinal) {
+            Utils.showAlert("Por favor selecciona o escribe una categoría para el producto.");
+            return;
+        }
+
+        const presentacionesValidas = presentacionesState
+            .map(p => ({
+                unidad: (p.unidad || '').trim() || 'Unidad (Und)',
+                precio: p.precio,
+                stock: p.stock
+            }))
+            .filter(p => p.precio !== '' && p.stock !== '');
+
+        if (presentacionesValidas.length === 0) {
+            Utils.showAlert("Por favor completa al menos una presentación con unidad, precio y stock.");
+            return;
+        }
+
+        const primeraPresentacion = presentacionesValidas[0];
+
         const formData = new FormData();
         formData.append("id_tendero", userId);
-        formData.append("nombre", document.getElementById("reg-prod-nombre").value);
-        formData.append("marca", document.getElementById("reg-prod-marca").value);
-        formData.append("categoria", document.getElementById("reg-prod-categoria").value);
-        const regUnidadEl = document.getElementById("reg-prod-unidad");
-        formData.append("unidad_medida", regUnidadEl ? regUnidadEl.value : "Unidad (Und)");
-        formData.append("precio_venta", document.getElementById("reg-prod-precio").value);
-        formData.append("stock", document.getElementById("reg-prod-stock").value);
+        formData.append("nombre", document.getElementById("reg-prod-nombre").value.trim());
+        formData.append("marca", document.getElementById("reg-prod-marca").value.trim());
+        formData.append("categoria", categoriaFinal);
+        formData.append("unidad_medida", primeraPresentacion.unidad);
+        formData.append("precio_venta", primeraPresentacion.precio);
+        formData.append("stock", primeraPresentacion.stock);
+        formData.append("presentaciones", JSON.stringify(presentacionesValidas));
         
         const imageInput = document.getElementById("reg-prod-imagen") || document.getElementById("imagen-producto");
         const imageFile = imageInput && imageInput.files ? imageInput.files[0] : null;
@@ -414,6 +608,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
             if(resp.status === 200) {
                 form.reset();
+                if (customCatContainer) customCatContainer.classList.add('hidden');
+                if (regCatCustomInput) regCatCustomInput.required = false;
+                presentacionesState = [{ unidad: '', precio: '', stock: '' }];
+                renderPresentacionesRows();
                 toggleModal();
                 loadProducts(userId);
             } else {
