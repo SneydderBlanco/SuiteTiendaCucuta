@@ -751,6 +751,68 @@ app.post('/api/registro', async (req, res) => {
     }
 });
 
+// Endpoint: Solicitar Código de Invitación VIP por Correo (POST /api/solicitar-codigo-vip)
+app.post('/api/solicitar-codigo-vip', async (req, res) => {
+    const email = (req.body.email || req.body.correo || '').trim();
+    const nombreTienda = (req.body.nombreTienda || req.body.nombre_tienda || '').trim();
+    const nombre = (req.body.nombre || '').trim();
+
+    if (!email) {
+        return res.status(400).json({
+            error: 'Por favor ingresa primero tu Correo Corporativo para enviarte el código VIP.'
+        });
+    }
+
+    const vipCodeMaster = process.env.VIP_CODE_MASTER || 'CUCUTA2026';
+
+    const htmlContent =
+        '<div style="font-family: \'Plus Jakarta Sans\', \'Segoe UI\', Arial, sans-serif; max-width: 580px; margin: 0 auto; background-color: #0f172a; padding: 36px 24px; border-radius: 18px; border: 1px solid #1e293b;">' +
+        '<div style="background-color: #ffffff; border-radius: 16px; padding: 36px 32px; box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2); text-align: center;">' +
+        '<div style="display: inline-block; background-color: #064e3b; color: #ecfdf5; font-weight: 800; font-size: 12px; padding: 8px 18px; border-radius: 9999px; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 18px;">Tiendas Cúcuta · Acceso Exclusivo Tenderos</div>' +
+        '<h1 style="color: #0f172a; font-size: 22px; font-weight: 800; margin: 0 0 12px 0;">Tu Código de Invitación VIP para Tiendas Cúcuta</h1>' +
+        (nombre ? '<p style="color: #334155; font-size: 14px; font-weight: 600; margin: 0 0 6px 0;">Hola, ' + nombre + '</p>' : '') +
+        (nombreTienda ? '<p style="color: #059669; font-size: 13px; font-weight: 700; margin: 0 0 14px 0;">Tienda: ' + nombreTienda + '</p>' : '') +
+        '<p style="color: #475569; font-size: 14px; line-height: 1.6; margin: 0 0 24px 0;">Has solicitado acceso al ecosistema digital de comercios de <strong>Tiendas Cúcuta</strong>. Copia y pega el siguiente código maestro en el campo <strong>Código de Invitación</strong> del formulario de registro:' +
+        '<strong style="display: block; margin-top: 16px; font-size: 30px; font-weight: 800; letter-spacing: 0.2em; color: #064e3b; background-color: #ecfdf5; border: 2px dashed #059669; border-radius: 12px; padding: 18px; font-family: monospace;">' + vipCodeMaster + '</strong></p>' +
+        '<p style="color: #64748b; font-size: 12px; margin: 0;">Una vez ingresado el código VIP y enviado el formulario, recibirás tu código de seguridad de 6 dígitos para activar tu tienda.</p>' +
+        '</div>' +
+        '</div>';
+
+    try {
+        const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+            method: 'POST',
+            headers: {
+                'accept': 'application/json',
+                'api-key': process.env.BREVO_API_KEY,
+                'content-type': 'application/json'
+            },
+            body: JSON.stringify({
+                sender: { name: 'Tiendas Cúcuta', email: process.env.EMAIL_USER },
+                to: [{ email: email }],
+                subject: 'Tu Código de Invitación VIP para Tiendas Cúcuta',
+                htmlContent: htmlContent
+            })
+        });
+
+        if (!response.ok) {
+            const errorBody = await response.text().catch(() => '');
+            console.error('Error detallado de Brevo API HTTP (solicitar-codigo-vip):', response.status, errorBody);
+            throw new Error(`Fallo en Brevo API HTTP (${response.status}): ${errorBody}`);
+        }
+
+        console.log(`Código de invitación VIP enviado exitosamente a ${email}`);
+        return res.status(200).json({
+            success: true,
+            message: '¡Código enviado! Revisa tu bandeja de entrada en Gmail'
+        });
+    } catch (err) {
+        console.error('Error en POST /api/solicitar-codigo-vip:', err.message);
+        return res.status(500).json({
+            error: 'No se pudo enviar el código VIP al correo indicado. Verifica el correo e inténtalo de nuevo.'
+        });
+    }
+});
+
 // Endpoint: Verificar Correo para Recuperación
 app.post('/api/verificar-correo', async (req, res) => {
     const { email } = req.body;

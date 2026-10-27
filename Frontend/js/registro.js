@@ -144,6 +144,93 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
+    // Solicitud automatizada de Código de Invitación VIP por Correo Corporativo
+    const btnSolicitarVip = document.getElementById('btn-solicitar-vip');
+    const vipStatusMsg = document.getElementById('vip-status-msg');
+
+    if (btnSolicitarVip) {
+        btnSolicitarVip.addEventListener('click', async () => {
+            const emailInput = document.getElementById('reg-email');
+            const tiendaInput = document.getElementById('reg-tienda');
+            const nombreInput = document.getElementById('reg-nombre');
+            const codigoInput = document.getElementById('reg-codigo');
+
+            const email = emailInput ? emailInput.value.trim() : '';
+            const nombreTienda = tiendaInput ? tiendaInput.value.trim() : '';
+            const nombre = nombreInput ? nombreInput.value.trim() : '';
+
+            if (!email) {
+                if (vipStatusMsg) {
+                    vipStatusMsg.textContent = '⚠️ Escribe primero tu Correo Corporativo arriba para enviarte el código VIP.';
+                    vipStatusMsg.className = 'text-xs font-semibold text-amber-600 text-center mt-1';
+                }
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'info',
+                        title: 'Ingresa tu correo corporativo',
+                        text: 'Por favor escribe tu correo electrónico en el campo de arriba para poder enviarte el código VIP.',
+                        confirmButtonColor: '#059669',
+                        confirmButtonText: 'Entendido'
+                    });
+                }
+                if (emailInput) emailInput.focus();
+                return;
+            }
+
+            const originalBtnHtml = btnSolicitarVip.innerHTML;
+            btnSolicitarVip.disabled = true;
+            btnSolicitarVip.innerHTML = '<span>Enviando...</span>';
+            if (vipStatusMsg) {
+                vipStatusMsg.textContent = 'Enviando...';
+                vipStatusMsg.className = 'text-xs font-semibold text-gray-500 text-center mt-1';
+            }
+
+            try {
+                const apiUrlBase = (window.API_URL || 'http://localhost:3000').replace(/\/+$/, '');
+                const response = await fetch(`${apiUrlBase}/api/solicitar-codigo-vip`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        email,
+                        nombreTienda,
+                        nombre
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    const confirmText = data.message || '¡Código enviado! Revisa tu bandeja de entrada en Gmail';
+                    if (vipStatusMsg) {
+                        vipStatusMsg.textContent = `✅ ${confirmText}`;
+                        vipStatusMsg.className = 'text-xs font-bold text-emerald-600 text-center mt-1';
+                    }
+                    btnSolicitarVip.innerHTML = '<span>✓ ¡Código enviado! Reenviar por correo</span>';
+                    btnSolicitarVip.disabled = false;
+                    if (codigoInput) {
+                        codigoInput.focus();
+                    }
+                } else {
+                    const errText = data.error || 'No se pudo enviar el código VIP.';
+                    if (vipStatusMsg) {
+                        vipStatusMsg.textContent = `❌ ${errText}`;
+                        vipStatusMsg.className = 'text-xs font-semibold text-red-600 text-center mt-1';
+                    }
+                    btnSolicitarVip.innerHTML = originalBtnHtml;
+                    btnSolicitarVip.disabled = false;
+                }
+            } catch (error) {
+                console.error('Error al solicitar código VIP:', error);
+                if (vipStatusMsg) {
+                    vipStatusMsg.textContent = '❌ Error de conexión al solicitar el código VIP.';
+                    vipStatusMsg.className = 'text-xs font-semibold text-red-600 text-center mt-1';
+                }
+                btnSolicitarVip.innerHTML = originalBtnHtml;
+                btnSolicitarVip.disabled = false;
+            }
+        });
+    }
+
     form.addEventListener("submit", async (e) => {
         e.preventDefault();
 
