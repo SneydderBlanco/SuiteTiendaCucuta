@@ -1,12 +1,12 @@
-let currentRole = 'consumer';
+let currentRole = 'consumidor';
 let pendingVerificationEmail = '';
 let pendingRegistrationData = null;
 
 window.toggleRole = function (role) {
-    if (role === 'shopkeeper') {
-        currentRole = 'merchant';
+    if (role === 'shopkeeper' || role === 'tendero' || role === 'merchant') {
+        currentRole = 'tendero';
     } else {
-        currentRole = 'consumer';
+        currentRole = 'consumidor';
     }
 
     const consumerBtn = document.getElementById('toggle-consumer');
@@ -18,7 +18,7 @@ window.toggleRole = function (role) {
     const inputTienda = document.getElementById('reg-tienda');
     const inputCodigo = document.getElementById('reg-codigo');
 
-    if (currentRole === 'consumer') {
+    if (currentRole === 'consumidor') {
         consumerBtn.classList.add('bg-surface-container-lowest', 'text-primary', 'shadow-sm');
         consumerBtn.classList.remove('text-on-surface-variant', 'hover:bg-surface-container-high');
         shopkeeperBtn.classList.remove('bg-surface-container-lowest', 'text-primary', 'shadow-sm');
@@ -150,15 +150,34 @@ document.addEventListener("DOMContentLoaded", () => {
         const nombre = document.getElementById("reg-nombre").value.trim();
         const email = document.getElementById("reg-email").value.trim();
         const password = document.getElementById("reg-password").value;
+        const nombreTienda = document.getElementById("reg-tienda") ? document.getElementById("reg-tienda").value.trim() : '';
+        const codigoInvitacion = document.getElementById("reg-codigo") ? document.getElementById("reg-codigo").value.trim() : '';
+        const rol = currentRole === 'tendero' ? 'tendero' : 'consumidor';
 
         let bodyPayload = {};
 
-        if (currentRole === 'consumer') {
-            bodyPayload = { role: 'consumer', nombre, email, password };
-        } else if (currentRole === 'merchant') {
-            const nombre_tienda = document.getElementById("reg-tienda").value.trim();
-            const codigo = document.getElementById("reg-codigo").value.trim();
-            bodyPayload = { role: 'merchant', nombre, nombre_tienda, email, password, codigo };
+        if (rol === 'consumidor') {
+            bodyPayload = {
+                rol: 'consumidor',
+                role: 'consumer',
+                nombre,
+                email,
+                password,
+                nombreTienda: '',
+                codigoInvitacion: ''
+            };
+        } else if (rol === 'tendero') {
+            bodyPayload = {
+                rol: 'tendero',
+                role: 'merchant',
+                nombre,
+                email,
+                password,
+                nombreTienda,
+                nombre_tienda: nombreTienda,
+                codigoInvitacion,
+                codigo: codigoInvitacion
+            };
         }
 
         const submitBtn = document.querySelector("#reg-form button[type='submit']");
@@ -171,7 +190,7 @@ document.addEventListener("DOMContentLoaded", () => {
             const data = response.data || {};
 
             if (response.status === 200 || response.status === 201) {
-                if (currentRole === 'merchant' && !data.requiresVerification) {
+                if ((rol === 'tendero' || data.rol === 'tendero' || data.role === 'merchant') && data.requiresVerification === false) {
                     localStorage.setItem('userName', data.nombre || nombre || 'Usuario');
                     localStorage.setItem('userRole', data.role || 'merchant');
                     localStorage.setItem('userId', data.id);
@@ -179,13 +198,15 @@ document.addEventListener("DOMContentLoaded", () => {
                     return;
                 }
 
-                // Flujo de Cliente: NO guardar sesión ni redirigir aún; abrir modal de verificación
+                // Abrir modal de verificación OTP tanto para Consumidor como para Tendero
                 pendingVerificationEmail = email;
                 pendingRegistrationData = {
                     id: data.id,
                     nombre: data.nombre || nombre || 'Usuario',
+                    nombreTienda: data.nombreTienda || nombreTienda || '',
                     email: email,
-                    role: data.role || 'consumer'
+                    rol: data.rol || rol,
+                    role: data.role || (rol === 'tendero' ? 'merchant' : 'consumer')
                 };
 
                 if (verificationEmailDisplay) {
@@ -273,17 +294,21 @@ document.addEventListener("DOMContentLoaded", () => {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     email: pendingVerificationEmail,
-                    codigo: codigo
+                    codigo: codigo,
+                    rol: pendingRegistrationData?.rol || currentRole,
+                    nombreTienda: pendingRegistrationData?.nombreTienda || ''
                 })
             });
 
             const data = await response.json();
 
             if (response.ok && (response.status === 200 || response.status === 201)) {
-                const clienteInfo = data.cliente || data.user || {};
-                const finalName = data.nombre || clienteInfo.nombre || pendingRegistrationData?.nombre || 'Usuario';
-                const finalId = data.id || clienteInfo.id_cliente || clienteInfo.id || pendingRegistrationData?.id || '';
-                const finalRole = data.role || 'consumer';
+                const userInfo = data.tendero || data.cliente || data.user || {};
+                const finalName = data.nombre || userInfo.nombre || pendingRegistrationData?.nombre || 'Usuario';
+                const finalId = data.id || userInfo.id_tendero || userInfo.id_cliente || userInfo.id || pendingRegistrationData?.id || '';
+                const finalRol = data.rol || pendingRegistrationData?.rol || 'consumidor';
+                const finalRole = data.role || (finalRol === 'tendero' ? 'merchant' : 'consumer');
+                const finalNombreTienda = data.nombreTienda || userInfo.nombre_tienda || pendingRegistrationData?.nombreTienda || '';
                 const finalToken = data.token || '';
 
                 // Guardar datos de sesión en localStorage tras verificar exitosamente
@@ -295,10 +320,15 @@ document.addEventListener("DOMContentLoaded", () => {
                 if (finalId) {
                     localStorage.setItem('userId', finalId);
                 }
+                if (finalNombreTienda) {
+                    localStorage.setItem('storeName', finalNombreTienda);
+                }
                 localStorage.setItem('user', JSON.stringify({
                     id: finalId,
                     nombre: finalName,
+                    nombreTienda: finalNombreTienda,
                     email: pendingVerificationEmail,
+                    rol: finalRol,
                     role: finalRole,
                     verificado: true
                 }));
@@ -319,7 +349,11 @@ document.addEventListener("DOMContentLoaded", () => {
                     Utils.showAlert(data.message || "¡Cuenta verificada exitosamente!");
                 }
 
-                window.location.href = "index.html";
+                if (finalRol === 'tendero' || finalRole === 'merchant') {
+                    window.location.href = "dashboard-tendero.html";
+                } else {
+                    window.location.href = "index.html";
+                }
             } else {
                 if (typeof Swal !== 'undefined') {
                     Swal.fire({

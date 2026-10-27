@@ -8,15 +8,30 @@ const path = require('path');
 const fs = require('fs');
 
 // Envío de correo de verificación mediante la API HTTP de Brevo (evita bloqueo de puertos SMTP en Render)
-async function sendClientVerificationEmail(email, codigo) {
-    const htmlContent = '<div style="font-family: \'Plus Jakarta Sans\', \'Segoe UI\', Arial, sans-serif; max-width: 560px; margin: 0 auto; background-color: #f8fafc; padding: 32px 20px; border-radius: 16px; border: 1px solid #e2e8f0;">' +
-        '<div style="background-color: #ffffff; border-radius: 16px; padding: 32px; box-shadow: 0 4px 12px rgba(15, 23, 42, 0.05); text-align: center;">' +
-        '<div style="display: inline-block; background-color: #059669; color: #ffffff; font-weight: 800; font-size: 14px; padding: 8px 16px; border-radius: 9999px; letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 16px;">Tiendas Cúcuta</div>' +
-        '<h1 style="color: #0f172a; font-size: 22px; font-weight: 800; margin: 0 0 12px 0;">Confirma tu cuenta en Tiendas Cúcuta</h1>' +
-        '<p style="color: #475569; font-size: 14px; line-height: 1.6; margin: 0 0 24px 0;">Gracias por registrarte. Tu código de verificación es: <strong style="display: block; margin-top: 12px; font-size: 32px; font-weight: 800; letter-spacing: 0.25em; color: #065f46; background-color: #ecfdf5; border: 2px dashed #10b981; border-radius: 12px; padding: 16px; font-family: monospace;">' + codigo + '</strong></p>' +
-        '<p style="color: #64748b; font-size: 12px; margin: 0;">Ingresa este código de 6 dígitos en la ventana de registro para activar tu cuenta.</p>' +
-        '</div>' +
-        '</div>';
+async function sendClientVerificationEmail(email, codigo, rol = 'consumidor', nombreTienda = '') {
+    const esTendero = rol === 'tendero' || rol === 'merchant';
+    const subject = esTendero
+        ? 'Confirma tu cuenta de Tendero en Tiendas Cúcuta'
+        : 'Confirma tu cuenta en Tiendas Cúcuta';
+
+    const htmlContent = esTendero
+        ? '<div style="font-family: \'Plus Jakarta Sans\', \'Segoe UI\', Arial, sans-serif; max-width: 580px; margin: 0 auto; background-color: #0f172a; padding: 36px 24px; border-radius: 18px; border: 1px solid #1e293b;">' +
+          '<div style="background-color: #ffffff; border-radius: 16px; padding: 36px 32px; box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2); text-align: center;">' +
+          '<div style="display: inline-block; background-color: #064e3b; color: #ecfdf5; font-weight: 800; font-size: 12px; padding: 8px 18px; border-radius: 9999px; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 18px;">Tiendas Cúcuta · Portal Corporativo Tenderos</div>' +
+          '<h1 style="color: #0f172a; font-size: 22px; font-weight: 800; margin: 0 0 12px 0;">Confirma tu cuenta de Tendero en Tiendas Cúcuta</h1>' +
+          (nombreTienda ? '<p style="color: #059669; font-size: 14px; font-weight: 700; margin: 0 0 12px 0;">Establecimiento: ' + nombreTienda + '</p>' : '') +
+          '<p style="color: #334155; font-size: 14px; line-height: 1.6; margin: 0 0 24px 0;">Confirma tu cuenta de Tendero en Tiendas Cúcuta. Tu código de verificación es: <strong style="display: block; margin-top: 14px; font-size: 32px; font-weight: 800; letter-spacing: 0.25em; color: #064e3b; background-color: #ecfdf5; border: 2px solid #059669; border-radius: 12px; padding: 16px; font-family: monospace;">' + codigo + '</strong></p>' +
+          '<p style="color: #64748b; font-size: 12px; margin: 0;">Ingresa este código de seguridad de 6 dígitos en la ventana de verificación para activar el panel de tu tienda.</p>' +
+          '</div>' +
+          '</div>'
+        : '<div style="font-family: \'Plus Jakarta Sans\', \'Segoe UI\', Arial, sans-serif; max-width: 560px; margin: 0 auto; background-color: #f8fafc; padding: 32px 20px; border-radius: 16px; border: 1px solid #e2e8f0;">' +
+          '<div style="background-color: #ffffff; border-radius: 16px; padding: 32px; box-shadow: 0 4px 12px rgba(15, 23, 42, 0.05); text-align: center;">' +
+          '<div style="display: inline-block; background-color: #059669; color: #ffffff; font-weight: 800; font-size: 14px; padding: 8px 16px; border-radius: 9999px; letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 16px;">Tiendas Cúcuta</div>' +
+          '<h1 style="color: #0f172a; font-size: 22px; font-weight: 800; margin: 0 0 12px 0;">Confirma tu cuenta en Tiendas Cúcuta</h1>' +
+          '<p style="color: #475569; font-size: 14px; line-height: 1.6; margin: 0 0 24px 0;">Gracias por registrarte. Tu código de verificación es: <strong style="display: block; margin-top: 12px; font-size: 32px; font-weight: 800; letter-spacing: 0.25em; color: #065f46; background-color: #ecfdf5; border: 2px dashed #10b981; border-radius: 12px; padding: 16px; font-family: monospace;">' + codigo + '</strong></p>' +
+          '<p style="color: #64748b; font-size: 12px; margin: 0;">Ingresa este código de 6 dígitos en la ventana de registro para activar tu cuenta.</p>' +
+          '</div>' +
+          '</div>';
 
     const response = await fetch('https://api.brevo.com/v3/smtp/email', {
         method: 'POST',
@@ -28,7 +43,7 @@ async function sendClientVerificationEmail(email, codigo) {
         body: JSON.stringify({
             sender: { name: 'Tiendas Cúcuta', email: process.env.EMAIL_USER },
             to: [{ email: email }],
-            subject: 'Confirma tu cuenta en Tiendas Cúcuta',
+            subject: subject,
             htmlContent: htmlContent
         })
     });
@@ -469,7 +484,7 @@ async function registerClienteWithVerification(req, res) {
 
         // Enviar correo corporativo de confirmación (propaga el error al catch si falla)
         try {
-            await sendClientVerificationEmail(email.trim(), codigoVerificacion);
+            await sendClientVerificationEmail(email.trim(), codigoVerificacion, 'consumidor');
             console.log(`Correo de confirmación enviado exitosamente a ${email}`);
         } catch (mailErr) {
             await db.query('DELETE FROM cliente WHERE id_cliente = $1', [nuevoCliente.id_cliente]).catch(() => {});
@@ -480,6 +495,7 @@ async function registerClienteWithVerification(req, res) {
             success: true,
             requiresVerification: true,
             message: 'Usuario cliente registrado. Se ha enviado un código de verificación de 6 dígitos a tu correo.',
+            rol: 'consumidor',
             role: 'consumer',
             nombre: nuevoCliente.nombre,
             email: nuevoCliente.email,
@@ -498,10 +514,12 @@ async function registerClienteWithVerification(req, res) {
 // Endpoint dedicado para registro de clientes con confirmación por correo
 app.post('/api/auth/registro-cliente', registerClienteWithVerification);
 
-// Endpoint de Verificación de Cuenta para Clientes (POST /api/auth/verificar-cliente)
+// Endpoint de Verificación de Cuenta para Clientes y Tenderos (POST /api/auth/verificar-cliente)
 const handleVerificarCliente = async (req, res) => {
     const email = (req.body.email || req.body.correo || '').trim();
     const codigo = String(req.body.codigo || req.body.codigo_verificacion || '').trim();
+    const rolSolicitado = (req.body.rol || req.body.role || '').trim().toLowerCase();
+    const nombreTiendaBody = (req.body.nombreTienda || req.body.nombre_tienda || '').trim();
 
     if (!email || !codigo) {
         return res.status(400).json({ error: 'El correo y el código de verificación son obligatorios.' });
@@ -510,12 +528,72 @@ const handleVerificarCliente = async (req, res) => {
     try {
         await db.query("ALTER TABLE cliente ADD COLUMN IF NOT EXISTS codigo_verificacion VARCHAR(20)");
         await db.query("ALTER TABLE cliente ADD COLUMN IF NOT EXISTS verificado BOOLEAN DEFAULT FALSE");
+        await db.query("ALTER TABLE cliente ADD COLUMN IF NOT EXISTS rol VARCHAR(50) DEFAULT 'consumidor'");
+        await db.query("ALTER TABLE cliente ADD COLUMN IF NOT EXISTS nombre_tienda VARCHAR(150)");
+        await db.query("ALTER TABLE tendero ADD COLUMN IF NOT EXISTS rol VARCHAR(50) DEFAULT 'tendero'");
+        await db.query("ALTER TABLE tendero ADD COLUMN IF NOT EXISTS codigo_verificacion VARCHAR(20)");
+        await db.query("ALTER TABLE tendero ADD COLUMN IF NOT EXISTS verificado BOOLEAN DEFAULT FALSE");
 
+        // 1. Verificar si corresponde a un Tendero (por rol o coincidencia en tabla tendero)
+        const tenderoResult = await db.query('SELECT * FROM tendero WHERE LOWER(email) = LOWER($1)', [email]);
+        if (tenderoResult.rows.length > 0 && (rolSolicitado === 'tendero' || rolSolicitado === 'merchant' || tenderoResult.rows[0].codigo_verificacion)) {
+            const tendero = tenderoResult.rows[0];
+
+            if (tendero.verificado === true && !tendero.codigo_verificacion) {
+                return res.status(200).json({
+                    success: true,
+                    message: 'La cuenta de tendero ya se encuentra verificada.',
+                    rol: 'tendero',
+                    role: 'merchant',
+                    nombre: tendero.nombre,
+                    nombreTienda: tendero.nombre_tienda,
+                    id: tendero.id_tendero
+                });
+            }
+
+            if (!tendero.codigo_verificacion || String(tendero.codigo_verificacion).trim() !== codigo) {
+                return res.status(400).json({ error: 'Código de verificación inválido o expirado.' });
+            }
+
+            const updateTenderoQuery = `
+                UPDATE tendero
+                SET verificado = TRUE,
+                    codigo_verificacion = NULL,
+                    rol = 'tendero',
+                    nombre_tienda = COALESCE(NULLIF($2, ''), nombre_tienda)
+                WHERE id_tendero = $1
+                RETURNING id_tendero, nombre, email, nombre_tienda, verificado, COALESCE(rol, 'tendero') AS rol
+            `;
+            const updatedTendero = await db.query(updateTenderoQuery, [tendero.id_tendero, nombreTiendaBody]);
+            const verifiedTendero = updatedTendero.rows[0];
+            const token = generateJwtToken({
+                id: verifiedTendero.id_tendero,
+                email: verifiedTendero.email,
+                rol: 'tendero',
+                nombreTienda: verifiedTendero.nombre_tienda
+            });
+
+            return res.status(200).json({
+                success: true,
+                message: 'Cuenta de Tendero verificada correctamente.',
+                token,
+                id: verifiedTendero.id_tendero,
+                nombre: verifiedTendero.nombre,
+                nombreTienda: verifiedTendero.nombre_tienda,
+                email: verifiedTendero.email,
+                role: 'merchant',
+                rol: 'tendero',
+                tendero: verifiedTendero,
+                user: verifiedTendero
+            });
+        }
+
+        // 2. Flujo para Consumidor / Cliente
         const selectQuery = 'SELECT * FROM cliente WHERE LOWER(email) = LOWER($1)';
         const { rows } = await db.query(selectQuery, [email]);
 
         if (rows.length === 0) {
-            return res.status(404).json({ error: 'Cliente no encontrado con ese correo electrónico.' });
+            return res.status(404).json({ error: 'Usuario no encontrado con ese correo electrónico.' });
         }
 
         const cliente = rows[0];
@@ -539,16 +617,18 @@ const handleVerificarCliente = async (req, res) => {
 
         const updateQuery = `
             UPDATE cliente
-            SET verificado = TRUE, codigo_verificacion = NULL
+            SET verificado = TRUE,
+                codigo_verificacion = NULL,
+                rol = COALESCE(rol, 'consumidor')
             WHERE id_cliente = $1
-            RETURNING id_cliente, nombre, email, verificado, COALESCE(rol, 'cliente') AS rol
+            RETURNING id_cliente, nombre, email, verificado, COALESCE(rol, 'consumidor') AS rol
         `;
         const updated = await db.query(updateQuery, [cliente.id_cliente]);
         const verifiedClient = updated.rows[0];
         const token = generateJwtToken({
             id: verifiedClient.id_cliente,
             email: verifiedClient.email,
-            rol: verifiedClient.rol || 'cliente'
+            rol: verifiedClient.rol || 'consumidor'
         });
 
         return res.status(200).json({
@@ -559,49 +639,115 @@ const handleVerificarCliente = async (req, res) => {
             nombre: verifiedClient.nombre,
             email: verifiedClient.email,
             role: 'consumer',
-            rol: verifiedClient.rol || 'cliente',
+            rol: 'consumidor',
             cliente: verifiedClient,
             user: verifiedClient
         });
     } catch (err) {
         console.error('Error en POST /api/auth/verificar-cliente:', err.message);
-        return res.status(500).json({ error: 'Error interno al verificar la cuenta del cliente.' });
+        return res.status(500).json({ error: 'Error interno al verificar la cuenta.' });
     }
 };
 app.post('/api/auth/verificar-cliente', handleVerificarCliente);
 app.post('/api/verificar-cliente', handleVerificarCliente);
 
-// Endpoint Unificado: Registro
+// Endpoint Unificado: Registro (Soporta 'consumidor' y 'tendero' con código VIP y OTP por Brevo)
 app.post('/api/registro', async (req, res) => {
-    console.log("Datos recibidos:", req.body);
-    const { role, nombre, email, password, nombre_tienda, codigo } = req.body;
+    console.log("Datos recibidos en /api/registro:", req.body);
+    const {
+        rol,
+        role,
+        nombre,
+        email,
+        password,
+        nombreTienda,
+        nombre_tienda,
+        codigoInvitacion,
+        codigo
+    } = req.body;
+
+    const rolInput = (rol || role || '').trim().toLowerCase();
+    const nombreTiendaFinal = (nombreTienda || nombre_tienda || '').trim();
+    const codigoInvitacionFinal = (codigoInvitacion || codigo || '').trim();
     const hashedPassword = hashPassword(password || '');
 
-    if (role === 'consumer' || role === 'cliente') {
+    if (rolInput === 'consumidor' || rolInput === 'consumer' || rolInput === 'cliente') {
         return registerClienteWithVerification(req, res);
-    } else if (role === 'merchant') {
-        if (codigo !== 'CUCUTA2026') {
-            return res.status(403).json({ error: 'Código de invitación inválido. No cuenta con permisos.' });
+    } else if (rolInput === 'tendero' || rolInput === 'merchant') {
+        const vipCodeMaster = process.env.VIP_CODE_MASTER || 'CUCUTA2026';
+        if (!codigoInvitacionFinal || codigoInvitacionFinal !== vipCodeMaster) {
+            return res.status(403).json({
+                error: 'Código de invitación VIP inválido. No cuenta con permisos para registrarse como tendero.'
+            });
         }
+
+        if (!nombre || !email || !password || !nombreTiendaFinal) {
+            return res.status(400).json({
+                error: 'Todos los campos (nombre, correo, contraseña y nombre de la tienda) son obligatorios.'
+            });
+        }
+
+        const codigoVerificacion = Math.floor(100000 + Math.random() * 900000).toString();
+
         try {
-            const existingMerchant = await db.query('SELECT id_tendero FROM tendero WHERE LOWER(email) = LOWER($1)', [email.trim()]);
+            await db.query("ALTER TABLE tendero ADD COLUMN IF NOT EXISTS rol VARCHAR(50) DEFAULT 'tendero'");
+            await db.query("ALTER TABLE tendero ADD COLUMN IF NOT EXISTS codigo_verificacion VARCHAR(20)");
+            await db.query("ALTER TABLE tendero ADD COLUMN IF NOT EXISTS verificado BOOLEAN DEFAULT FALSE");
+
+            const existingMerchant = await db.query(
+                'SELECT id_tendero FROM tendero WHERE LOWER(email) = LOWER($1)',
+                [email.trim()]
+            );
             if (existingMerchant.rows.length > 0) {
                 return res.status(400).json({ error: 'Este correo ya está registrado. Por favor, inicia sesión.' });
             }
-            const text = 'INSERT INTO tendero(nombre, email, password, nombre_tienda, codigo_invitacion) VALUES($1, $2, $3, $4, $5) RETURNING *';
-            const values = [nombre, email, hashedPassword, nombre_tienda, codigo];
+
+            const text = `
+                INSERT INTO tendero(nombre, email, password, nombre_tienda, codigo_invitacion, rol, codigo_verificacion, verificado)
+                VALUES($1, $2, $3, $4, $5, 'tendero', $6, FALSE)
+                RETURNING *
+            `;
+            const values = [
+                nombre.trim(),
+                email.trim(),
+                hashedPassword,
+                nombreTiendaFinal,
+                codigoInvitacionFinal,
+                codigoVerificacion
+            ];
             const result = await db.query(text, values);
-            console.log("Resultado DB (tendero):", result.rows[0]);
-            return res.json({ success: true, message: 'Usuario tendero registrado en TENDERO', role: 'merchant', nombre: result.rows[0].nombre, id: result.rows[0].id_tendero || result.rows[0].id });
+            const nuevoTendero = result.rows[0];
+            console.log("Resultado DB (tendero pendiente de OTP):", nuevoTendero);
+
+            try {
+                await sendClientVerificationEmail(email.trim(), codigoVerificacion, 'tendero', nombreTiendaFinal);
+                console.log(`Correo corporativo OTP enviado exitosamente al tendero ${email}`);
+            } catch (mailErr) {
+                await db.query('DELETE FROM tendero WHERE id_tendero = $1', [nuevoTendero.id_tendero]).catch(() => {});
+                throw mailErr;
+            }
+
+            return res.status(200).json({
+                success: true,
+                requiresVerification: true,
+                message: 'Tendero pre-registrado. Se ha enviado un código de verificación de 6 dígitos a tu correo corporativo.',
+                rol: 'tendero',
+                role: 'merchant',
+                nombre: nuevoTendero.nombre,
+                nombreTienda: nuevoTendero.nombre_tienda,
+                email: nuevoTendero.email,
+                verificado: nuevoTendero.verificado,
+                id: nuevoTendero.id_tendero || nuevoTendero.id
+            });
         } catch (err) {
-            console.error("ERROR DETALLADO DB:", err);
+            console.error("ERROR DETALLADO DB (registro tendero):", err);
             if (err.code === '23505') {
                 return res.status(400).json({ error: 'Este correo ya está registrado. Por favor, inicia sesión.' });
             }
-            return res.status(500).json({ error: 'Error en la base de datos' });
+            return res.status(500).json({ error: 'Fallo al enviar correo' });
         }
     } else {
-        return res.status(400).json({ error: 'Falta proveer un rol válido (consumer o merchant).' });
+        return res.status(400).json({ error: 'Falta proveer un rol válido (consumidor o tendero).' });
     }
 });
 
@@ -1217,10 +1363,13 @@ app.listen(port, async () => {
         console.log("Tabla 'vitrina_digital' verificada/creada con éxito en PostgreSQL.");
         await db.query("ALTER TABLE productos ADD COLUMN IF NOT EXISTS unidad_medida VARCHAR(50) DEFAULT 'Unidad (Und)'");
         await db.query("ALTER TABLE tendero ADD COLUMN IF NOT EXISTS rol VARCHAR(50) DEFAULT 'tendero'");
+        await db.query("ALTER TABLE tendero ADD COLUMN IF NOT EXISTS codigo_verificacion VARCHAR(20)");
+        await db.query("ALTER TABLE tendero ADD COLUMN IF NOT EXISTS verificado BOOLEAN DEFAULT FALSE");
         await db.query("ALTER TABLE cliente ADD COLUMN IF NOT EXISTS rol VARCHAR(50) DEFAULT 'cliente'");
+        await db.query("ALTER TABLE cliente ADD COLUMN IF NOT EXISTS nombre_tienda VARCHAR(150)");
         await db.query("ALTER TABLE cliente ADD COLUMN IF NOT EXISTS codigo_verificacion VARCHAR(20)");
         await db.query("ALTER TABLE cliente ADD COLUMN IF NOT EXISTS verificado BOOLEAN DEFAULT FALSE");
-        console.log("Columnas 'codigo_verificacion' y 'verificado' verificadas en tabla 'cliente'.");
+        console.log("Columnas 'codigo_verificacion' y 'verificado' verificadas en tablas 'cliente' y 'tendero'.");
     } catch (err) {
         console.error("Error al inicializar la tabla 'vitrina_digital':", err.message);
     }
