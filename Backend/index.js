@@ -687,8 +687,6 @@ app.post('/api/registro', async (req, res) => {
             });
         }
 
-        const codigoVerificacion = Math.floor(100000 + Math.random() * 900000).toString();
-
         try {
             await db.query("ALTER TABLE tendero ADD COLUMN IF NOT EXISTS rol VARCHAR(50) DEFAULT 'tendero'");
             await db.query("ALTER TABLE tendero ADD COLUMN IF NOT EXISTS codigo_verificacion VARCHAR(20)");
@@ -702,9 +700,10 @@ app.post('/api/registro', async (req, res) => {
                 return res.status(400).json({ error: 'Este correo ya está registrado. Por favor, inicia sesión.' });
             }
 
+            // Como el tendero ya validó su Código de Invitación VIP enviado a su correo, queda verificado en un solo paso
             const text = `
                 INSERT INTO tendero(nombre, email, password, nombre_tienda, codigo_invitacion, rol, codigo_verificacion, verificado)
-                VALUES($1, $2, $3, $4, $5, 'tendero', $6, FALSE)
+                VALUES($1, $2, $3, $4, $5, 'tendero', NULL, TRUE)
                 RETURNING *
             `;
             const values = [
@@ -712,31 +711,30 @@ app.post('/api/registro', async (req, res) => {
                 email.trim(),
                 hashedPassword,
                 nombreTiendaFinal,
-                codigoInvitacionFinal,
-                codigoVerificacion
+                codigoInvitacionFinal
             ];
             const result = await db.query(text, values);
             const nuevoTendero = result.rows[0];
-            console.log("Resultado DB (tendero pendiente de OTP):", nuevoTendero);
+            console.log("Resultado DB (tendero verificado con código VIP):", nuevoTendero);
 
-            try {
-                await sendClientVerificationEmail(email.trim(), codigoVerificacion, 'tendero', nombreTiendaFinal);
-                console.log(`Correo corporativo OTP enviado exitosamente al tendero ${email}`);
-            } catch (mailErr) {
-                await db.query('DELETE FROM tendero WHERE id_tendero = $1', [nuevoTendero.id_tendero]).catch(() => {});
-                throw mailErr;
-            }
+            const token = generateJwtToken({
+                id: nuevoTendero.id_tendero,
+                email: nuevoTendero.email,
+                rol: 'tendero',
+                nombreTienda: nuevoTendero.nombre_tienda
+            });
 
             return res.status(200).json({
                 success: true,
-                requiresVerification: true,
-                message: 'Tendero pre-registrado. Se ha enviado un código de verificación de 6 dígitos a tu correo corporativo.',
+                requiresVerification: false,
+                message: 'Cuenta de Tendero verificada correctamente.',
+                token,
                 rol: 'tendero',
                 role: 'merchant',
                 nombre: nuevoTendero.nombre,
                 nombreTienda: nuevoTendero.nombre_tienda,
                 email: nuevoTendero.email,
-                verificado: nuevoTendero.verificado,
+                verificado: true,
                 id: nuevoTendero.id_tendero || nuevoTendero.id
             });
         } catch (err) {
@@ -744,7 +742,7 @@ app.post('/api/registro', async (req, res) => {
             if (err.code === '23505') {
                 return res.status(400).json({ error: 'Este correo ya está registrado. Por favor, inicia sesión.' });
             }
-            return res.status(500).json({ error: 'Fallo al enviar correo' });
+            return res.status(500).json({ error: 'Error al registrar la cuenta de tendero.' });
         }
     } else {
         return res.status(400).json({ error: 'Falta proveer un rol válido (consumidor o tendero).' });
@@ -772,9 +770,9 @@ app.post('/api/solicitar-codigo-vip', async (req, res) => {
         '<h1 style="color: #0f172a; font-size: 22px; font-weight: 800; margin: 0 0 12px 0;">Tu Código de Invitación VIP para Tiendas Cúcuta</h1>' +
         (nombre ? '<p style="color: #334155; font-size: 14px; font-weight: 600; margin: 0 0 6px 0;">Hola, ' + nombre + '</p>' : '') +
         (nombreTienda ? '<p style="color: #059669; font-size: 13px; font-weight: 700; margin: 0 0 14px 0;">Tienda: ' + nombreTienda + '</p>' : '') +
-        '<p style="color: #475569; font-size: 14px; line-height: 1.6; margin: 0 0 24px 0;">Has solicitado acceso al ecosistema digital de comercios de <strong>Tiendas Cúcuta</strong>. Copia y pega el siguiente código maestro en el campo <strong>Código de Invitación</strong> del formulario de registro:' +
+        '<p style="color: #475569; font-size: 14px; line-height: 1.6; margin: 0 0 24px 0;">Has solicitado acceso al ecosistema digital de comercios de <strong>Tiendas Cúcuta</strong>. Copia y pega el siguiente código en el campo <strong>Código de Invitación</strong> del formulario de registro:' +
         '<strong style="display: block; margin-top: 16px; font-size: 30px; font-weight: 800; letter-spacing: 0.2em; color: #064e3b; background-color: #ecfdf5; border: 2px dashed #059669; border-radius: 12px; padding: 18px; font-family: monospace;">' + vipCodeMaster + '</strong></p>' +
-        '<p style="color: #64748b; font-size: 12px; margin: 0;">Una vez ingresado el código VIP y enviado el formulario, recibirás tu código de seguridad de 6 dígitos para activar tu tienda.</p>' +
+        '<p style="color: #64748b; font-size: 12px; margin: 0;">Una vez ingresado el código VIP y enviado el formulario, tu cuenta de tendero quedará verificada y activa de inmediato.</p>' +
         '</div>' +
         '</div>';
 

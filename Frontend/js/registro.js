@@ -161,8 +161,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
             if (!email) {
                 if (vipStatusMsg) {
-                    vipStatusMsg.textContent = '⚠️ Escribe primero tu Correo Corporativo arriba para enviarte el código VIP.';
-                    vipStatusMsg.className = 'text-xs font-semibold text-amber-600 text-center mt-1';
+                    vipStatusMsg.textContent = 'Escribe primero tu Correo Corporativo arriba para enviarte el código VIP.';
+                    vipStatusMsg.className = 'text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200/80 rounded-lg px-3 py-2 text-center mt-1';
                 }
                 if (typeof Swal !== 'undefined') {
                     Swal.fire({
@@ -179,10 +179,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
             const originalBtnHtml = btnSolicitarVip.innerHTML;
             btnSolicitarVip.disabled = true;
-            btnSolicitarVip.innerHTML = '<span>Enviando...</span>';
+            btnSolicitarVip.innerHTML = '<span class="material-symbols-outlined text-[15px] animate-spin">progress_activity</span><span>Enviando a tu correo...</span>';
             if (vipStatusMsg) {
-                vipStatusMsg.textContent = 'Enviando...';
-                vipStatusMsg.className = 'text-xs font-semibold text-gray-500 text-center mt-1';
+                vipStatusMsg.textContent = 'Enviando código VIP a tu correo corporativo...';
+                vipStatusMsg.className = 'text-xs font-medium text-on-surface-variant bg-surface-container-low rounded-lg px-3 py-2 text-center mt-1';
             }
 
             try {
@@ -202,10 +202,10 @@ document.addEventListener("DOMContentLoaded", () => {
                 if (response.ok) {
                     const confirmText = data.message || '¡Código enviado! Revisa tu bandeja de entrada en Gmail';
                     if (vipStatusMsg) {
-                        vipStatusMsg.textContent = `✅ ${confirmText}`;
-                        vipStatusMsg.className = 'text-xs font-bold text-emerald-600 text-center mt-1';
+                        vipStatusMsg.textContent = `✓ ${confirmText}`;
+                        vipStatusMsg.className = 'text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200/80 rounded-lg px-3 py-2 text-center mt-1';
                     }
-                    btnSolicitarVip.innerHTML = '<span>✓ ¡Código enviado! Reenviar por correo</span>';
+                    btnSolicitarVip.innerHTML = '<span class="material-symbols-outlined text-[15px]">mark_email_read</span><span class="underline decoration-primary/40 underline-offset-4">Reenviar código al correo</span>';
                     btnSolicitarVip.disabled = false;
                     if (codigoInput) {
                         codigoInput.focus();
@@ -213,8 +213,8 @@ document.addEventListener("DOMContentLoaded", () => {
                 } else {
                     const errText = data.error || 'No se pudo enviar el código VIP.';
                     if (vipStatusMsg) {
-                        vipStatusMsg.textContent = `❌ ${errText}`;
-                        vipStatusMsg.className = 'text-xs font-semibold text-red-600 text-center mt-1';
+                        vipStatusMsg.textContent = errText;
+                        vipStatusMsg.className = 'text-xs font-medium text-red-700 bg-red-50 border border-red-200/80 rounded-lg px-3 py-2 text-center mt-1';
                     }
                     btnSolicitarVip.innerHTML = originalBtnHtml;
                     btnSolicitarVip.disabled = false;
@@ -222,8 +222,8 @@ document.addEventListener("DOMContentLoaded", () => {
             } catch (error) {
                 console.error('Error al solicitar código VIP:', error);
                 if (vipStatusMsg) {
-                    vipStatusMsg.textContent = '❌ Error de conexión al solicitar el código VIP.';
-                    vipStatusMsg.className = 'text-xs font-semibold text-red-600 text-center mt-1';
+                    vipStatusMsg.textContent = 'Error de conexión al solicitar el código VIP.';
+                    vipStatusMsg.className = 'text-xs font-medium text-red-700 bg-red-50 border border-red-200/80 rounded-lg px-3 py-2 text-center mt-1';
                 }
                 btnSolicitarVip.innerHTML = originalBtnHtml;
                 btnSolicitarVip.disabled = false;
@@ -278,9 +278,47 @@ document.addEventListener("DOMContentLoaded", () => {
 
             if (response.status === 200 || response.status === 201) {
                 if ((rol === 'tendero' || data.rol === 'tendero' || data.role === 'merchant') && data.requiresVerification === false) {
-                    localStorage.setItem('userName', data.nombre || nombre || 'Usuario');
-                    localStorage.setItem('userRole', data.role || 'merchant');
-                    localStorage.setItem('userId', data.id);
+                    const finalName = data.nombre || nombre || 'Usuario';
+                    const finalId = data.id || '';
+                    const finalNombreTienda = data.nombreTienda || nombreTienda || '';
+                    const finalToken = data.token || '';
+
+                    if (finalToken) {
+                        localStorage.setItem('token', finalToken);
+                    }
+                    localStorage.setItem('userName', finalName);
+                    localStorage.setItem('userRole', 'merchant');
+                    if (finalId) {
+                        localStorage.setItem('userId', finalId);
+                    }
+                    if (finalNombreTienda) {
+                        localStorage.setItem('storeName', finalNombreTienda);
+                    }
+                    localStorage.setItem('user', JSON.stringify({
+                        id: finalId,
+                        nombre: finalName,
+                        nombreTienda: finalNombreTienda,
+                        email: email,
+                        rol: 'tendero',
+                        role: 'merchant',
+                        verificado: true
+                    }));
+
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalText;
+
+                    if (typeof Swal !== 'undefined') {
+                        await Swal.fire({
+                            icon: 'success',
+                            title: '¡Cuenta verificada!',
+                            text: data.message || 'Cuenta de Tendero verificada correctamente.',
+                            confirmButtonColor: '#059669',
+                            confirmButtonText: 'Continuar'
+                        });
+                    } else {
+                        Utils.showAlert(data.message || 'Cuenta de Tendero verificada correctamente.');
+                    }
+
                     window.location.href = "dashboard-tendero.html";
                     return;
                 }
