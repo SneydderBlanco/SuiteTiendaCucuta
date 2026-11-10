@@ -90,7 +90,12 @@ document.addEventListener("DOMContentLoaded", () => {
             switchTabTo(navReportes, vistaReportes);
             loadReportes(userId);
         });
-        navVentas.addEventListener("click", () => switchTabTo(navVentas, vistaVentas));
+        navVentas.addEventListener("click", () => {
+            switchTabTo(navVentas, vistaVentas);
+            if (typeof window.loadPosProducts === "function") {
+                window.loadPosProducts(userId);
+            }
+        });
         navHistorial.addEventListener("click", () => {
             switchTabTo(navHistorial, vistaHistorial);
             if (typeof cargarHistorialVentas === 'function') {

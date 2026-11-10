@@ -5,6 +5,77 @@ let cart = [];
 let categoriaActual = 'Todos';
 let textoBusqueda = '';
 let clienteActual = 1;
+const posSelectedVariantByProduct = {};
+
+// Placeholder estético SVG cuando el producto no tiene imagen o falla la carga
+const POS_PRODUCT_PLACEHOLDER = "data:image/svg+xml;utf8," + encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300" viewBox="0 0 300 300" fill="none">' +
+    '<rect width="300" height="300" rx="24" fill="#F1F5F9"/>' +
+    '<rect x="95" y="85" width="110" height="110" rx="18" fill="#E2E8F0" stroke="#94A3B8" stroke-width="6"/>' +
+    '<circle cx="130" cy="120" r="10" fill="#94A3B8"/>' +
+    '<path d="M105 175L135 145L158 168L175 150L195 175H105Z" fill="#94A3B8"/>' +
+    '<text x="150" y="230" text-anchor="middle" fill="#64748B" font-family="Plus Jakarta Sans, sans-serif" font-size="14" font-weight="700">Sin imagen</text>' +
+    '</svg>'
+);
+
+/**
+ * Normaliza la URL de la imagen del producto para evitar íconos rotos en el POS.
+ * Si empieza con /uploads/, le concatena la URL base del backend (API_URL).
+ */
+function resolvePosProductImage(imagenUrl) {
+    if (!imagenUrl || typeof imagenUrl !== 'string' || !imagenUrl.trim()) {
+        return POS_PRODUCT_PLACEHOLDER;
+    }
+    const raw = imagenUrl.trim();
+    const baseApi = (window.API_URL || 'http://localhost:3000').replace(/\/+$/, '');
+
+    if (raw.startsWith('/uploads/')) {
+        return `${baseApi}${raw}`;
+    }
+    if (raw.startsWith('http://') || raw.startsWith('https://') || raw.startsWith('data:image/')) {
+        return raw;
+    }
+    if (raw.startsWith('/')) {
+        return `${baseApi}${raw}`;
+    }
+    return `${baseApi}/uploads/${raw.replace(/^\/+/, '')}`;
+}
+
+/**
+ * Extrae y normaliza el array de presentaciones (JSONB) de un producto.
+ * Siempre retorna al menos 1 presentación con { unidad, precio, stock }.
+ */
+function parsePosPresentaciones(product) {
+    let list = [];
+    if (Array.isArray(product?.presentaciones)) {
+        list = product.presentaciones;
+    } else if (typeof product?.presentaciones === 'string' && product.presentaciones.trim().startsWith('[')) {
+        try {
+            const parsed = JSON.parse(product.presentaciones);
+            if (Array.isArray(parsed)) list = parsed;
+        } catch (_e) {
+            list = [];
+        }
+    }
+
+    const normalized = list
+        .map(item => ({
+            unidad: String(item?.unidad || item?.unidad_medida || item?.nombre || '').trim(),
+            precio: parseFloat(item?.precio ?? item?.precio_venta ?? product?.precio_venta ?? 0) || 0,
+            stock: parseInt(item?.stock ?? product?.stock ?? 0, 10) || 0
+        }))
+        .filter(item => item.unidad !== '');
+
+    if (normalized.length === 0) {
+        normalized.push({
+            unidad: String(product?.unidad_medida || 'Unidad').trim() || 'Unidad',
+            precio: parseFloat(product?.precio_venta) || 0,
+            stock: parseInt(product?.stock, 10) || 0
+        });
+    }
+
+    return normalized;
+}
 
 document.addEventListener('DOMContentLoaded', () => {
     // Verificar autenticación
@@ -138,10 +209,11 @@ window.seleccionarCliente = function(id, nombre) {
 
 async function loadPosProducts(merchantId) {
     try {
-        const response = await fetch(`${window.API_URL}/api/productos/${merchantId}`);
+        const targetId = merchantId || localStorage.getItem('userId');
+        const response = await fetch(`${window.API_URL}/api/productos/${targetId}`);
         if (response.ok) {
             const data = await response.json();
-            products = data;
+            products = Array.isArray(data) ? data : [];
             renderCategories(products);
             filtrarCatalogo();
         } else {
@@ -151,6 +223,7 @@ async function loadPosProducts(merchantId) {
         console.error('Error cargando productos:', error);
     }
 }
+window.loadPosProducts = loadPosProducts;
 
 function renderCategories(productsToRender) {
     const categoriesContainer = document.getElementById('pos-categories-container');
@@ -191,11 +264,55 @@ function filtrarCatalogo() {
         const textoNorm = textoBusqueda.toLowerCase().trim();
         const coincideTexto = textoNorm === '' || 
                               p.nombre.toLowerCase().includes(textoNorm) || 
+                              (p.marca && p.marca.toLowerCase().includes(textoNorm)) ||
                               (p.id_producto && p.id_producto.toString().includes(textoNorm));
         return coincideCategoria && coincideTexto;
     });
     renderProducts(filtrados);
 }
+
+/**
+ * Actualiza dinámicamente el precio, stock y estado del botón '+ AGREGAR'
+ * cuando el tendero cambia la presentación seleccionada en la tarjeta del POS.
+ */
+window.onPosVariantChange = function(productId, variantIdx) {
+    const product = products.find(p => Number(p.id_producto) === Number(productId));
+    if (!product) return;
+
+    const presentaciones = parsePosPresentaciones(product);
+    const idx = Math.max(0, Math.min(parseInt(variantIdx, 10) || 0, presentaciones.length - 1));
+    posSelectedVariantByProduct[product.id_producto] = idx;
+
+    const selectedPres = presentaciones[idx];
+
+    const priceEl = document.getElementById(`pos-price-${product.id_producto}`);
+    if (priceEl) {
+        priceEl.textContent = Utils.formatCurrency(selectedPres.precio);
+    }
+
+    const stockEl = document.getElementById(`pos-stock-${product.id_producto}`);
+    if (stockEl) {
+        stockEl.textContent = `Stock: ${selectedPres.stock}`;
+        stockEl.className = `text-[10px] px-2 py-0.5 rounded-full font-bold ${
+            selectedPres.stock > 5
+                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/60'
+                : selectedPres.stock > 0
+                ? 'bg-amber-50 text-amber-700 border border-amber-200/60'
+                : 'bg-red-50 text-red-700 border border-red-200/60'
+        }`;
+    }
+
+    const addBtn = document.getElementById(`pos-add-btn-${product.id_producto}`);
+    if (addBtn) {
+        if (selectedPres.stock <= 0) {
+            addBtn.disabled = true;
+            addBtn.classList.add('opacity-50', 'cursor-not-allowed');
+        } else {
+            addBtn.disabled = false;
+            addBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+        }
+    }
+};
 
 function renderProducts(productsToRender) {
     const grid = document.getElementById('pos-products-grid');
@@ -204,54 +321,112 @@ function renderProducts(productsToRender) {
     grid.innerHTML = '';
 
     if (productsToRender.length === 0) {
-        grid.innerHTML = '<p class="text-on-surface-variant p-4">No hay productos disponibles.</p>';
+        grid.innerHTML = '<p class="text-on-surface-variant p-4 col-span-full text-center text-sm font-medium">No hay productos disponibles para esta búsqueda.</p>';
         return;
     }
 
     productsToRender.forEach(product => {
         const card = document.createElement('div');
-        card.className = 'bg-surface-container-lowest p-3 rounded-2xl shadow-sm hover:shadow-md transition-all group relative overflow-hidden flex flex-col gap-2';
-        
-        // Determinar imagen o placeholder si no hay url
-        const imgUrl = product.imagen_url ? (product.imagen_url.startsWith('http') ? product.imagen_url : `${window.API_URL}${product.imagen_url}`) : 'https://lh3.googleusercontent.com/aida-public/AB6AXuAr10KCyGCkqfP9WN4CmMVk2hmOhaT45pcS1KclTR4-VIoCSvDRF_W0zvTZg1fKrRj8n1Ap7U931BmbM1kBeW2r9Kfx0wgpohY0wvq80siQ9TZk-m83P_rJm5ChsitKgcFxSjwxsbcSQ9ys7vEEBAbGo3FL4SJ2IwO9XMEXJecPEyOMqmeMnTVzbNfKJAd_CusC6FCCVTqHIKGdsUGQY2gpjPacSMNEsT8N1kTm7cRdTKuM3IpbzuUj2Lvg_76ZLfzsvQEEBUsbjFpP';
+        card.className = 'bg-surface-container-lowest p-3 rounded-2xl shadow-sm hover:shadow-md border border-slate-100 transition-all group relative overflow-hidden flex flex-col justify-between gap-2';
+
+        // 1. Arreglo de Imágenes con soporte /uploads/ y placeholder seguro
+        const imgUrl = resolvePosProductImage(product.imagen_url);
+
+        // 2. Presentaciones múltiples (JSONB)
+        const presentaciones = parsePosPresentaciones(product);
+        const currentIdx = (posSelectedVariantByProduct[product.id_producto] !== undefined &&
+                            posSelectedVariantByProduct[product.id_producto] < presentaciones.length)
+            ? posSelectedVariantByProduct[product.id_producto]
+            : 0;
+        posSelectedVariantByProduct[product.id_producto] = currentIdx;
+
+        const selectedPres = presentaciones[currentIdx];
+
+        const variantSelectorHtml = presentaciones.length > 1
+            ? `<div class="mt-1.5">
+                <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-0.5">Presentación</label>
+                <select id="pos-variant-select-${product.id_producto}"
+                    onchange="window.onPosVariantChange(${product.id_producto}, this.value)"
+                    class="w-full text-xs font-bold text-slate-700 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 cursor-pointer transition-all">
+                    ${presentaciones.map((pres, idx) => `<option value="${idx}" ${idx === currentIdx ? 'selected' : ''}>${pres.unidad}</option>`).join('')}
+                </select>
+               </div>`
+            : `<div class="mt-1">
+                <span class="inline-block text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">${selectedPres.unidad}</span>
+               </div>`;
+
+        const stockClass = selectedPres.stock > 5
+            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/60'
+            : selectedPres.stock > 0
+            ? 'bg-amber-50 text-amber-700 border border-amber-200/60'
+            : 'bg-red-50 text-red-700 border border-red-200/60';
 
         card.innerHTML = `
-            <div class="h-28 w-full rounded-xl bg-slate-100 overflow-hidden">
-                <img src="${imgUrl}" alt="${product.nombre}" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"/>
-            </div>
-            <div class="flex flex-col">
-                <h3 class="font-bold text-sm text-on-surface leading-tight truncate" title="${product.nombre}">${product.nombre}</h3>
-                <div class="flex items-center justify-between mt-1">
-                    <span class="text-emerald-700 font-extrabold text-sm">${Utils.formatCurrency(product.precio_venta)}</span>
-                    <span class="text-[10px] px-2 py-0.5 rounded-full ${product.stock > 5 ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'} font-medium">Stock: ${product.stock}</span>
+            <div>
+                <div class="h-28 w-full rounded-xl bg-slate-100 overflow-hidden mb-2">
+                    <img src="${imgUrl}"
+                        alt="${product.nombre}"
+                        onerror="this.onerror=null;this.src='${POS_PRODUCT_PLACEHOLDER}';"
+                        class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"/>
+                </div>
+                <div class="flex flex-col">
+                    <h3 class="font-bold text-sm text-on-surface leading-tight truncate" title="${product.nombre}">${product.nombre}</h3>
+                    ${variantSelectorHtml}
+                    <div class="flex items-center justify-between mt-2">
+                        <span id="pos-price-${product.id_producto}" class="text-emerald-700 font-extrabold text-sm">${Utils.formatCurrency(selectedPres.precio)}</span>
+                        <span id="pos-stock-${product.id_producto}" class="text-[10px] px-2 py-0.5 rounded-full font-bold ${stockClass}">Stock: ${selectedPres.stock}</span>
+                    </div>
                 </div>
             </div>
-            <button onclick="addToCart(${product.id_producto})" class="mt-1 w-full py-2 bg-primary text-white rounded-lg text-xs font-bold flex items-center justify-center gap-1 active:scale-95 transition-transform ${product.stock <= 0 ? 'opacity-50 cursor-not-allowed' : ''}" ${product.stock <= 0 ? 'disabled' : ''}>
+            <button id="pos-add-btn-${product.id_producto}"
+                onclick="addToCart(${product.id_producto})"
+                class="mt-1 w-full py-2 bg-primary hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1 active:scale-95 transition-all shadow-sm ${selectedPres.stock <= 0 ? 'opacity-50 cursor-not-allowed' : ''}"
+                ${selectedPres.stock <= 0 ? 'disabled' : ''}>
                 <span class="material-symbols-outlined text-sm">add</span> AGREGAR
             </button>
         `;
         grid.appendChild(card);
     });
 }
+window.renderSearchResults = renderProducts;
 
 function addToCart(productId) {
-    const product = products.find(p => p.id_producto === productId);
+    const product = products.find(p => Number(p.id_producto) === Number(productId));
     if (!product) return;
 
-    const existingItem = cart.find(item => item.id_producto === productId);
+    const presentaciones = parsePosPresentaciones(product);
+    const selectEl = document.getElementById(`pos-variant-select-${product.id_producto}`);
+    const idx = selectEl
+        ? (parseInt(selectEl.value, 10) || 0)
+        : (posSelectedVariantByProduct[product.id_producto] || 0);
+
+    const selectedPres = presentaciones[idx] || presentaciones[0];
+    const cartKey = `${product.id_producto}__${selectedPres.unidad}`;
+
+    const existingItem = cart.find(item => item.cartKey === cartKey);
 
     if (existingItem) {
-        if (existingItem.quantity < product.stock) {
+        if (existingItem.quantity < selectedPres.stock) {
             existingItem.quantity += 1;
         } else {
-            alert(`¡Stock insuficiente! Solo quedan ${product.stock} unidades disponibles.`);
+            alert(`¡Stock insuficiente para ${product.nombre} (${selectedPres.unidad})! Solo quedan ${selectedPres.stock} disponibles.`);
             return;
         }
     } else {
-        if (product.stock > 0) {
-            cart.push({ ...product, quantity: 1 });
+        if (selectedPres.stock > 0) {
+            cart.push({
+                ...product,
+                cartKey,
+                presentacionIdx: idx,
+                unidad: selectedPres.unidad,
+                unidad_medida: selectedPres.unidad,
+                precio_venta: selectedPres.precio,
+                stock: selectedPres.stock,
+                imagen_url: resolvePosProductImage(product.imagen_url),
+                quantity: 1
+            });
         } else {
-            alert('Producto sin stock.');
+            alert(`La presentación "${selectedPres.unidad}" no tiene stock disponible.`);
             return;
         }
     }
@@ -259,8 +434,9 @@ function addToCart(productId) {
     updateCartUI();
 }
 
-function updateQuantity(productId, delta) {
-    const index = cart.findIndex(item => item.id_producto === productId);
+function updateQuantity(cartKeyOrProductId, delta) {
+    const keyStr = String(cartKeyOrProductId);
+    const index = cart.findIndex(item => item.cartKey === keyStr || String(item.id_producto) === keyStr);
     if (index === -1) return;
 
     const item = cart[index];
@@ -269,9 +445,9 @@ function updateQuantity(productId, delta) {
     if (newQuantity <= 0) {
         cart.splice(index, 1);
     } else {
-        const product = products.find(p => p.id_producto === productId);
-        if (newQuantity > product.stock) {
-            alert(`¡Stock insuficiente! Solo quedan ${product.stock} unidades disponibles.`);
+        const maxStock = parseInt(item.stock, 10) || 0;
+        if (newQuantity > maxStock) {
+            alert(`¡Stock insuficiente para ${item.nombre} (${item.unidad})! Solo quedan ${maxStock} disponibles.`);
             return;
         }
         item.quantity = newQuantity;
@@ -295,36 +471,55 @@ function updateCartUI() {
     cartContainer.innerHTML = '';
 
     if (cart.length === 0) {
-        cartContainer.innerHTML = '<p class="text-on-surface-variant text-sm text-center py-4">El carrito está vacío.</p>';
+        cartContainer.innerHTML = `
+            <div class="flex flex-col items-center justify-center py-10 text-center text-slate-400">
+                <span class="material-symbols-outlined text-4xl mb-2 text-slate-300">receipt_long</span>
+                <p class="text-xs font-semibold text-slate-500">El ticket de facturación está vacío</p>
+                <p class="text-[11px] text-slate-400 mt-0.5">Selecciona productos del catálogo para agregarlos.</p>
+            </div>
+        `;
         updateTotals();
         return;
     }
 
     cart.forEach(item => {
         const div = document.createElement('div');
-        div.className = 'p-3 bg-surface-container-low rounded-xl flex items-center gap-3';
-        
-        const imgUrl = item.imagen_url ? (item.imagen_url.startsWith('http') ? item.imagen_url : `${window.API_URL}${item.imagen_url}`) : 'https://lh3.googleusercontent.com/aida-public/AB6AXuAr10KCyGCkqfP9WN4CmMVk2hmOhaT45pcS1KclTR4-VIoCSvDRF_W0zvTZg1fKrRj8n1Ap7U931BmbM1kBeW2r9Kfx0wgpohY0wvq80siQ9TZk-m83P_rJm5ChsitKgcFxSjwxsbcSQ9ys7vEEBAbGo3FL4SJ2IwO9XMEXJecPEyOMqmeMnTVzbNfKJAd_CusC6FCCVTqHIKGdsUGQY2gpjPacSMNEsT8N1kTm7cRdTKuM3IpbzuUj2Lvg_76ZLfzsvQEEBUsbjFpP';
+        div.className = 'p-3 bg-slate-50/90 hover:bg-slate-100/80 border border-slate-200/70 rounded-xl flex items-center gap-3 transition-colors';
+
+        const imgUrl = resolvePosProductImage(item.imagen_url);
+        const unidadLabel = item.unidad || item.unidad_medida || 'Unidad';
+        const escapedKey = String(item.cartKey || item.id_producto).replace(/'/g, "\\'");
+        const nombreConPresentacion = `${item.nombre} - ${unidadLabel}`;
 
         div.innerHTML = `
-            <div class="w-12 h-12 rounded-lg overflow-hidden bg-white shrink-0">
-                <img src="${imgUrl}" alt="${item.nombre}" class="w-full h-full object-cover"/>
+            <div class="w-12 h-12 rounded-xl overflow-hidden bg-white border border-slate-200/60 shrink-0 shadow-xs">
+                <img src="${imgUrl}"
+                    alt="${item.nombre}"
+                    onerror="this.onerror=null;this.src='${POS_PRODUCT_PLACEHOLDER}';"
+                    class="w-full h-full object-cover"/>
             </div>
             <div class="flex-1 min-w-0">
-                <p class="text-xs font-bold text-on-surface truncate">${item.nombre}</p>
-                <p class="text-[10px] text-on-surface-variant">${Utils.formatCurrency(item.precio_venta)} c/u</p>
+                <p class="text-xs font-extrabold text-slate-800 truncate" title="${nombreConPresentacion}">
+                    ${item.nombre} <span class="text-emerald-700 font-bold">- ${unidadLabel}</span>
+                </p>
+                <div class="flex items-center gap-1.5 mt-0.5">
+                    <span class="inline-block text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/60 px-1.5 py-0.2 rounded">${unidadLabel}</span>
+                    <span class="text-[11px] font-semibold text-slate-500">${Utils.formatCurrency(item.precio_venta)} c/u</span>
+                </div>
             </div>
-            <div class="flex items-center bg-white rounded-lg p-1 border border-outline-variant/20 shadow-sm">
-                <button onclick="updateQuantity(${item.id_producto}, -1)" class="w-7 h-7 flex items-center justify-center text-emerald-600 hover:bg-emerald-50 rounded-md transition-all">
+            <div class="flex items-center bg-white rounded-xl p-1 border border-slate-200 shadow-xs shrink-0">
+                <button type="button" onclick="updateQuantity('${escapedKey}', -1)"
+                    class="w-7 h-7 flex items-center justify-center text-slate-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all font-bold">
                     <span class="material-symbols-outlined text-base">remove</span>
                 </button>
-                <span class="w-8 text-center text-xs font-black">${item.quantity}</span>
-                <button onclick="updateQuantity(${item.id_producto}, 1)" class="w-7 h-7 flex items-center justify-center text-emerald-600 hover:bg-emerald-50 rounded-md transition-all">
+                <span class="w-7 text-center text-xs font-black text-slate-800">${item.quantity}</span>
+                <button type="button" onclick="updateQuantity('${escapedKey}', 1)"
+                    class="w-7 h-7 flex items-center justify-center text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all font-bold">
                     <span class="material-symbols-outlined text-base">add</span>
                 </button>
             </div>
-            <div class="text-right ml-2 min-w-[70px]">
-                <p class="text-sm font-black text-emerald-800">${Utils.formatCurrency(item.precio_venta * item.quantity)}</p>
+            <div class="text-right min-w-[72px] shrink-0">
+                <p class="text-xs font-black text-emerald-800">${Utils.formatCurrency(item.precio_venta * item.quantity)}</p>
             </div>
         `;
         cartContainer.appendChild(div);
@@ -388,9 +583,10 @@ function processCheckout() {
     if (itemsContainer) {
         itemsContainer.innerHTML = '';
         cart.forEach(item => {
+            const unidadTxt = item.unidad ? ` - ${item.unidad}` : '';
             itemsContainer.innerHTML += `
-                <div class="flex justify-between">
-                    <span>${item.nombre} x${item.quantity}</span>
+                <div class="flex justify-between text-xs py-0.5">
+                    <span>${item.nombre}${unidadTxt} x${item.quantity}</span>
                     <span class="font-bold">${Utils.formatCurrency(item.precio_venta * item.quantity)}</span>
                 </div>
             `;
@@ -455,6 +651,7 @@ async function processVentaReal(metodoPago, buttonEl) {
         total: total,
         items: cart.map(item => ({
             id_producto: item.id_producto,
+            unidad: item.unidad || item.unidad_medida || 'Unidad',
             cantidad: item.quantity,
             precio_unitario: item.precio_venta
         }))

@@ -508,13 +508,14 @@ const handleLogin = async (req, res) => {
     const { email, password } = req.body;
 
     try {
+        const cleanEmail = (email || '').trim();
         const query = `
-            SELECT id_cliente AS id, nombre, email, password, COALESCE(rol, 'cliente') AS rol FROM cliente WHERE email = $1
+            SELECT id_cliente AS id, nombre, email, password, COALESCE(rol, 'cliente') AS rol FROM cliente WHERE LOWER(email) = LOWER($1)
             UNION
-            SELECT id_tendero AS id, nombre, email, password, COALESCE(rol, 'tendero') AS rol FROM tendero WHERE email = $1
+            SELECT id_tendero AS id, nombre, email, password, COALESCE(rol, 'tendero') AS rol FROM tendero WHERE LOWER(email) = LOWER($1)
         `;
-        console.log('Ejecutando login con email:', email);
-        const result = await db.query(query, [email]);
+        console.log('Ejecutando login con email:', cleanEmail);
+        const result = await db.query(query, [cleanEmail]);
 
         if (result.rows.length === 0) {
             return res.status(401).json({ error: 'Usuario no encontrado' });
@@ -1107,12 +1108,56 @@ app.post('/api/ventas', async (req, res) => {
         const id_venta = ventaRes.rows[0].id_venta;
 
         for (let item of items) {
-            // Descontar stock (Paso 3)
-            const updateStockText = 'UPDATE productos SET stock = stock - $1 WHERE id_producto = $2 AND stock >= $1';
-            const stockRes = await db.query(updateStockText, [item.cantidad, item.id_producto]);
-            if (stockRes.rowCount === 0) {
+            const prodRes = await db.query(
+                'SELECT id_producto, stock, presentaciones FROM productos WHERE id_producto = $1 FOR UPDATE',
+                [item.id_producto]
+            );
+            if (prodRes.rows.length === 0) {
                 await db.query('ROLLBACK');
-                return res.status(400).json({ error: `Stock insuficiente para el producto ID ${item.id_producto}` });
+                return res.status(404).json({ error: `Producto ID ${item.id_producto} no encontrado` });
+            }
+
+            const prodRow = prodRes.rows[0];
+            let presentacionesArr = Array.isArray(prodRow.presentaciones) ? [...prodRow.presentaciones] : [];
+            const unidadVendida = String(item.unidad || '').trim().toLowerCase();
+
+            if (presentacionesArr.length > 0 && unidadVendida) {
+                const presIndex = presentacionesArr.findIndex(
+                    p => String(p?.unidad || p?.unidad_medida || '').trim().toLowerCase() === unidadVendida
+                );
+
+                if (presIndex !== -1) {
+                    const currentPresStock = parseInt(presentacionesArr[presIndex].stock, 10) || 0;
+                    if (currentPresStock < item.cantidad) {
+                        await db.query('ROLLBACK');
+                        return res.status(400).json({
+                            error: `Stock insuficiente para la presentación "${presentacionesArr[presIndex].unidad}" (disponible: ${currentPresStock})`
+                        });
+                    }
+                    presentacionesArr[presIndex] = {
+                        ...presentacionesArr[presIndex],
+                        stock: currentPresStock - item.cantidad
+                    };
+                    const newPrimaryStock = parseInt(presentacionesArr[0]?.stock ?? prodRow.stock, 10) || 0;
+                    await db.query(
+                        'UPDATE productos SET presentaciones = $1::jsonb, stock = $2 WHERE id_producto = $3',
+                        [JSON.stringify(presentacionesArr), newPrimaryStock, item.id_producto]
+                    );
+                } else {
+                    const updateStockText = 'UPDATE productos SET stock = stock - $1 WHERE id_producto = $2 AND stock >= $1';
+                    const stockRes = await db.query(updateStockText, [item.cantidad, item.id_producto]);
+                    if (stockRes.rowCount === 0) {
+                        await db.query('ROLLBACK');
+                        return res.status(400).json({ error: `Stock insuficiente para el producto ID ${item.id_producto}` });
+                    }
+                }
+            } else {
+                const updateStockText = 'UPDATE productos SET stock = stock - $1 WHERE id_producto = $2 AND stock >= $1';
+                const stockRes = await db.query(updateStockText, [item.cantidad, item.id_producto]);
+                if (stockRes.rowCount === 0) {
+                    await db.query('ROLLBACK');
+                    return res.status(400).json({ error: `Stock insuficiente para el producto ID ${item.id_producto}` });
+                }
             }
 
             // Insertar detalle_venta (Paso 2 modificado con precio_unitario_en_momento)
