@@ -11,7 +11,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const userId = localStorage.getItem('userId');
     const userRole = localStorage.getItem('userRole');
 
-    if (!userId || userRole !== 'merchant') {
+    if (!userId || (userRole !== 'merchant' && userRole !== 'tendero')) {
         alert('Acceso denegado. Solo para tenderos.');
         window.location.href = 'login.html';
         return;
