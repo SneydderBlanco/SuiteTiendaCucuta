@@ -21,35 +21,42 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </head>
 
-<body class="bg-background text-on-surface h-screen overflow-hidden !min-h-0">
+<body class="bg-background text-on-surface h-[100dvh] overflow-hidden !min-h-0">
 
     <header
-        class="bg-[#f8f9fa] dark:bg-gray-950 flex items-center justify-between px-8 py-4 w-full docked full-width top-0 z-40 fixed border-b border-slate-200">
-        <div class="flex items-center gap-4">
-            <h1 class="text-xl font-bold text-[#191c1d] dark:text-white tracking-tighter cursor-pointer"
+        class="bg-[#f8f9fa] dark:bg-gray-950 flex items-center justify-between px-4 md:px-8 py-3.5 md:py-4 w-full docked full-width top-0 z-40 fixed border-b border-slate-200">
+        <div class="flex items-center gap-3">
+            <button id="btn-mobile-menu" type="button" aria-label="Abrir menú de navegación"
+                class="md:hidden p-2 rounded-xl bg-surface-container-low text-on-surface hover:bg-emerald-50 hover:text-emerald-700 transition-colors flex items-center justify-center">
+                <span class="material-symbols-outlined text-xl">menu</span>
+            </button>
+            <h1 class="text-lg sm:text-xl font-bold text-[#191c1d] dark:text-white tracking-tighter cursor-pointer truncate"
                 onclick="window.location.href='index.html'">TiendasCucuta</h1>
         </div>
-        <div class="flex items-center gap-6">
-            <div class="flex items-center gap-2 px-4 py-2 bg-surface-container-low rounded-full">
+        <div class="flex items-center gap-3 sm:gap-6">
+            <div class="hidden sm:flex items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 bg-surface-container-low rounded-full">
                 <span class="material-symbols-outlined text-primary text-sm">sync</span>
                 <span class="text-xs font-medium text-on-surface-variant">Online</span>
             </div>
-            <div class="flex items-center gap-4 border-l border-outline-variant pl-6">
-                <div class="text-right">
-                    <p class="text-xs text-on-surface-variant leading-none">Bienvenido,</p>
-                    <p class="text-sm font-bold text-on-surface" id="tendero-name">Cargando...</p>
+            <div class="flex items-center gap-3 sm:gap-4 sm:border-l border-outline-variant sm:pl-6">
+                <div class="text-right max-w-[130px] sm:max-w-none">
+                    <p class="text-[10px] sm:text-xs text-on-surface-variant leading-none">Bienvenido,</p>
+                    <p class="text-xs sm:text-sm font-bold text-on-surface truncate" id="tendero-name">Cargando...</p>
                 </div>
                 <button onclick="logout()"
-                    class="material-symbols-outlined text-on-surface-variant hover:text-error transition-colors"
+                    class="material-symbols-outlined text-on-surface-variant hover:text-error transition-colors p-1"
                     title="Cerrar Sesión">logout</button>
             </div>
         </div>
     </header>
-    <div class="flex pt-20 h-screen overflow-hidden">
+    <div class="flex pt-16 md:pt-20 h-[100dvh] overflow-hidden">
 
-        <aside
-            class="flex flex-col h-screen fixed left-0 top-0 pt-20 bg-[#f3f4f5] dark:bg-gray-900 w-64 z-30 font-['Inter'] text-sm font-medium border-r border-slate-200">
-            <nav class="flex flex-col mt-4 space-y-1">
+        <!-- Overlay oscuro para Sidebar en móviles -->
+        <div id="mobile-sidebar-backdrop" class="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-30 hidden md:hidden"></div>
+
+        <aside id="tendero-sidebar"
+            class="hidden md:flex flex-col h-[100dvh] fixed left-0 top-0 pt-16 md:pt-20 bg-[#f3f4f5] dark:bg-gray-900 w-64 z-40 font-['Inter'] text-sm font-medium border-r border-slate-200 overflow-y-auto">
+            <nav class="flex flex-col mt-4 space-y-1 pb-20 md:pb-4">
                 <a id="nav-dashboard" class="flex items-center gap-3 text-[#3c4a42] dark:text-gray-500 px-6 py-3 hover:text-[#006c49] dark:hover:text-[#10b981] hover:bg-[#10b981]/5 transition-all duration-300 cursor-pointer" href="#">
                     <span class="material-symbols-outlined">dashboard</span>
                     <span>Dashboard</span>
@@ -85,16 +92,40 @@
             </nav>
         </aside>
 
-        <main class="ml-64 flex-1 w-full bg-surface h-[calc(100vh-5rem)] overflow-y-auto relative">
-            <section id="vista-configuracion" class="p-8 hidden">
+        <!-- Barra de Navegación Inferior (Bottom Nav) exclusiva para móviles -->
+        <nav id="mobile-bottom-nav" class="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-white/95 dark:bg-gray-900/95 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 flex items-center justify-around py-1.5 px-1 shadow-lg">
+            <button type="button" data-mobile-nav="nav-dashboard" class="flex flex-col items-center justify-center py-1 px-2 text-slate-500 hover:text-emerald-700 transition-colors">
+                <span class="material-symbols-outlined text-[20px]">dashboard</span>
+                <span class="text-[10px] font-bold">Inicio</span>
+            </button>
+            <button type="button" data-mobile-nav="nav-inventario" class="flex flex-col items-center justify-center py-1 px-2 text-emerald-700 transition-colors">
+                <span class="material-symbols-outlined text-[20px]">inventory_2</span>
+                <span class="text-[10px] font-bold">Inventario</span>
+            </button>
+            <button type="button" data-mobile-nav="nav-ventas" class="flex flex-col items-center justify-center py-1 px-2 text-slate-500 hover:text-emerald-700 transition-colors">
+                <span class="material-symbols-outlined text-[20px]">payments</span>
+                <span class="text-[10px] font-bold">POS</span>
+            </button>
+            <button type="button" data-mobile-nav="nav-mi-tienda" class="flex flex-col items-center justify-center py-1 px-2 text-slate-500 hover:text-emerald-700 transition-colors">
+                <span class="material-symbols-outlined text-[20px]">storefront</span>
+                <span class="text-[10px] font-bold">Tienda</span>
+            </button>
+            <button type="button" id="btn-mobile-more-nav" class="flex flex-col items-center justify-center py-1 px-2 text-slate-500 hover:text-emerald-700 transition-colors">
+                <span class="material-symbols-outlined text-[20px]">menu_open</span>
+                <span class="text-[10px] font-bold">Más</span>
+            </button>
+        </nav>
+
+        <main class="ml-0 md:ml-64 flex-1 w-full bg-surface h-[calc(100dvh-4rem)] md:h-[calc(100dvh-5rem)] pb-16 md:pb-0 overflow-y-auto relative">
+            <section id="vista-configuracion" class="p-4 md:p-8 hidden">
                 <div class="mb-8">
                     <h2 class="text-3xl font-extrabold tracking-tight text-on-surface mb-2">Centro de Configuración</h2>
                     <p class="text-on-surface-variant font-medium">Administra la seguridad, opciones de facturación y respaldo de datos.</p>
                 </div>
 
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8">
                     <!-- Seguridad -->
-                    <div class="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-outline-variant/10 p-8 flex flex-col gap-6">
+                    <div class="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-outline-variant/10 p-4 md:p-8 flex flex-col gap-6">
                         <div class="flex items-center gap-3 pb-4 border-b border-outline-variant/10">
                             <span class="material-symbols-outlined text-primary text-2xl">shield_lock</span>
                             <h3 class="text-xl font-bold text-on-surface">Seguridad</h3>
@@ -118,9 +149,9 @@
                         </form>
                     </div>
 
-                    <div class="flex flex-col gap-8">
+                    <div class="flex flex-col gap-6 md:gap-8">
                         <!-- Ajustes de Facturación -->
-                        <div class="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-outline-variant/10 p-8 flex flex-col gap-6">
+                        <div class="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-outline-variant/10 p-4 md:p-8 flex flex-col gap-6">
                             <div class="flex items-center gap-3 pb-4 border-b border-outline-variant/10">
                                 <span class="material-symbols-outlined text-primary text-2xl">receipt_long</span>
                                 <h3 class="text-xl font-bold text-on-surface">Ajustes de Facturación</h3>
@@ -146,7 +177,7 @@
                         </div>
 
                         <!-- Respaldo de Datos -->
-                        <div class="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-outline-variant/10 p-8 flex flex-col gap-4 bg-gradient-to-br from-surface-container-lowest to-emerald-50/30 dark:to-emerald-900/10">
+                        <div class="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-outline-variant/10 p-4 md:p-8 flex flex-col gap-4 bg-gradient-to-br from-surface-container-lowest to-emerald-50/30 dark:to-emerald-900/10">
                             <div class="flex items-center gap-3">
                                 <div class="w-10 h-10 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center text-emerald-600">
                                     <span class="material-symbols-outlined">database</span>
@@ -165,7 +196,7 @@
             <!-- ==========================================
                  VISTA: CONFIGURACIÓN DE VITRINA DIGITAL
                  ========================================== -->
-            <section id="vista-vitrina" class="p-8 hidden">
+            <section id="vista-vitrina" class="p-4 md:p-8 hidden">
                 <div class="mb-8">
                     <h2 class="text-3xl font-extrabold tracking-tight text-on-surface mb-2">Vitrina Digital</h2>
                     <p class="text-on-surface-variant font-medium">Gestiona tus ofertas del día y promociones destacadas en la vitrina pública.</p>
@@ -235,17 +266,17 @@
                 </div>
             </section>
 
-            <section id="vista-dashboard" class="p-8 hidden">
-                <div class="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <section id="vista-dashboard" class="p-4 md:p-8 hidden">
+                <div class="mb-6 md:mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div>
-                        <h2 class="text-3xl font-extrabold tracking-tight text-on-surface mb-2">Torre de Control</h2>
-                        <p class="text-on-surface-variant font-medium">Monitorea la operación de tu tienda en tiempo real (Resultados de HOY).</p>
+                        <h2 class="text-2xl md:text-3xl font-extrabold tracking-tight text-on-surface mb-1 md:mb-2">Torre de Control</h2>
+                        <p class="text-sm md:text-base text-on-surface-variant font-medium">Monitorea la operación de tu tienda en tiempo real (Resultados de HOY).</p>
                     </div>
-                    <div class="flex gap-3">
-                        <button id="btn-dash-nueva-venta" class="emerald-pulse text-white px-5 py-2.5 rounded-lg font-bold text-sm flex items-center gap-2 transition-all hover:scale-105 shadow-lg shadow-primary/20">
+                    <div class="flex flex-wrap gap-2.5 sm:gap-3">
+                        <button id="btn-dash-nueva-venta" class="flex-1 sm:flex-initial justify-center emerald-pulse text-white px-4 sm:px-5 py-2.5 rounded-lg font-bold text-xs sm:text-sm flex items-center gap-2 transition-all hover:scale-105 shadow-lg shadow-primary/20">
                             <span class="material-symbols-outlined text-lg">add_shopping_cart</span> Nueva Venta
                         </button>
-                        <button id="btn-dash-cargar-inventario" class="bg-surface-container-highest text-on-surface hover:bg-surface-dim px-5 py-2.5 rounded-lg font-bold text-sm flex items-center gap-2 transition-all hover:scale-105 shadow-sm">
+                        <button id="btn-dash-cargar-inventario" class="flex-1 sm:flex-initial justify-center bg-surface-container-highest text-on-surface hover:bg-surface-dim px-4 sm:px-5 py-2.5 rounded-lg font-bold text-xs sm:text-sm flex items-center gap-2 transition-all hover:scale-105 shadow-sm">
                             <span class="material-symbols-outlined text-lg">inventory_2</span> Cargar Inventario
                         </button>
                     </div>
@@ -326,15 +357,15 @@
                     </div>
                 </div>
             </section>
-            <section id="vista-inventario" class="p-8">
-            <div class="flex flex-col md:flex-row md:items-end justify-between mb-8 gap-4">
+            <section id="vista-inventario" class="p-4 md:p-8">
+            <div class="flex flex-col md:flex-row md:items-end justify-between mb-6 md:mb-8 gap-4">
                 <div>
-                    <h2 class="text-3xl font-extrabold tracking-tight text-on-surface mb-2">Gestión de Inventario</h2>
-                    <p class="text-on-surface-variant font-medium">Controla tus productos, niveles de stock y precios de
+                    <h2 class="text-2xl md:text-3xl font-extrabold tracking-tight text-on-surface mb-1 md:mb-2">Gestión de Inventario</h2>
+                    <p class="text-sm md:text-base text-on-surface-variant font-medium">Controla tus productos, niveles de stock y precios de
                         venta.</p>
                 </div>
                 <button
-                    class="emerald-pulse-gradient text-white px-6 py-3 rounded-2xl flex items-center gap-2 font-bold shadow-lg shadow-primary/20 scale-95 hover:scale-100 transition-transform duration-200"
+                    class="w-full md:w-auto justify-center emerald-pulse-gradient text-white px-6 py-3 rounded-2xl flex items-center gap-2 font-bold shadow-lg shadow-primary/20 scale-95 hover:scale-100 transition-transform duration-200"
                     id="btn-add-product">
                     <span class="material-symbols-outlined" data-icon="add">add</span>
                     AGREGAR PRODUCTO
@@ -344,8 +375,8 @@
 
             <div
                 class="bg-surface-container-lowest rounded-2xl shadow-sm border border-outline-variant/5 overflow-hidden">
-                <div class="px-8 py-6 border-b border-surface-container">
-                    <div class="flex items-center justify-between">
+                <div class="px-4 md:px-8 py-4 md:py-6 border-b border-surface-container">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                         <div class="relative w-full max-w-md">
                             <span
                                 class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant"
@@ -368,22 +399,22 @@
                         <thead>
                             <tr class="bg-surface-container-low/50">
                                 <th
-                                    class="px-8 py-4 text-xs font-black text-on-surface-variant uppercase tracking-widest">
+                                    class="px-4 md:px-8 py-3.5 md:py-4 text-xs font-black text-on-surface-variant uppercase tracking-widest">
                                     ID PRODUCTO</th>
                                 <th
-                                    class="px-8 py-4 text-xs font-black text-on-surface-variant uppercase tracking-widest">
+                                    class="px-4 md:px-8 py-3.5 md:py-4 text-xs font-black text-on-surface-variant uppercase tracking-widest">
                                     NOMBRE</th>
                                 <th
-                                    class="px-8 py-4 text-xs font-black text-on-surface-variant uppercase tracking-widest">
+                                    class="px-4 md:px-8 py-3.5 md:py-4 text-xs font-black text-on-surface-variant uppercase tracking-widest">
                                     CATEGORÍA</th>
                                 <th
-                                    class="px-8 py-4 text-xs font-black text-on-surface-variant uppercase tracking-widest text-right">
+                                    class="px-4 md:px-8 py-3.5 md:py-4 text-xs font-black text-on-surface-variant uppercase tracking-widest text-right">
                                     PRECIO VENTA</th>
                                 <th
-                                    class="px-8 py-4 text-xs font-black text-on-surface-variant uppercase tracking-widest text-center">
+                                    class="px-4 md:px-8 py-3.5 md:py-4 text-xs font-black text-on-surface-variant uppercase tracking-widest text-center">
                                     STOCK ACTUAL</th>
                                 <th
-                                    class="px-8 py-4 text-xs font-black text-on-surface-variant uppercase tracking-widest text-center">
+                                    class="px-4 md:px-8 py-3.5 md:py-4 text-xs font-black text-on-surface-variant uppercase tracking-widest text-center">
                                     ACCIONES</th>
                             </tr>
                         </thead>
@@ -395,7 +426,7 @@
             </div>
             </section>
             
-            <section id="vista-reportes" class="hidden p-8">
+            <section id="vista-reportes" class="hidden p-4 md:p-8">
                 <!-- Header Section -->
                 <section class="flex flex-col md:flex-row md:items-end justify-between gap-4">
                 <div>
@@ -601,50 +632,63 @@
                 </div>
             </section>
 
-            <section id="vista-ventas" class="hidden flex-1 flex overflow-hidden p-4 gap-4 h-full w-full">
-                <!-- Left Section: Catalog (65%) -->
-                <div class="flex-[0.65] flex flex-col gap-4 overflow-hidden">
+            <section id="vista-ventas" class="hidden flex-1 flex flex-col lg:flex-row overflow-hidden p-3 sm:p-4 gap-4 h-full w-full relative">
+                <!-- Left Section: Catalog (100% en móvil/tablet, 65% en lg:) -->
+                <div class="w-full lg:flex-[0.65] flex flex-col gap-3 sm:gap-4 overflow-hidden flex-1 min-h-0">
                     <!-- Search and Filters -->
-                    <div class="flex gap-3">
+                    <div class="flex gap-2 sm:gap-3">
                         <div class="flex-1 relative group">
-                            <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant/40 group-focus-within:text-primary transition-colors">search</span>
-                            <input id="pos-search-input" class="w-full pl-12 pr-4 py-3.5 bg-white border border-outline-variant/30 rounded-xl shadow-sm focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm placeholder:text-on-surface-variant/40" placeholder="Buscar producto por nombre o código..." type="text"/>
+                            <span class="material-symbols-outlined absolute left-3.5 sm:left-4 top-1/2 -translate-y-1/2 text-on-surface-variant/40 group-focus-within:text-primary transition-colors">search</span>
+                            <input id="pos-search-input" class="w-full pl-10 sm:pl-12 pr-4 py-2.5 sm:py-3.5 bg-white border border-outline-variant/30 rounded-xl shadow-sm focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-xs sm:text-sm placeholder:text-on-surface-variant/40" placeholder="Buscar producto por nombre o código..." type="text"/>
                         </div>
-                        <button class="bg-white border border-outline-variant/30 p-3.5 rounded-xl shadow-sm text-on-surface-variant hover:bg-primary-container hover:text-on-primary-container transition-all">
+                        <button class="bg-white border border-outline-variant/30 p-2.5 sm:p-3.5 rounded-xl shadow-sm text-on-surface-variant hover:bg-primary-container hover:text-on-primary-container transition-all">
                             <span class="material-symbols-outlined">barcode_scanner</span>
                         </button>
                     </div>
                     <!-- Category Quick Bar -->
-                    <div id="pos-categories-container" class="flex gap-2 overflow-x-auto pb-2 hide-scrollbar">
-                        <button class="whitespace-nowrap px-6 py-2.5 rounded-full bg-primary text-on-primary text-xs font-bold shadow-md shadow-primary/20 transition-all">Todos</button>
-                        <button class="whitespace-nowrap px-6 py-2.5 rounded-full bg-white text-on-surface-variant text-xs font-semibold border border-outline-variant/30 hover:border-primary/50 hover:text-primary transition-all">Panadería</button>
-                        <button class="whitespace-nowrap px-6 py-2.5 rounded-full bg-white text-on-surface-variant text-xs font-semibold border border-outline-variant/30 hover:border-primary/50 hover:text-primary transition-all">Lácteos</button>
-                        <button class="whitespace-nowrap px-6 py-2.5 rounded-full bg-white text-on-surface-variant text-xs font-semibold border border-outline-variant/30 hover:border-primary/50 hover:text-primary transition-all">Café Local</button>
-                        <button class="whitespace-nowrap px-6 py-2.5 rounded-full bg-white text-on-surface-variant text-xs font-semibold border border-outline-variant/30 hover:border-primary/50 hover:text-primary transition-all">Bebidas</button>
-                        <button class="whitespace-nowrap px-6 py-2.5 rounded-full bg-white text-on-surface-variant text-xs font-semibold border border-outline-variant/30 hover:border-primary/50 hover:text-primary transition-all">Artesanías</button>
+                    <div id="pos-categories-container" class="flex gap-2 overflow-x-auto pb-1.5 hide-scrollbar shrink-0">
+                        <button class="whitespace-nowrap px-5 py-2 rounded-full bg-primary text-on-primary text-xs font-bold shadow-md shadow-primary/20 transition-all">Todos</button>
                     </div>
-                    <!-- Compact Product Grid -->
-                    <div id="pos-products-grid" class="flex-1 overflow-y-auto pr-2 grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 content-start">
+                    <!-- Compact Product Grid (1 col en móvil, hasta 5 en pantallas grandes) -->
+                    <div id="pos-products-grid" class="flex-1 overflow-y-auto pr-1 sm:pr-2 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3 sm:gap-4 content-start pb-24 lg:pb-4">
                         <!-- Dynamic products will be rendered here by pos.js -->
                     </div>
                 </div>
-                <!-- Right Section: Cart (35%) -->
-                <aside class="flex-[0.35] bg-white rounded-2xl shadow-lg flex flex-col overflow-hidden border border-emerald-900/5 h-full">
-                    <div class="border-b border-outline-variant/10 flex items-center justify-between bg-emerald-50/30 p-4">
+
+                <!-- Botón Flotante para abrir Ticket / Carrito en móviles y tablets (< 1024px) -->
+                <button id="btn-pos-mobile-cart" type="button"
+                    class="lg:hidden fixed bottom-20 right-4 z-40 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-3 rounded-2xl shadow-xl shadow-emerald-600/30 flex items-center gap-2.5 font-extrabold text-xs active:scale-95 transition-all">
+                    <span class="material-symbols-outlined text-lg">shopping_basket</span>
+                    <span>Ticket</span>
+                    <span id="pos-mobile-cart-badge" class="bg-white text-emerald-700 font-black text-[11px] px-2 py-0.5 rounded-full">0</span>
+                    <span id="pos-mobile-cart-total" class="border-l border-emerald-400/50 pl-2 font-black text-xs">$0</span>
+                </button>
+
+                <!-- Backdrop oscuro para el Bottom Sheet del Carrito en < lg -->
+                <div id="pos-cart-backdrop" class="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-40 hidden lg:hidden"></div>
+
+                <!-- Right Section: Cart (Bottom Sheet desplegable en < 1024px, barra lateral fija en lg:) -->
+                <aside id="pos-cart-aside" class="fixed inset-x-0 bottom-0 z-50 max-h-[85dvh] rounded-t-3xl transform translate-y-full transition-transform duration-300 lg:static lg:translate-y-0 lg:max-h-none lg:rounded-2xl lg:flex-[0.35] bg-white shadow-2xl lg:shadow-lg flex flex-col overflow-hidden border border-emerald-900/5 lg:h-full">
+                    <div class="border-b border-outline-variant/10 flex items-center justify-between bg-emerald-50/30 p-3.5 sm:p-4">
                         <div class="flex items-center gap-2.5">
                             <div class="w-8 h-8 rounded-lg bg-primary-container flex items-center justify-center">
                                 <span class="material-symbols-outlined text-on-primary-container text-lg">shopping_basket</span>
                             </div>
-                            <h2 class="font-bold text-on-surface tracking-tight">Nueva Factura</h2>
+                            <h2 class="font-bold text-on-surface tracking-tight text-sm sm:text-base">Nueva Factura</h2>
                         </div>
-                        <button class="p-2 text-error/70 hover:bg-error-container hover:text-on-error-container rounded-lg transition-all">
-                            <span class="material-symbols-outlined text-xl">delete_sweep</span>
-                        </button>
+                        <div class="flex items-center gap-1">
+                            <button id="btn-clear-cart" class="p-2 text-error/70 hover:bg-error-container hover:text-on-error-container rounded-lg transition-all" title="Vaciar Carrito">
+                                <span class="material-symbols-outlined text-xl delete_sweep">delete_sweep</span>
+                            </button>
+                            <button id="btn-close-pos-drawer" type="button" class="lg:hidden p-2 text-slate-500 hover:bg-slate-100 rounded-lg transition-all" title="Cerrar Ticket">
+                                <span class="material-symbols-outlined text-xl">keyboard_arrow_down</span>
+                            </button>
+                        </div>
                     </div>
-                    <div class="px-4 py-3 bg-emerald-50/50 border-b border-outline-variant/10 p-3">
+                    <div class="px-4 py-3 bg-emerald-50/50 border-b border-outline-variant/10">
                         <div class="flex items-center gap-2 mb-2">
                             <span class="material-symbols-outlined text-primary text-sm">person</span>
-                            <span class="text-[11px] font-bold text-emerald-800 uppercase tracking-wider" id="lbl-cliente-actual">Cliente / Facturar a: Consumidor Final</span>
+                            <span class="text-[11px] font-bold text-emerald-800 uppercase tracking-wider truncate" id="lbl-cliente-actual">Cliente / Facturar a: Consumidor Final</span>
                         </div>
                         <div class="flex gap-2 relative">
                             <div class="flex-1 relative">
@@ -661,12 +705,12 @@
                     </div>
                     
                     <!-- Cart Items (Con min-h-0 para flexbox) -->
-                    <div id="cart-items-container" class="flex-1 overflow-y-auto p-4 flex flex-col gap-3 min-h-0">
+                    <div id="cart-items-container" class="flex-1 overflow-y-auto p-3 sm:p-4 flex flex-col gap-2.5 min-h-0">
                         <!-- Productos inyectados por JS -->
                     </div>
                     
                     <!-- Footer Totals -->
-                    <div class="bg-white border-t border-outline-variant/10 flex flex-col gap-4 p-4">
+                    <div class="bg-white border-t border-outline-variant/10 flex flex-col gap-3 sm:gap-4 p-3.5 sm:p-4">
                         <div class="flex flex-col gap-1">
                             <div class="flex justify-between text-xs font-medium text-on-surface-variant">
                                 <span>Subtotal</span>
@@ -676,18 +720,18 @@
                                 <span>IVA (0%)</span>
                                 <span class="font-semibold text-on-surface">$0</span>
                             </div>
-                            <div class="mt-3 pt-3 border-t-2 border-dashed border-outline-variant/20">
+                            <div class="mt-2 pt-2.5 border-t-2 border-dashed border-outline-variant/20">
                                 <div class="flex justify-between items-end">
                                     <span class="text-xs font-black text-on-surface-variant uppercase tracking-wider">Total a Cobrar</span>
-                                    <span class="text-3xl font-black text-primary leading-none" id="total-amount">$0</span>
+                                    <span class="text-2xl sm:text-3xl font-black text-primary leading-none" id="total-amount">$0</span>
                                 </div>
                             </div>
                         </div>
-                        <div class="flex gap-3 mt-2">
-                            <button class="p-4 bg-surface-container-high text-on-surface rounded-xl hover:bg-surface-container-highest transition-all">
+                        <div class="flex gap-2.5 sm:gap-3 mt-1">
+                            <button class="p-3 sm:p-4 bg-surface-container-high text-on-surface rounded-xl hover:bg-surface-container-highest transition-all">
                                 <span class="material-symbols-outlined">print</span>
                             </button>
-                            <button id="btn-checkout" class="flex-1 py-4 bg-primary text-on-primary rounded-xl font-black text-base shadow-lg shadow-primary/30 active:scale-[0.98] transition-all flex items-center justify-center gap-2">
+                            <button id="btn-checkout" class="flex-1 py-3 sm:py-4 bg-primary text-on-primary rounded-xl font-black text-sm sm:text-base shadow-lg shadow-primary/30 active:scale-[0.98] transition-all flex items-center justify-center gap-2">
                                 <span class="material-symbols-outlined">payments</span>
                                 COBRAR / CHARGE
                             </button>
@@ -768,7 +812,7 @@
                     </div>
 
                     <!-- Product Grid (Instagram Style) -->
-                    <div id="storefront-grid" class="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 lg:gap-6">
+                    <div id="storefront-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
                         <!-- Cards will be injected here -->
                     </div>
                 </div>
@@ -867,18 +911,18 @@
     </div>
 
 
-    <div class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
+    <div class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-3 sm:p-4"
         id="modal-overlay">
         <div
-            class="bg-surface-container-lowest w-full max-w-xl max-h-[90vh] flex flex-col rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
-            <div class="px-6 sm:px-8 py-5 border-b border-surface-container flex items-center justify-between shrink-0 bg-surface-container-lowest">
-                <h3 class="text-xl font-bold text-on-surface">Agregar Nuevo Producto</h3>
+            class="bg-surface-container-lowest w-full max-w-md md:max-w-xl mx-4 md:mx-auto max-h-[90dvh] flex flex-col rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div class="px-4 md:px-8 py-4 md:py-5 border-b border-surface-container flex items-center justify-between shrink-0 bg-surface-container-lowest">
+                <h3 class="text-lg md:text-xl font-bold text-on-surface">Agregar Nuevo Producto</h3>
                 <button
                     class="material-symbols-outlined text-on-surface-variant hover:text-on-surface transition-colors"
                     data-icon="close" id="btn-close-modal">close</button>
             </div>
             <form id="add-product-form" class="flex flex-col flex-1 min-h-0 overflow-hidden">
-                <div class="flex-1 overflow-y-auto px-6 sm:px-8 py-6 grid grid-cols-1 gap-5">
+                <div class="flex-1 overflow-y-auto p-4 md:p-8 grid grid-cols-1 gap-4 md:gap-5">
                     <div>
                         <label class="block text-sm font-bold text-on-surface-variant mb-2">Nombre del Producto</label>
                         <input id="reg-prod-nombre"
@@ -968,19 +1012,19 @@
     </div>
 
     <!-- Edit Modal -->
-    <div class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
+    <div class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-3 sm:p-4"
         id="edit-modal-overlay">
         <div
-            class="bg-surface-container-lowest w-full max-w-lg max-h-[90vh] flex flex-col rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
-            <div class="px-6 sm:px-8 py-5 border-b border-surface-container flex items-center justify-between shrink-0 bg-surface-container-lowest">
-                <h3 class="text-xl font-bold text-on-surface">Editar Producto</h3>
+            class="bg-surface-container-lowest w-full max-w-md md:max-w-lg mx-4 md:mx-auto max-h-[90dvh] flex flex-col rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div class="px-4 md:px-8 py-4 md:py-5 border-b border-surface-container flex items-center justify-between shrink-0 bg-surface-container-lowest">
+                <h3 class="text-lg md:text-xl font-bold text-on-surface">Editar Producto</h3>
                 <button
                     class="material-symbols-outlined text-on-surface-variant hover:text-on-surface transition-colors"
                     data-icon="close" id="btn-close-edit-modal">close</button>
             </div>
             <form id="edit-product-form" class="flex flex-col flex-1 min-h-0 overflow-hidden">
                 <input type="hidden" id="edit-prod-id" />
-                <div class="flex-1 overflow-y-auto px-6 sm:px-8 py-6 grid grid-cols-1 gap-5">
+                <div class="flex-1 overflow-y-auto p-4 md:p-8 grid grid-cols-1 gap-4 md:gap-5">
                     <div>
                         <label class="block text-sm font-bold text-on-surface-variant mb-2">Nombre del Producto</label>
                         <input id="edit-prod-nombre"
@@ -1046,7 +1090,7 @@
 
     <!-- Factura Modal -->
     <div class="hidden fixed inset-0 z-[100] flex items-center justify-center bg-zinc-950/80 backdrop-blur-sm p-4" id="modal-factura">
-        <div class="bg-white dark:bg-zinc-100 w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] transform transition-all animate-in fade-in zoom-in duration-300 relative">
+        <div class="bg-white dark:bg-zinc-100 w-full max-w-md mx-4 md:mx-auto rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90dvh] transform transition-all animate-in fade-in zoom-in duration-300 relative">
             <button onclick="imprimirTicket()" class="print-btn absolute top-4 right-4 w-8 h-8 flex items-center justify-center bg-zinc-200 text-zinc-700 hover:bg-zinc-300 rounded-full transition-colors z-10" title="Imprimir Ticket">
                 <span class="material-symbols-outlined text-[16px]">print</span>
             </button>
@@ -1113,12 +1157,12 @@
 
     <!-- Client Quick Create Modal -->
     <div class="hidden fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" id="client-modal-overlay">
-        <div class="bg-surface-container-lowest w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
-            <div class="px-6 py-5 border-b border-surface-container flex items-center justify-between">
+        <div class="bg-surface-container-lowest w-full max-w-md mx-4 md:mx-auto max-h-[90dvh] overflow-y-auto rounded-2xl shadow-2xl animate-in fade-in zoom-in duration-200">
+            <div class="px-4 md:px-6 py-4 md:py-5 border-b border-surface-container flex items-center justify-between">
                 <h3 class="text-lg font-bold text-on-surface">Nuevo Cliente</h3>
                 <button class="material-symbols-outlined text-on-surface-variant hover:text-on-surface transition-colors" id="btn-close-client-modal">close</button>
             </div>
-            <form id="add-client-form" class="p-6 space-y-4">
+            <form id="add-client-form" class="p-4 md:p-6 space-y-4">
                 <div>
                     <label class="block text-xs font-bold text-on-surface-variant mb-1">Nombre Completo</label>
                     <input id="new-client-name" class="w-full px-3 py-2 bg-surface-container-low border-none rounded-lg focus:ring-2 focus:ring-primary text-sm" placeholder="Ej. Juan Pérez" type="text" required />

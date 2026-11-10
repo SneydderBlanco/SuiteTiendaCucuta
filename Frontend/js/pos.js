@@ -92,6 +92,22 @@ document.addEventListener('DOMContentLoaded', () => {
     setupEventListeners();
 });
 
+function openPosMobileCart() {
+    const cartAside = document.getElementById('pos-cart-aside');
+    const backdrop = document.getElementById('pos-cart-backdrop');
+    if (cartAside) cartAside.classList.remove('translate-y-full');
+    if (backdrop) backdrop.classList.remove('hidden');
+}
+
+function closePosMobileCart() {
+    const cartAside = document.getElementById('pos-cart-aside');
+    const backdrop = document.getElementById('pos-cart-backdrop');
+    if (cartAside) cartAside.classList.add('translate-y-full');
+    if (backdrop) backdrop.classList.add('hidden');
+}
+window.openPosMobileCart = openPosMobileCart;
+window.closePosMobileCart = closePosMobileCart;
+
 function setupEventListeners() {
     let btnClearCart = document.getElementById('btn-clear-cart');
     if (!btnClearCart) {
@@ -102,10 +118,27 @@ function setupEventListeners() {
         btnClearCart.addEventListener('click', clearCart);
     }
 
+    const btnMobileCart = document.getElementById('btn-pos-mobile-cart');
+    const btnCloseDrawer = document.getElementById('btn-close-pos-drawer');
+    const posBackdrop = document.getElementById('pos-cart-backdrop');
+
+    if (btnMobileCart) {
+        btnMobileCart.addEventListener('click', openPosMobileCart);
+    }
+    if (btnCloseDrawer) {
+        btnCloseDrawer.addEventListener('click', closePosMobileCart);
+    }
+    if (posBackdrop) {
+        posBackdrop.addEventListener('click', closePosMobileCart);
+    }
+
     const buttons = document.querySelectorAll('button');
     const btnCheckout = Array.from(buttons).find(b => b.textContent.includes('COBRAR / CHARGE'));
     if (btnCheckout) {
-        btnCheckout.addEventListener('click', processCheckout);
+        btnCheckout.addEventListener('click', () => {
+            closePosMobileCart();
+            processCheckout();
+        });
     }
 
     const searchInput = document.getElementById('pos-search-input');
@@ -541,12 +574,19 @@ function updateTotals() {
     const totalEl = document.getElementById('total-amount') || document.getElementById('pos-total');
 
     const subtotal = cart.reduce((sum, item) => sum + (item.precio_venta * item.quantity), 0);
+    const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
     const tax = 0; // Se puede calcular el IVA aquí si es necesario (ej: subtotal * 0.19)
     const total = subtotal + tax;
 
     if (subtotalEl) subtotalEl.textContent = Utils.formatCurrency(subtotal);
     if (taxEl) taxEl.textContent = Utils.formatCurrency(tax);
     if (totalEl) totalEl.textContent = Utils.formatCurrency(total);
+
+    // Actualizar botón flotante móvil del Ticket (Bottom Sheet trigger)
+    const mobileBadge = document.getElementById('pos-mobile-cart-badge');
+    const mobileTotal = document.getElementById('pos-mobile-cart-total');
+    if (mobileBadge) mobileBadge.textContent = String(totalItems);
+    if (mobileTotal) mobileTotal.textContent = Utils.formatCurrency(total);
 }
 
 function processCheckout() {

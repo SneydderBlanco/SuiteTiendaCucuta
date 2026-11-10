@@ -52,6 +52,43 @@ document.addEventListener("DOMContentLoaded", () => {
     const activeClasses = ['text-[#006c49]', 'dark:text-[#10b981]', 'font-bold', 'border-r-4', 'border-[#006c49]', 'dark:border-[#10b981]', 'bg-[#10b981]/5', 'translate-x-1'];
     const inactiveClasses = ['text-[#3c4a42]', 'dark:text-gray-500'];
 
+    const tenderoSidebar = document.getElementById("tendero-sidebar");
+    const mobileSidebarBackdrop = document.getElementById("mobile-sidebar-backdrop");
+    const btnMobileMenu = document.getElementById("btn-mobile-menu");
+    const btnMobileMoreNav = document.getElementById("btn-mobile-more-nav");
+
+    function openMobileSidebar() {
+        if (!tenderoSidebar) return;
+        tenderoSidebar.classList.remove("hidden");
+        tenderoSidebar.classList.add("flex");
+        if (mobileSidebarBackdrop) mobileSidebarBackdrop.classList.remove("hidden");
+    }
+
+    function closeMobileSidebar() {
+        if (!tenderoSidebar) return;
+        if (window.innerWidth < 768) {
+            tenderoSidebar.classList.add("hidden");
+            tenderoSidebar.classList.remove("flex");
+        }
+        if (mobileSidebarBackdrop) mobileSidebarBackdrop.classList.add("hidden");
+    }
+
+    if (btnMobileMenu) {
+        btnMobileMenu.addEventListener("click", () => {
+            if (tenderoSidebar && tenderoSidebar.classList.contains("hidden")) {
+                openMobileSidebar();
+            } else {
+                closeMobileSidebar();
+            }
+        });
+    }
+    if (btnMobileMoreNav) {
+        btnMobileMoreNav.addEventListener("click", () => openMobileSidebar());
+    }
+    if (mobileSidebarBackdrop) {
+        mobileSidebarBackdrop.addEventListener("click", () => closeMobileSidebar());
+    }
+
     function switchTabTo(activeNav, activeView) {
         const allNavs = [navDashboard, navInventario, navReportes, navVentas, navHistorial, navMiTienda, navVitrina, navConfiguracion];
         const allViews = [vistaDashboard, vistaInventario, vistaReportes, vistaVentas, vistaHistorial, vistaMiTienda, vistaVitrina, vistaConfiguracion];
@@ -64,6 +101,19 @@ document.addEventListener("DOMContentLoaded", () => {
             } else {
                 nav.classList.remove(...activeClasses);
                 nav.classList.add(...inactiveClasses);
+            }
+        });
+
+        // Sincronizar estado activo de la barra inferior móvil (Bottom Nav)
+        const mobileNavBtns = document.querySelectorAll("[data-mobile-nav]");
+        mobileNavBtns.forEach(btn => {
+            const targetId = btn.getAttribute("data-mobile-nav");
+            if (activeNav && activeNav.id === targetId) {
+                btn.classList.remove("text-slate-500");
+                btn.classList.add("text-emerald-700");
+            } else {
+                btn.classList.remove("text-emerald-700");
+                btn.classList.add("text-slate-500");
             }
         });
 
@@ -81,7 +131,18 @@ document.addEventListener("DOMContentLoaded", () => {
                 }
             }
         });
+
+        closeMobileSidebar();
     }
+
+    // Conectar botones del Bottom Nav móvil con los enlaces principales
+    document.querySelectorAll("[data-mobile-nav]").forEach(btn => {
+        btn.addEventListener("click", () => {
+            const targetId = btn.getAttribute("data-mobile-nav");
+            const targetLink = document.getElementById(targetId);
+            if (targetLink) targetLink.click();
+        });
+    });
 
     if (navDashboard && navInventario && navReportes && navVentas && navHistorial && navMiTienda) {
         navDashboard.addEventListener("click", () => switchTabTo(navDashboard, vistaDashboard));

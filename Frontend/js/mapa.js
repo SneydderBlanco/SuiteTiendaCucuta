@@ -165,7 +165,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
             // 5.3 Crear Elemento DOM en la Lista Lateral Izquierda
             const item = document.createElement("div");
-            item.className = "group bg-white hover:bg-emerald-50/40 p-4.5 rounded-2xl border border-slate-100 hover:border-emerald-100 transition-all duration-300 flex gap-3 cursor-pointer relative overflow-hidden select-none";
+            item.className = "group bg-white hover:bg-emerald-50/40 p-3.5 sm:p-4 rounded-2xl border border-slate-100 hover:border-emerald-100 transition-all duration-300 flex gap-3 cursor-pointer relative overflow-hidden select-none snap-center min-w-[260px] sm:min-w-[280px] lg:min-w-0 shrink-0";
             
             const logoUrl = tienda.logo_url 
                 ? (tienda.logo_url.startsWith('http') ? tienda.logo_url : `${window.API_URL}${tienda.logo_url}`)
