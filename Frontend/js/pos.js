@@ -484,7 +484,7 @@ function updateCartUI() {
 
     cart.forEach(item => {
         const div = document.createElement('div');
-        div.className = 'p-3 bg-slate-50/90 hover:bg-slate-100/80 border border-slate-200/70 rounded-xl flex items-center gap-3 transition-colors';
+        div.className = 'p-2.5 bg-slate-50/90 hover:bg-slate-100/80 border border-slate-200/70 rounded-xl flex gap-3 transition-colors';
 
         const imgUrl = resolvePosProductImage(item.imagen_url);
         const unidadLabel = item.unidad || item.unidad_medida || 'Unidad';
@@ -492,34 +492,41 @@ function updateCartUI() {
         const nombreConPresentacion = `${item.nombre} - ${unidadLabel}`;
 
         div.innerHTML = `
-            <div class="w-12 h-12 rounded-xl overflow-hidden bg-white border border-slate-200/60 shrink-0 shadow-xs">
-                <img src="${imgUrl}"
-                    alt="${item.nombre}"
-                    onerror="this.onerror=null;this.src='${POS_PRODUCT_PLACEHOLDER}';"
-                    class="w-full h-full object-cover"/>
+            <!-- Imagen (Ligeramente más pequeña) -->
+            <div class="w-10 h-10 rounded-lg overflow-hidden bg-white border border-slate-200/60 shrink-0 shadow-xs">
+                <img src="${imgUrl}" alt="${item.nombre}" onerror="this.onerror=null;this.src='${POS_PRODUCT_PLACEHOLDER}';" class="w-full h-full object-cover"/>
             </div>
-            <div class="flex-1 min-w-0">
-                <p class="text-xs font-extrabold text-slate-800 truncate" title="${nombreConPresentacion}">
-                    ${item.nombre} <span class="text-emerald-700 font-bold">- ${unidadLabel}</span>
-                </p>
-                <div class="flex items-center gap-1.5 mt-0.5">
-                    <span class="inline-block text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/60 px-1.5 py-0.2 rounded">${unidadLabel}</span>
-                    <span class="text-[11px] font-semibold text-slate-500">${Utils.formatCurrency(item.precio_venta)} c/u</span>
+            
+            <!-- Contenido Principal -->
+            <div class="flex-1 flex flex-col min-w-0 justify-center">
+                <!-- Fila 1: Nombre y Total -->
+                <div class="flex justify-between items-start gap-2">
+                    <p class="text-[11px] font-extrabold text-slate-800 leading-tight line-clamp-2" title="${nombreConPresentacion}">
+                        ${item.nombre} <span class="text-emerald-700">- ${unidadLabel}</span>
+                    </p>
+                    <p class="text-xs font-black text-emerald-800 shrink-0 mt-0.5">
+                        ${Utils.formatCurrency(item.precio_venta * item.quantity)}
+                    </p>
                 </div>
-            </div>
-            <div class="flex items-center bg-white rounded-xl p-1 border border-slate-200 shadow-xs shrink-0">
-                <button type="button" onclick="updateQuantity('${escapedKey}', -1)"
-                    class="w-7 h-7 flex items-center justify-center text-slate-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all font-bold">
-                    <span class="material-symbols-outlined text-base">remove</span>
-                </button>
-                <span class="w-7 text-center text-xs font-black text-slate-800">${item.quantity}</span>
-                <button type="button" onclick="updateQuantity('${escapedKey}', 1)"
-                    class="w-7 h-7 flex items-center justify-center text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all font-bold">
-                    <span class="material-symbols-outlined text-base">add</span>
-                </button>
-            </div>
-            <div class="text-right min-w-[72px] shrink-0">
-                <p class="text-xs font-black text-emerald-800">${Utils.formatCurrency(item.precio_venta * item.quantity)}</p>
+                
+                <!-- Fila 2: Precio unitario y Controles de Cantidad -->
+                <div class="flex justify-between items-end mt-1.5 gap-2">
+                    <div class="flex flex-wrap items-center gap-1.5 min-w-0">
+                        <span class="inline-block text-[9px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/60 px-1 py-0.5 rounded leading-none">${unidadLabel}</span>
+                        <span class="text-[10px] font-semibold text-slate-500 truncate">${Utils.formatCurrency(item.precio_venta)} c/u</span>
+                    </div>
+                    
+                    <!-- Botones de Cantidad (Más compactos) -->
+                    <div class="flex items-center bg-white rounded-lg p-0.5 border border-slate-200 shadow-xs shrink-0">
+                        <button type="button" onclick="updateQuantity('${escapedKey}', -1)" class="w-6 h-6 flex items-center justify-center text-slate-600 hover:text-red-600 hover:bg-red-50 rounded-md transition-all font-bold">
+                            <span class="material-symbols-outlined text-[14px]">remove</span>
+                        </button>
+                        <span class="w-6 text-center text-[11px] font-black text-slate-800">${item.quantity}</span>
+                        <button type="button" onclick="updateQuantity('${escapedKey}', 1)" class="w-6 h-6 flex items-center justify-center text-emerald-600 hover:bg-emerald-50 rounded-md transition-all font-bold">
+                            <span class="material-symbols-outlined text-[14px]">add</span>
+                        </button>
+                    </div>
+                </div>
             </div>
         `;
         cartContainer.appendChild(div);
