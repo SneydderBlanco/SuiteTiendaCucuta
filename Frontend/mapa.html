@@ -35,14 +35,14 @@
 <body class="bg-slate-50 text-slate-800 font-body antialiased h-[100dvh] overflow-hidden flex flex-col">
     <!-- Cabecera / Navbar -->
     <header class="fixed top-0 left-0 w-full z-50 bg-slate-50/90 backdrop-blur-2xl border-b border-slate-100">
-        <nav class="flex justify-between items-center gap-2 w-full px-3 sm:px-6 py-2.5 sm:py-3.5 max-w-screen-2xl mx-auto">
+        <nav class="flex justify-between items-center gap-2.5 w-full px-4 sm:px-6 lg:px-12 py-3.5 sm:py-4 max-w-screen-2xl mx-auto">
             <a href="index.html" class="flex items-center gap-1.5 sm:gap-2 select-none min-w-0">
-                <span class="material-symbols-outlined text-emerald-600 text-2xl sm:text-3xl shrink-0">storefront</span>
-                <span class="text-sm sm:text-xl font-bold tracking-tighter text-slate-900 font-headline truncate">Tienda Digital Cúcuta</span>
+                <span class="material-symbols-outlined text-emerald-600 text-[24px] sm:text-3xl shrink-0">storefront</span>
+                <span class="text-lg md:text-xl font-extrabold tracking-tight text-slate-900 font-headline truncate">Tienda Digital Cúcuta</span>
             </a>
             <div class="flex items-center gap-2.5 sm:gap-6 shrink-0">
-                <a class="text-xs sm:text-sm text-slate-600 hover:text-emerald-700 font-bold transition-colors flex items-center gap-1" href="index.html">
-                    <span class="material-symbols-outlined text-[16px]">arrow_back</span>
+                <a class="text-sm sm:text-base text-slate-600 hover:text-emerald-700 font-extrabold transition-colors flex items-center gap-1.5 py-1.5 px-2 rounded-lg active:bg-slate-100" href="index.html">
+                    <span class="material-symbols-outlined text-[20px] sm:text-[22px]">arrow_back</span>
                     <span>Inicio</span>
                 </a>
                 <div class="relative flex items-center">
@@ -63,7 +63,7 @@
     </header>
 
     <!-- Contenido del Mapa Interactivo (Sin scroll vertical tedioso en móvil: Vista Fija Split + Bottom Sheet) -->
-    <main class="flex-1 pt-14 sm:pt-16 px-2.5 sm:px-6 pb-2.5 sm:pb-5 max-w-screen-2xl w-full mx-auto flex flex-col lg:flex-row gap-2.5 sm:gap-5 min-h-0 overflow-hidden">
+    <main class="flex-1 pt-16 sm:pt-20 px-2.5 sm:px-6 pb-2.5 sm:pb-5 max-w-screen-2xl w-full mx-auto flex flex-col lg:flex-row gap-2.5 sm:gap-5 min-h-0 overflow-hidden">
         
         <!-- Buscador Móvil Compacto (visible arriba del mapa en < lg) -->
         <div class="lg:hidden bg-white rounded-2xl px-3 py-2 border border-slate-100 shadow-xs shrink-0 flex items-center gap-2">
