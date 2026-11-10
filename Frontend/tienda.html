@@ -107,36 +107,36 @@
         </section>
 
         <!-- Product Catalog Section -->
-        <section class="max-w-6xl mx-auto px-6 mt-12">
+        <section class="max-w-6xl mx-auto px-3 sm:px-6 mt-8 sm:mt-12">
             <!-- Vitrina de Ofertas Diarias (Ocupa ancho completo superior) -->
-            <div id="vitrina-ofertas-container" class="hidden mb-12">
-                <div class="flex items-center gap-2 mb-6">
-                    <span class="material-symbols-outlined text-orange-500 animate-pulse text-3xl">auto_awesome</span>
-                    <h3 class="text-2xl font-black text-slate-800 tracking-tight">Vitrina de Ofertas Diarias</h3>
+            <div id="vitrina-ofertas-container" class="hidden mb-8 sm:mb-12">
+                <div class="flex items-center gap-2 mb-4 sm:mb-6">
+                    <span class="material-symbols-outlined text-orange-500 animate-pulse text-2xl sm:text-3xl">auto_awesome</span>
+                    <h3 class="text-xl sm:text-2xl font-black text-slate-800 tracking-tight">Vitrina de Ofertas Diarias</h3>
                     <span class="bg-red-50 text-red-600 font-extrabold text-[10px] px-2.5 py-1 rounded-full border border-red-100 uppercase tracking-wide">¡Solo por hoy!</span>
                 </div>
-                <div id="vitrina-ofertas-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div id="vitrina-ofertas-grid" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2.5 sm:gap-5">
                     <!-- Las ofertas se inyectan dinámicamente -->
                 </div>
             </div>
 
             <!-- Filter Bar & Search -->
-            <div class="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8 bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-6 mb-5 sm:mb-8 bg-white p-3.5 sm:p-5 rounded-2xl border border-slate-100 shadow-sm">
                 <!-- Search input -->
                 <div class="relative w-full md:max-w-md">
-                    <span class="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-xl">search</span>
-                    <input id="prod-search-input" class="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200/80 rounded-xl focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 focus:bg-white outline-none text-sm transition-all text-slate-800" placeholder="Buscar productos en esta tienda..." type="text">
+                    <span class="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-lg sm:text-xl">search</span>
+                    <input id="prod-search-input" class="w-full pl-10 sm:pl-11 pr-4 py-2.5 sm:py-3 bg-slate-50 border border-slate-200/80 rounded-xl focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 focus:bg-white outline-none text-xs sm:text-sm transition-all text-slate-800" placeholder="Buscar productos en esta tienda..." type="text">
                 </div>
 
                 <!-- Categories Quick Pills -->
                 <div id="categories-container" class="flex items-center gap-2 overflow-x-auto pb-1 md:pb-0 scrollbar-none">
-                    <button class="cat-filter-btn px-4 py-2 bg-emerald-600 text-white font-bold rounded-xl text-xs transition-all shadow-md shadow-emerald-600/10 shrink-0" data-category="all">Todos</button>
+                    <button class="cat-filter-btn px-3.5 sm:px-4 py-1.5 sm:py-2 bg-emerald-600 text-white font-bold rounded-xl text-xs transition-all shadow-md shadow-emerald-600/10 shrink-0" data-category="all">Todos</button>
                     <!-- Categories injected here -->
                 </div>
             </div>
 
-            <!-- Product Grid (Mobile-First: 1 col en móvil hasta 5 en xl) -->
-            <div id="store-products-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+            <!-- Product Grid (Compacto: 2 columnas en móvil, hasta 5 en pantallas grandes) -->
+            <div id="store-products-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2.5 sm:gap-4">
                 <!-- Product cards injected here -->
                 <div class="col-span-full py-12 text-center text-slate-400">
                     <span class="material-symbols-outlined text-4xl animate-spin text-emerald-500 mb-2">sync</span>
@@ -626,25 +626,25 @@
                     if (qty > 0) {
                         actionBtnHTML = `
                             <div class="flex items-center bg-emerald-50 rounded-full border border-emerald-200/50 p-0.5 shadow-sm" onclick="event.stopPropagation();">
-                                <button onclick="actualizarCantidadVarianteClick(${prod.id_producto}, -1, event)" class="w-6 h-6 rounded-full bg-white hover:bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold transition-colors">
-                                    <span class="material-symbols-outlined text-[14px]">remove</span>
+                                <button onclick="actualizarCantidadVarianteClick(${prod.id_producto}, -1, event)" class="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-white hover:bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold transition-colors">
+                                    <span class="material-symbols-outlined text-[12px] sm:text-[14px]">remove</span>
                                 </button>
-                                <span id="qty-badge-${prod.id_producto}" class="px-2 text-xs font-black text-emerald-800 min-w-[12px] text-center">${qty}</span>
-                                <button onclick="actualizarCantidadVarianteClick(${prod.id_producto}, 1, event)" class="w-6 h-6 rounded-full bg-emerald-600 text-white hover:bg-emerald-500 flex items-center justify-center font-bold transition-colors">
-                                    <span class="material-symbols-outlined text-[14px]">add</span>
+                                <span id="qty-badge-${prod.id_producto}" class="px-1.5 text-[11px] sm:text-xs font-black text-emerald-800 min-w-[12px] text-center">${qty}</span>
+                                <button onclick="actualizarCantidadVarianteClick(${prod.id_producto}, 1, event)" class="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-emerald-600 text-white hover:bg-emerald-500 flex items-center justify-center font-bold transition-colors">
+                                    <span class="material-symbols-outlined text-[12px] sm:text-[14px]">add</span>
                                 </button>
                             </div>
                         `;
                     } else {
                         actionBtnHTML = `
-                            <button onclick="agregarPresentacionSeleccionadaClick(${prod.id_producto}, event)" class="w-8 h-8 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white flex items-center justify-center transition-all duration-300 shadow hover:scale-110 active:scale-95 cursor-pointer" title="Añadir al carrito">
-                                <span class="material-symbols-outlined text-[18px]">add</span>
+                            <button onclick="agregarPresentacionSeleccionadaClick(${prod.id_producto}, event)" class="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white flex items-center justify-center transition-all duration-300 shadow hover:scale-110 active:scale-95 cursor-pointer" title="Añadir al carrito">
+                                <span class="material-symbols-outlined text-[16px] sm:text-[18px]">add</span>
                             </button>
                         `;
                     }
                 } else {
                     actionBtnHTML = `
-                        <span class="text-xs font-bold text-red-500 uppercase tracking-wider">Agotado</span>
+                        <span class="text-[10px] font-bold text-red-500 uppercase tracking-wider">Agotado</span>
                     `;
                 }
 
@@ -655,10 +655,10 @@
                         <option value="${idx}" ${idx === selectedIdx ? 'selected' : ''}>${pres.unidad}</option>
                     `).join('');
                     presentacionSelectorHTML = `
-                        <div class="mb-1.5" onclick="event.stopPropagation();">
+                        <div class="mb-1" onclick="event.stopPropagation();">
                             <select
                                 onchange="cambiarPresentacionProducto(${prod.id_producto}, this.value, event)"
-                                class="w-full max-w-[140px] text-[11px] font-bold text-emerald-800 bg-emerald-50/90 hover:bg-emerald-100/80 border border-emerald-200 rounded-lg px-2.5 py-1 pr-6 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none cursor-pointer transition-all">
+                                class="w-full text-[10px] sm:text-[11px] font-bold text-emerald-800 bg-emerald-50/90 hover:bg-emerald-100/80 border border-emerald-200 rounded-md px-2 py-0.5 pr-5 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none cursor-pointer transition-all truncate">
                                 ${optionsHTML}
                             </select>
                         </div>
@@ -666,7 +666,7 @@
                 } else {
                     presentacionSelectorHTML = `
                         <div class="mb-1">
-                            <span class="inline-block text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">
+                            <span class="inline-block text-[9px] sm:text-[10px] font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded truncate max-w-full">
                                 ${currentVariant.unidad || 'Unidad'}
                             </span>
                         </div>
@@ -677,52 +677,54 @@
                 if (activeOffer && selectedIdx === 0) {
                     priceHTML = `
                         <div class="flex flex-col" id="price-container-${prod.id_producto}">
-                            <span class="text-[10px] text-slate-400 line-through leading-tight">${Utils.formatCurrency(currentVariant.precio)}</span>
-                            <span id="price-display-${prod.id_producto}" class="text-sm font-extrabold text-emerald-600 leading-tight">${Utils.formatCurrency(activeOffer.precio_oferta)}</span>
+                            <span class="text-[9px] text-slate-400 line-through leading-tight">${Utils.formatCurrency(currentVariant.precio)}</span>
+                            <span id="price-display-${prod.id_producto}" class="text-xs sm:text-sm font-extrabold text-emerald-600 leading-tight">${Utils.formatCurrency(activeOffer.precio_oferta)}</span>
                         </div>
                     `;
                 } else {
                     priceHTML = `
                         <div id="price-container-${prod.id_producto}">
-                            <span id="price-display-${prod.id_producto}" class="text-base font-extrabold text-slate-800">${Utils.formatCurrency(currentVariant.precio)}</span>
+                            <span id="price-display-${prod.id_producto}" class="text-xs sm:text-base font-extrabold text-slate-800 leading-tight">${Utils.formatCurrency(currentVariant.precio)}</span>
                         </div>
                     `;
                 }
 
                 card.innerHTML = `
-                    <!-- Product Image -->
-                    <div class="aspect-square bg-slate-50 relative overflow-hidden flex items-center justify-center">
-                        <img src="${imgUrl}" onerror="this.onerror=null;this.src=window.DEFAULT_PRODUCT_PLACEHOLDER;" class="object-cover w-full h-full group-hover:scale-105 transition-transform duration-500" alt="${prod.nombre}">
+                    <!-- Product Image (Compacta para ver varios productos en pantalla móvil) -->
+                    <div class="h-28 sm:h-36 w-full bg-slate-50 relative overflow-hidden flex items-center justify-center p-1.5 border-b border-slate-50">
+                        <img src="${imgUrl}" onerror="this.onerror=null;this.src=window.DEFAULT_PRODUCT_PLACEHOLDER;" class="object-contain w-full h-full group-hover:scale-105 transition-transform duration-300" alt="${prod.nombre}">
                         
                         <!-- Category Tag -->
-                        <span class="absolute top-3 left-3 bg-white/95 backdrop-blur-sm text-[9px] font-black text-slate-700 uppercase tracking-widest px-2.5 py-1 rounded-md shadow-sm border border-slate-100">
+                        <span class="absolute top-2 left-2 bg-white/95 backdrop-blur-sm text-[8px] sm:text-[9px] font-black text-slate-700 uppercase tracking-wider px-1.5 sm:px-2 py-0.5 rounded shadow-xs border border-slate-100 truncate max-w-[75%]">
                             ${prod.categoria || 'General'}
                         </span>
                         
                         <!-- Badge de Oferta -->
                         ${activeOffer 
-                            ? `<span class="absolute top-3 right-3 bg-red-600 text-white text-[8px] font-black uppercase tracking-widest px-2.5 py-1 rounded shadow-sm">Oferta</span>` 
+                            ? `<span class="absolute top-2 right-2 bg-red-600 text-white text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded shadow-xs">Oferta</span>` 
                             : ''
                         }
                     </div>
 
                     <!-- Details -->
-                    <div class="p-4 flex-grow flex flex-col justify-between">
+                    <div class="p-2.5 sm:p-3.5 flex-grow flex flex-col justify-between">
                         <div>
-                            <span class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">${prod.marca || 'Genérico'}</span>
-                            <h3 class="text-sm font-bold text-slate-800 tracking-tight mt-0.5 line-clamp-2 group-hover:text-emerald-700 transition-colors">
+                            <span class="block text-[9px] font-bold text-slate-400 uppercase tracking-wider truncate">${prod.marca || 'Genérico'}</span>
+                            <h3 class="text-xs sm:text-sm font-bold text-slate-800 tracking-tight mt-0.5 line-clamp-1 sm:line-clamp-2 group-hover:text-emerald-700 transition-colors" title="${prod.nombre}">
                                 ${prod.nombre}
                             </h3>
                         </div>
 
-                        <div class="mt-3 pt-3 border-t border-slate-50 flex items-end justify-between gap-2">
-                            <div class="min-w-0 flex-1">
-                                ${presentacionSelectorHTML}
-                                <span class="block text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-none mb-0.5">Precio</span>
-                                ${priceHTML}
-                            </div>
-                            <div id="action-btn-container-${prod.id_producto}" class="shrink-0 flex items-center gap-1.5" onclick="event.stopPropagation();">
-                                ${actionBtnHTML}
+                        <div class="mt-2 pt-2 border-t border-slate-100/80 flex flex-col gap-1.5">
+                            ${presentacionSelectorHTML}
+                            <div class="flex items-end justify-between gap-1">
+                                <div class="min-w-0 flex-1">
+                                    <span class="block text-[8px] font-bold text-slate-400 uppercase tracking-widest leading-none mb-0.5">Precio</span>
+                                    ${priceHTML}
+                                </div>
+                                <div id="action-btn-container-${prod.id_producto}" class="shrink-0 flex items-center" onclick="event.stopPropagation();">
+                                    ${actionBtnHTML}
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -759,19 +761,19 @@
                 if (qty > 0) {
                     actionContainer.innerHTML = `
                         <div class="flex items-center bg-emerald-50 rounded-full border border-emerald-200/50 p-0.5 shadow-sm" onclick="event.stopPropagation();">
-                            <button onclick="actualizarCantidadVarianteClick(${prod.id_producto}, -1, event)" class="w-6 h-6 rounded-full bg-white hover:bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold transition-colors">
-                                <span class="material-symbols-outlined text-[14px]">remove</span>
+                            <button onclick="actualizarCantidadVarianteClick(${prod.id_producto}, -1, event)" class="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-white hover:bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold transition-colors">
+                                <span class="material-symbols-outlined text-[12px] sm:text-[14px]">remove</span>
                             </button>
-                            <span id="qty-badge-${prod.id_producto}" class="px-2 text-xs font-black text-emerald-800 min-w-[12px] text-center">${qty}</span>
-                            <button onclick="actualizarCantidadVarianteClick(${prod.id_producto}, 1, event)" class="w-6 h-6 rounded-full bg-emerald-600 text-white hover:bg-emerald-500 flex items-center justify-center font-bold transition-colors">
-                                <span class="material-symbols-outlined text-[14px]">add</span>
+                            <span id="qty-badge-${prod.id_producto}" class="px-1.5 text-[11px] sm:text-xs font-black text-emerald-800 min-w-[12px] text-center">${qty}</span>
+                            <button onclick="actualizarCantidadVarianteClick(${prod.id_producto}, 1, event)" class="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-emerald-600 text-white hover:bg-emerald-500 flex items-center justify-center font-bold transition-colors">
+                                <span class="material-symbols-outlined text-[12px] sm:text-[14px]">add</span>
                             </button>
                         </div>
                     `;
                 } else {
                     actionContainer.innerHTML = `
-                        <button onclick="agregarPresentacionSeleccionadaClick(${prod.id_producto}, event)" class="w-8 h-8 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white flex items-center justify-center transition-all duration-300 shadow hover:scale-110 active:scale-95 cursor-pointer" title="Añadir al carrito">
-                            <span class="material-symbols-outlined text-[18px]">add</span>
+                        <button onclick="agregarPresentacionSeleccionadaClick(${prod.id_producto}, event)" class="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white flex items-center justify-center transition-all duration-300 shadow hover:scale-110 active:scale-95 cursor-pointer" title="Añadir al carrito">
+                            <span class="material-symbols-outlined text-[16px] sm:text-[18px]">add</span>
                         </button>
                     `;
                 }

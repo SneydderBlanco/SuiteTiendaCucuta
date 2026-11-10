@@ -147,7 +147,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         productosList.forEach(prod => {
             const tiendaId = prod.id_tienda || prod.id_tendero;
             const card = document.createElement("div");
-            card.className = "group bg-white rounded-3xl overflow-hidden shadow-md hover:shadow-xl hover:-translate-y-1 transition-all duration-300 border border-slate-100 flex flex-col cursor-pointer";
+            card.className = "group bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 border border-slate-100 flex flex-col cursor-pointer";
             card.addEventListener("click", () => {
                 window.location.href = `tienda.html?id=${tiendaId}`;
             });
@@ -162,34 +162,34 @@ document.addEventListener("DOMContentLoaded", async () => {
 
             card.innerHTML = `
                 <!-- Imagen del Producto -->
-                <div class="aspect-square w-full bg-slate-50 relative overflow-hidden flex items-center justify-center">
-                    <img src="${imgUrl}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt="${prod.nombre}" onerror="this.src='https://placehold.co/300x300/e2e8f0/475569?text=Producto'">
-                    <span class="absolute top-3 left-3 bg-white/95 backdrop-blur-sm text-[10px] font-black text-slate-700 uppercase tracking-widest px-3 py-1 rounded-full shadow-sm border border-slate-100">
+                <div class="h-28 sm:h-36 w-full bg-slate-50 relative overflow-hidden flex items-center justify-center p-1.5 border-b border-slate-50">
+                    <img src="${imgUrl}" class="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300" alt="${prod.nombre}" onerror="this.src='https://placehold.co/300x300/e2e8f0/475569?text=Producto'">
+                    <span class="absolute top-2 left-2 bg-white/95 backdrop-blur-sm text-[8px] sm:text-[9px] font-black text-slate-700 uppercase tracking-wider px-1.5 sm:px-2 py-0.5 rounded shadow-xs border border-slate-100 truncate max-w-[75%]">
                         ${prod.categoria || 'General'}
                     </span>
                 </div>
 
                 <!-- Contenido del Producto -->
-                <div class="p-6 flex-1 flex flex-col justify-between">
+                <div class="p-2.5 sm:p-4 flex-1 flex flex-col justify-between">
                     <div>
-                        <span class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">${prod.marca || 'Genérico'}</span>
-                        <h3 class="text-lg font-bold text-slate-800 group-hover:text-emerald-600 transition-colors tracking-tight mt-0.5 line-clamp-2">
+                        <span class="block text-[9px] font-bold text-slate-400 uppercase tracking-wider truncate">${prod.marca || 'Genérico'}</span>
+                        <h3 class="text-xs sm:text-sm font-bold text-slate-800 group-hover:text-emerald-600 transition-colors tracking-tight mt-0.5 line-clamp-1 sm:line-clamp-2">
                             ${prod.nombre}
                         </h3>
-                        <p class="text-xl font-extrabold text-emerald-600 mt-2">
+                        <p class="text-sm sm:text-base font-extrabold text-emerald-600 mt-1">
                             ${precioFormateado}
                         </p>
                     </div>
 
                     <!-- Tienda que lo vende -->
-                    <div class="mt-5 pt-4 border-t border-slate-100 flex justify-between items-center text-xs">
-                        <a href="tienda.html?id=${tiendaId}" onclick="event.stopPropagation();" class="flex items-center gap-1.5 text-slate-600 hover:text-emerald-700 font-bold truncate max-w-[65%] transition-colors">
-                            <span class="material-symbols-outlined text-[16px] text-emerald-600 shrink-0">storefront</span>
+                    <div class="mt-2.5 pt-2 border-t border-slate-100 flex justify-between items-center text-[10px] sm:text-xs">
+                        <a href="tienda.html?id=${tiendaId}" onclick="event.stopPropagation();" class="flex items-center gap-1 text-slate-600 hover:text-emerald-700 font-bold truncate max-w-[65%] transition-colors">
+                            <span class="material-symbols-outlined text-[13px] sm:text-[15px] text-emerald-600 shrink-0">storefront</span>
                             <span class="truncate">${prod.nombre_tienda || 'Tienda Local'}</span>
                         </a>
-                        <span class="text-emerald-600 hover:text-emerald-800 group-hover:text-emerald-700 hover:underline underline-offset-4 font-bold flex items-center gap-0.5 group-hover:translate-x-1 transition-all duration-200 shrink-0">
-                            Ir a tienda
-                            <span class="material-symbols-outlined text-xs">arrow_forward</span>
+                        <span class="text-emerald-600 hover:text-emerald-800 group-hover:text-emerald-700 font-bold flex items-center gap-0.5 shrink-0">
+                            Ir
+                            <span class="material-symbols-outlined text-[12px]">arrow_forward</span>
                         </span>
                     </div>
                 </div>

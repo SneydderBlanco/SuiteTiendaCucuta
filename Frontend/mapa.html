@@ -15,9 +15,9 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     
     <style>
-        /* Custom scrollbar for premium aesthetics */
         .premium-scroll::-webkit-scrollbar {
-            width: 6px;
+            width: 5px;
+            height: 5px;
         }
         .premium-scroll::-webkit-scrollbar-track {
             background: transparent;
@@ -32,23 +32,26 @@
     </style>
 </head>
 
-<body class="bg-slate-50 text-slate-800 font-body antialiased min-h-screen flex flex-col">
+<body class="bg-slate-50 text-slate-800 font-body antialiased h-[100dvh] overflow-hidden flex flex-col">
     <!-- Cabecera / Navbar -->
-    <header class="fixed top-0 left-0 w-full z-50 bg-slate-50/80 backdrop-blur-2xl border-b border-slate-100">
-        <nav class="flex flex-wrap justify-between items-center gap-2 w-full px-4 sm:px-6 py-3 sm:py-4 max-w-screen-2xl mx-auto">
-            <a href="index.html" class="flex items-center gap-2 select-none">
-                <span class="material-symbols-outlined text-emerald-600 text-3xl">storefront</span>
-                <span class="text-base sm:text-2xl font-bold tracking-tighter text-slate-900 font-headline whitespace-nowrap">Tienda Digital Cúcuta</span>
+    <header class="fixed top-0 left-0 w-full z-50 bg-slate-50/90 backdrop-blur-2xl border-b border-slate-100">
+        <nav class="flex justify-between items-center gap-2 w-full px-3 sm:px-6 py-2.5 sm:py-3.5 max-w-screen-2xl mx-auto">
+            <a href="index.html" class="flex items-center gap-1.5 sm:gap-2 select-none min-w-0">
+                <span class="material-symbols-outlined text-emerald-600 text-2xl sm:text-3xl shrink-0">storefront</span>
+                <span class="text-sm sm:text-xl font-bold tracking-tighter text-slate-900 font-headline truncate">Tienda Digital Cúcuta</span>
             </a>
-            <div class="flex items-center gap-3 sm:gap-8">
-                <a class="text-xs sm:text-base text-slate-600 hover:text-emerald-700 font-bold transition-colors" href="index.html">Inicio</a>
+            <div class="flex items-center gap-2.5 sm:gap-6 shrink-0">
+                <a class="text-xs sm:text-sm text-slate-600 hover:text-emerald-700 font-bold transition-colors flex items-center gap-1" href="index.html">
+                    <span class="material-symbols-outlined text-[16px]">arrow_back</span>
+                    <span>Inicio</span>
+                </a>
                 <div class="relative flex items-center">
-                    <a id="login-btn" href="login.html" class="inline-block bg-emerald-600 hover:bg-emerald-500 text-white px-3.5 sm:px-6 py-1.5 sm:py-2 rounded-lg text-xs sm:text-base font-bold transition-all shadow-md active:scale-95 cursor-pointer whitespace-nowrap">
+                    <a id="login-btn" href="login.html" class="inline-block bg-emerald-600 hover:bg-emerald-500 text-white px-3 sm:px-5 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-bold transition-all shadow-sm active:scale-95 cursor-pointer whitespace-nowrap">
                         Iniciar Sesión
                     </a>
                     
                     <!-- Menú Desplegable -->
-                    <div id="user-dropdown" class="absolute right-0 top-12 w-48 bg-white rounded-xl shadow-xl border border-slate-100 hidden opacity-0 transition-opacity duration-200 z-50 overflow-hidden">
+                    <div id="user-dropdown" class="absolute right-0 top-11 w-48 bg-white rounded-xl shadow-xl border border-slate-100 hidden opacity-0 transition-opacity duration-200 z-50 overflow-hidden">
                         <button onclick="logout()" class="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-slate-50 hover:text-emerald-600 font-bold flex items-center gap-2 transition-colors">
                             <span class="material-symbols-outlined text-lg">logout</span>
                             Cerrar Sesión
@@ -59,89 +62,118 @@
         </nav>
     </header>
 
-    <!-- Contenido del Mapa Interactivo (3 Columnas) -->
-    <main class="flex-grow pt-24 px-6 pb-6 max-w-screen-2xl w-full mx-auto flex flex-col lg:flex-row gap-6">
+    <!-- Contenido del Mapa Interactivo (Sin scroll vertical tedioso en móvil: Vista Fija Split + Bottom Sheet) -->
+    <main class="flex-1 pt-14 sm:pt-16 px-2.5 sm:px-6 pb-2.5 sm:pb-5 max-w-screen-2xl w-full mx-auto flex flex-col lg:flex-row gap-2.5 sm:gap-5 min-h-0 overflow-hidden">
         
-        <!-- Panel Izquierdo: Buscador y Lista de Tiendas -->
-        <section class="w-full lg:w-80 xl:w-96 flex flex-col bg-white rounded-3xl p-5 border border-slate-100 shadow-sm shrink-0">
-            <h2 class="text-xl font-bold tracking-tight text-slate-900 mb-3 flex items-center gap-2 font-headline">
-                <span class="material-symbols-outlined text-emerald-600">search_check</span>
-                Buscar Tiendas
-            </h2>
+        <!-- Buscador Móvil Compacto (visible arriba del mapa en < lg) -->
+        <div class="lg:hidden bg-white rounded-2xl px-3 py-2 border border-slate-100 shadow-xs shrink-0 flex items-center gap-2">
+            <span class="material-symbols-outlined text-emerald-600 text-lg">search</span>
+            <input id="map-search-input-mobile" type="text" placeholder="Buscar tienda, barrio o dirección en Cúcuta..." class="w-full bg-transparent border-none focus:ring-0 outline-none p-0 text-xs text-slate-800 placeholder:text-slate-400" />
+        </div>
+
+        <!-- Panel Central en Móvil / Izquierdo en Escritorio: Buscador y Lista / Carrusel de Tiendas -->
+        <section class="w-full lg:w-80 xl:w-96 order-3 lg:order-1 flex flex-col bg-white rounded-2xl lg:rounded-3xl p-2.5 sm:p-4 border border-slate-100 shadow-sm shrink-0 lg:h-full lg:min-h-0">
+            <div class="hidden lg:flex items-center justify-between mb-3">
+                <h2 class="text-lg font-bold tracking-tight text-slate-900 flex items-center gap-2 font-headline">
+                    <span class="material-symbols-outlined text-emerald-600">search_check</span>
+                    Buscar Tiendas
+                </h2>
+            </div>
             
-            <!-- Barra de búsqueda lateral -->
-            <div class="relative flex items-center bg-slate-50 border border-slate-100 rounded-xl px-3 py-2.5 mb-4 group focus-within:border-emerald-300 transition-colors">
+            <!-- Barra de búsqueda lateral (Escritorio) -->
+            <div class="hidden lg:flex relative items-center bg-slate-50 border border-slate-100 rounded-xl px-3 py-2.5 mb-3 group focus-within:border-emerald-300 transition-colors shrink-0">
                 <span class="material-symbols-outlined text-slate-400 text-xl mr-2">search</span>
                 <input id="map-search-input" type="text" placeholder="Filtrar por dirección o barrio..." class="w-full bg-transparent border-none focus:ring-0 outline-none p-0 text-sm text-slate-800" />
             </div>
 
-            <!-- Lista de Tiendas -->
-            <div id="map-stores-list" class="flex lg:flex-col overflow-x-auto lg:overflow-y-auto snap-x snap-mandatory gap-3 lg:space-y-3 pb-2 lg:pb-0 premium-scroll lg:max-h-none lg:h-[calc(100dvh-230px)] pr-1">
-                <div class="py-12 text-center text-slate-400">
-                    <span class="material-symbols-outlined text-4xl animate-spin mb-2">sync</span>
+            <div class="flex items-center justify-between lg:hidden px-1 mb-1.5">
+                <span class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Desliza para ver tiendas</span>
+                <span class="text-[10px] font-bold text-emerald-600 flex items-center gap-0.5">
+                    Toca una tienda <span class="material-symbols-outlined text-[12px]">swipe</span>
+                </span>
+            </div>
+
+            <!-- Lista de Tiendas (Carrusel horizontal compacto en móvil, lista vertical en lg:) -->
+            <div id="map-stores-list" class="flex lg:flex-col overflow-x-auto lg:overflow-y-auto snap-x snap-mandatory gap-2.5 lg:space-y-2.5 pb-1 lg:pb-0 premium-scroll lg:flex-1 lg:min-h-0 pr-1">
+                <div class="py-4 lg:py-12 text-center text-slate-400 w-full">
+                    <span class="material-symbols-outlined text-2xl lg:text-4xl animate-spin mb-1">sync</span>
                     <p class="text-xs font-semibold">Cargando catálogo local...</p>
                 </div>
             </div>
         </section>
 
-        <!-- Panel Central: El Mapa de Leaflet -->
-        <section class="w-full lg:w-auto flex-grow bg-white rounded-3xl border border-slate-100 shadow-sm p-3 sm:p-4 overflow-hidden relative h-[60dvh] lg:h-[calc(100dvh-7.5rem)] min-h-[340px]">
-            <div id="mapa-interactivo-cucuta" class="w-full h-full min-h-[320px] rounded-2xl border border-slate-50 relative z-10"></div>
+        <!-- Panel del Mapa de Leaflet (Ocupa el espacio principal sin atrapar el scroll) -->
+        <section class="w-full lg:w-auto order-2 lg:order-2 flex-1 bg-white rounded-2xl lg:rounded-3xl border border-slate-100 shadow-sm p-1.5 sm:p-3 overflow-hidden relative min-h-0">
+            <div id="mapa-interactivo-cucuta" class="w-full h-full rounded-xl lg:rounded-2xl border border-slate-50 relative z-10"></div>
+            <!-- Botón Flotante para Recentrar Mapa -->
+            <button id="btn-reset-cucuta-map" type="button"
+                class="absolute top-3 right-3 z-20 bg-white/95 hover:bg-white text-slate-700 hover:text-emerald-700 border border-slate-200/80 shadow-md px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 active:scale-95 transition-all cursor-pointer">
+                <span class="material-symbols-outlined text-[16px] text-emerald-600">my_location</span>
+                <span>Centrar</span>
+            </button>
         </section>
 
-        <!-- Panel Derecho: Ficha de Detalle de Tienda Seleccionada -->
-        <section id="detalles-tienda-seleccionada" class="w-full lg:w-80 xl:w-96 flex flex-col bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden shrink-0">
-            <!-- Vista inicial sin tienda elegida -->
-            <div id="detalles-placeholder" class="flex-grow flex flex-col items-center justify-center p-8 text-center my-auto">
+        <!-- Backdrop oscuro para la ficha de tienda en móvil -->
+        <div id="mapa-detalle-backdrop" class="fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-40 hidden lg:hidden"></div>
+
+        <!-- Panel Derecho / Bottom Sheet en Móvil: Ficha de Detalle de Tienda Seleccionada -->
+        <section id="detalles-tienda-seleccionada"
+            class="fixed inset-x-0 bottom-0 z-50 max-h-[82dvh] rounded-t-3xl transform translate-y-full transition-transform duration-300 lg:static lg:translate-y-0 lg:max-h-none lg:w-80 xl:w-96 lg:rounded-3xl order-4 lg:order-3 flex flex-col bg-white border border-slate-100 shadow-2xl lg:shadow-sm overflow-hidden shrink-0">
+            <!-- Vista inicial sin tienda elegida (Solo en escritorio) -->
+            <div id="detalles-placeholder" class="hidden lg:flex flex-grow flex-col items-center justify-center p-8 text-center my-auto">
                 <div class="w-16 h-16 rounded-full bg-emerald-50 flex items-center justify-center mb-4 border border-emerald-100">
                     <span class="material-symbols-outlined text-emerald-600 text-3xl">distance</span>
                 </div>
                 <h3 class="font-bold text-slate-800 text-base leading-tight mb-2">Detalles de Tienda</h3>
-                <p class="text-xs text-slate-400 max-w-[200px] leading-relaxed">Selecciona un marcador en el mapa o haz clic en la lista lateral para cargar la información comercial.</p>
+                <p class="text-xs text-slate-400 max-w-[200px] leading-relaxed">Selecciona un marcador en el mapa o haz clic en la lista para cargar la información comercial.</p>
             </div>
             
-            <!-- Vista dinámica con datos de la tienda (oculta inicialmente) -->
-            <div id="detalles-contenido" class="hidden flex-grow flex flex-col h-full">
+            <!-- Vista dinámica con datos de la tienda -->
+            <div id="detalles-contenido" class="hidden flex-grow flex flex-col h-full overflow-y-auto">
                 <!-- Cover Banner -->
-                <div id="tienda-detalle-banner" class="h-36 w-full relative overflow-hidden bg-gradient-to-r from-emerald-500 to-teal-600 flex-shrink-0">
-                    <!-- Se carga dinámicamente -->
+                <div id="tienda-detalle-banner" class="h-28 sm:h-36 w-full relative overflow-hidden bg-gradient-to-r from-emerald-500 to-teal-600 flex-shrink-0">
                 </div>
+                <!-- Botón Cerrar Bottom Sheet en Móvil -->
+                <button id="btn-cerrar-detalle-mapa" type="button"
+                    class="lg:hidden absolute top-3 right-3 z-20 w-8 h-8 rounded-full bg-slate-900/60 text-white flex items-center justify-center hover:bg-slate-900 transition-colors">
+                    <span class="material-symbols-outlined text-[18px]">close</span>
+                </button>
                 
                 <!-- Perfil y Detalles -->
-                <div class="px-6 pb-6 pt-4 flex-grow flex flex-col relative">
+                <div class="px-5 pb-5 pt-3 flex-grow flex flex-col relative">
                     <!-- Logo superpuesto -->
-                    <div class="absolute -top-12 left-6 w-20 h-20 rounded-full border-4 border-white shadow-md bg-white overflow-hidden flex items-center justify-center">
+                    <div class="absolute -top-10 left-5 w-16 h-16 sm:w-20 sm:h-20 rounded-full border-4 border-white shadow-md bg-white overflow-hidden flex items-center justify-center">
                         <img id="tienda-detalle-logo" src="" class="w-full h-full object-cover" alt="Logo Tienda">
                     </div>
 
-                    <div class="mt-10 flex-grow">
-                        <h3 id="tienda-detalle-nombre" class="text-xl font-bold text-slate-900 tracking-tight flex items-center gap-1.5 font-headline">
+                    <div class="mt-7 sm:mt-10 flex-grow">
+                        <h3 id="tienda-detalle-nombre" class="text-lg sm:text-xl font-bold text-slate-900 tracking-tight flex items-center gap-1.5 font-headline">
                             Nombre de Tienda
                         </h3>
                         <p id="tienda-detalle-dueno" class="text-xs text-emerald-600 font-bold mt-0.5">
                             Por: Tendero
                         </p>
                         
-                        <p id="tienda-detalle-direccion" class="text-xs text-slate-400 font-semibold flex items-center gap-1 mt-2.5">
+                        <p id="tienda-detalle-direccion" class="text-xs text-slate-400 font-semibold flex items-center gap-1 mt-2">
                             <span class="material-symbols-outlined text-[14px]">location_on</span>
                             Dirección
                         </p>
                         
-                        <div class="mt-4 border-t border-slate-100 pt-3">
+                        <div class="mt-3 border-t border-slate-100 pt-2.5">
                             <h4 class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Descripción</h4>
-                            <p id="tienda-detalle-descripcion" class="text-slate-600 text-xs leading-relaxed line-clamp-4">
+                            <p id="tienda-detalle-descripcion" class="text-slate-600 text-xs leading-relaxed line-clamp-3 sm:line-clamp-4">
                                 Descripción de la tienda...
                             </p>
                         </div>
                     </div>
 
                     <!-- Botones de Acción -->
-                    <div class="mt-6 pt-4 border-t border-slate-100 flex flex-col gap-2 flex-shrink-0">
-                        <a id="tienda-detalle-btn-visitar" href="#" class="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold text-sm tracking-wide shadow-md transition-all active:scale-[0.98] flex items-center justify-center gap-2">
+                    <div class="mt-4 pt-3 border-t border-slate-100 flex flex-col sm:flex-row lg:flex-col gap-2 flex-shrink-0">
+                        <a id="tienda-detalle-btn-visitar" href="#" class="flex-1 py-2.5 sm:py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold text-xs sm:text-sm tracking-wide shadow-md transition-all active:scale-[0.98] flex items-center justify-center gap-2">
                             <span class="material-symbols-outlined text-[18px]">shopping_cart</span>
                             Ver Catálogo Completo
                         </a>
-                        <a id="tienda-detalle-btn-mapa" href="#" target="_blank" class="w-full py-2.5 bg-slate-50 hover:bg-slate-100 text-slate-600 rounded-xl font-bold text-xs transition-colors flex items-center justify-center gap-1">
+                        <a id="tienda-detalle-btn-mapa" href="#" target="_blank" class="py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold text-xs transition-colors flex items-center justify-center gap-1">
                             <span class="material-symbols-outlined text-sm">directions</span>
                             ¿Cómo llegar?
                         </a>

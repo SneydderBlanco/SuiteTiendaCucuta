@@ -62,6 +62,23 @@ document.addEventListener("DOMContentLoaded", async () => {
     const searchInput = document.getElementById("map-search-input");
     const detallesPlaceholder = document.getElementById("detalles-placeholder");
     const detallesContenido = document.getElementById("detalles-contenido");
+    const detallesSection = document.getElementById("detalles-tienda-seleccionada");
+    const mapaDetalleBackdrop = document.getElementById("mapa-detalle-backdrop");
+    const btnCerrarDetalleMapa = document.getElementById("btn-cerrar-detalle-mapa");
+    const btnResetCucutaMap = document.getElementById("btn-reset-cucuta-map");
+    const searchInputMobile = document.getElementById("map-search-input-mobile");
+
+    if (btnResetCucutaMap) {
+        btnResetCucutaMap.addEventListener("click", () => {
+            map.setView(cucutaCenter, 13, { animate: true, duration: 0.8 });
+        });
+    }
+    if (searchInputMobile && searchInput) {
+        searchInputMobile.addEventListener("input", (e) => {
+            searchInput.value = e.target.value;
+            searchInput.dispatchEvent(new Event("input"));
+        });
+    }
 
     // ==========================================
     // 4. Carga de Tiendas desde el Backend
@@ -165,7 +182,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
             // 5.3 Crear Elemento DOM en la Lista Lateral Izquierda
             const item = document.createElement("div");
-            item.className = "group bg-white hover:bg-emerald-50/40 p-3.5 sm:p-4 rounded-2xl border border-slate-100 hover:border-emerald-100 transition-all duration-300 flex gap-3 cursor-pointer relative overflow-hidden select-none snap-center min-w-[260px] sm:min-w-[280px] lg:min-w-0 shrink-0";
+            item.className = "group bg-white hover:bg-emerald-50/40 p-2.5 sm:p-3.5 rounded-2xl border border-slate-100 hover:border-emerald-100 transition-all duration-300 flex items-center gap-2.5 sm:gap-3 cursor-pointer relative overflow-hidden select-none snap-center min-w-[215px] sm:min-w-[250px] lg:min-w-0 shrink-0";
             
             const logoUrl = tienda.logo_url 
                 ? (tienda.logo_url.startsWith('http') ? tienda.logo_url : `${window.API_URL}${tienda.logo_url}`)
@@ -313,6 +330,8 @@ document.addEventListener("DOMContentLoaded", async () => {
         // 4. Mostrar Ficha de Detalles (Derecha)
         if (detallesPlaceholder) detallesPlaceholder.classList.add("hidden");
         if (detallesContenido) detallesContenido.classList.remove("hidden");
+        if (detallesSection) detallesSection.classList.remove("translate-y-full");
+        if (mapaDetalleBackdrop) mapaDetalleBackdrop.classList.remove("hidden");
 
         // 4.1 Banner de la Tienda
         const bannerContainer = document.getElementById("tienda-detalle-banner");
@@ -412,6 +431,15 @@ document.addEventListener("DOMContentLoaded", async () => {
         // 3. Restablecer el panel derecho de detalles a su estado por defecto
         if (detallesPlaceholder) detallesPlaceholder.classList.remove("hidden");
         if (detallesContenido) detallesContenido.classList.add("hidden");
+        if (detallesSection) detallesSection.classList.add("translate-y-full");
+        if (mapaDetalleBackdrop) mapaDetalleBackdrop.classList.add("hidden");
+    }
+
+    if (btnCerrarDetalleMapa) {
+        btnCerrarDetalleMapa.addEventListener("click", deseleccionarTienda);
+    }
+    if (mapaDetalleBackdrop) {
+        mapaDetalleBackdrop.addEventListener("click", deseleccionarTienda);
     }
 
     document.addEventListener("keydown", (e) => {
