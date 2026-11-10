@@ -39,8 +39,14 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     let searchMode = "tiendas"; // 'tiendas' | 'productos'
 
+    // Seguridad: ocultar loader máximo tras 1.2s si el backend tarda en despertar
+    const loaderSafetyTimer = setTimeout(() => {
+        if (window.PageLoader) window.PageLoader.hide();
+    }, 1200);
+
     // 1. Llamar al Backend para obtener tiendas
     const tiendas = await API.getTiendas();
+    clearTimeout(loaderSafetyTimer);
 
     // 2. Función para renderizar tiendas
     function renderTiendas(tiendasList) {
@@ -49,7 +55,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         if (tiendasList.length === 0) {
             grid.innerHTML = `
-                <div class="col-span-full py-12 text-center text-slate-500">
+                <div class="col-span-full py-12 text-center text-slate-500 animate-fade-in">
                     <span class="material-symbols-outlined text-5xl mb-3 text-slate-300">search_off</span>
                     <p class="font-medium">No se encontraron tiendas que coincidan con tu búsqueda.</p>
                 </div>
@@ -59,8 +65,9 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         tiendasList.forEach(tienda => {
             const card = document.createElement("div");
-            card.className = "group bg-white rounded-3xl overflow-hidden shadow-md hover:shadow-xl hover:-translate-y-1 transition-all duration-300 border border-slate-100 flex flex-col cursor-pointer";
+            card.className = "group bg-white rounded-3xl overflow-hidden shadow-md hover:shadow-xl hover:-translate-y-1 transition-all duration-300 border border-slate-100 flex flex-col cursor-pointer animate-fade-in";
             card.addEventListener("click", () => {
+                if (window.PageLoader) window.PageLoader.show("Abriendo tienda...");
                 window.location.href = `tienda.html?id=${tienda.id_tendero}`;
             });
 
@@ -372,8 +379,9 @@ document.addEventListener("DOMContentLoaded", async () => {
         });
     }
 
-    // Inicializar renderizado
+    // Inicializar renderizado y ocultar el overlay global de carga
     renderTiendas(tiendas);
+    if (window.PageLoader) window.PageLoader.hide();
 
     // 3. Filtrado y Acción del Botón Buscar
     if (searchBtn) {
