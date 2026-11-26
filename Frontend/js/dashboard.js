@@ -1482,11 +1482,243 @@ async function loadDashboard(tenderoId) {
     }
 }
 
-// --- MAPA PICKER CONFIGURACIÓN (Leaflet) ---
+// --- MAPA PICKER CONFIGURACIÓN AUTÓNOMO (Leaflet + Geocoding Bidireccional) ---
 let configMap = null;
 let configMarker = null;
+let geocodeDebounceTimer = null;
+let isUpdatingAddressFromMap = false;
+let addressGeocodeListenersBound = false;
+
+function setGeocodeStatus(message, tone = "neutral") {
+    const el = document.getElementById("mapa-geocode-status");
+    if (!el) return;
+    const toneClasses = {
+        neutral: "text-[11px] font-medium text-slate-400 mt-1.5",
+        loading: "text-[11px] font-semibold text-amber-600 mt-1.5",
+        success: "text-[11px] font-semibold text-emerald-700 mt-1.5",
+        warning: "text-[11px] font-semibold text-amber-700 mt-1.5"
+    };
+    el.className = toneClasses[tone] || toneClasses.neutral;
+    el.textContent = message;
+}
+
+function normalizeCucutaAddress(raw) {
+    return String(raw || "")
+        .trim()
+        .replace(/\bav\.?\s*(\d+)/gi, "Avenida $1")
+        .replace(/\bcll?\.?\s*(\d+)/gi, "Calle $1")
+        .replace(/\bcalle(\d+)/gi, "Calle $1")
+        .replace(/\b(?:cra|kr|k)\.?\s*(\d+)/gi, "Carrera $1")
+        .replace(/\bdiag\.?\s*(\d+)/gi, "Diagonal $1")
+        .replace(/\btransv?\.?\s*(\d+)/gi, "Transversal $1")
+        .replace(/\s*#\s*/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+}
+
+function setStoreHiddenCoords(lat, lng) {
+    const parsedLat = parseFloat(lat);
+    const parsedLng = parseFloat(lng);
+    if (isNaN(parsedLat) || isNaN(parsedLng)) return;
+    const inputLat = document.getElementById("input-latitud-tienda");
+    const inputLng = document.getElementById("input-longitud-tienda");
+    if (inputLat) inputLat.value = parsedLat.toFixed(6);
+    if (inputLng) inputLng.value = parsedLng.toFixed(6);
+    window.currentStoreLat = parsedLat;
+    window.currentStoreLng = parsedLng;
+}
+
+function placeConfigMapPin(lat, lng, zoomLevel = 16) {
+    if (!configMap) return;
+    const parsedLat = parseFloat(lat);
+    const parsedLng = parseFloat(lng);
+    if (isNaN(parsedLat) || isNaN(parsedLng)) return;
+
+    const latlng = [parsedLat, parsedLng];
+    configMap.flyTo(latlng, zoomLevel, { duration: 0.6 });
+    if (configMarker) {
+        configMarker.setLatLng(latlng);
+    } else {
+        configMarker = L.marker(latlng, { draggable: true }).addTo(configMap);
+        setupMarkerEvents(configMarker);
+    }
+}
+
+// Mapa -> Dirección automática (Reverse Geocoding)
+async function reverseGeocodeToAddress(lat, lng) {
+    setGeocodeStatus("Obteniendo dirección del punto seleccionado...", "loading");
+    try {
+        const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lng)}&zoom=18&addressdetails=1&accept-language=es`;
+        const res = await fetch(url, { headers: { "Accept": "application/json" } });
+        if (!res.ok) throw new Error("Error en reverse geocoding");
+        const data = await res.json();
+        const addr = data.address || {};
+
+        const road = addr.road || addr.pedestrian || addr.footway || addr.path || "";
+        const houseNum = addr.house_number ? ` #${addr.house_number}` : "";
+        const barrio = addr.neighbourhood || addr.suburb || addr.quarter || addr.residential || "";
+        const city = addr.city || addr.town || addr.village || "Cúcuta";
+
+        const parts = [];
+        if (road) parts.push(`${road}${houseNum}`);
+        if (barrio && barrio.toLowerCase() !== road.toLowerCase()) parts.push(barrio);
+        if (city) parts.push(city);
+
+        const cleanAddress = parts.length > 0
+            ? parts.join(", ")
+            : (data.display_name ? data.display_name.split(",").slice(0, 3).join(", ").trim() : "");
+
+        if (cleanAddress) {
+            const inputUbicacion = document.getElementById("input-ubicacion-tienda");
+            if (inputUbicacion) {
+                isUpdatingAddressFromMap = true;
+                inputUbicacion.value = cleanAddress;
+                setTimeout(() => { isUpdatingAddressFromMap = false; }, 100);
+            }
+            setGeocodeStatus(`✓ Dirección detectada: ${cleanAddress}`, "success");
+        } else {
+            setGeocodeStatus("✓ Punto fijado en el mapa (puedes escribir una referencia manual).", "success");
+        }
+    } catch (err) {
+        console.warn("Reverse geocoding fallback:", err.message);
+        setGeocodeStatus("✓ Punto fijado en el mapa.", "success");
+    }
+}
+
+// Dirección -> Mapa automático (Forward Geocoding enfocado en Cúcuta)
+async function geocodeAddressToMap(rawAddress) {
+    const cleanInput = String(rawAddress || "").trim();
+    if (cleanInput.length < 3) {
+        setGeocodeStatus("Escribe una dirección (ej. Avenida 4 Calle 6) o haz clic en el mapa.", "neutral");
+        return false;
+    }
+
+    setGeocodeStatus("Buscando dirección en el mapa de Cúcuta...", "loading");
+
+    const normalized = normalizeCucutaAddress(cleanInput);
+    const hasCucuta = normalized.toLowerCase().includes("cucuta") || normalized.toLowerCase().includes("cúcuta");
+
+    // Construir lista de intentos del más específico al más general
+    const queries = [
+        hasCucuta ? normalized : `${normalized}, Cúcuta, Norte de Santander, Colombia`
+    ];
+
+    // Si tiene dos vías (ej. "Avenida 4 Calle 6"), probar también con formato intersección y primera vía
+    const noNumber = normalized.replace(/\b\d+\s*-\s*\d+\b/g, "").replace(/\s+/g, " ").trim();
+    if (noNumber && noNumber !== normalized) {
+        queries.push(`${noNumber}, Cúcuta, Colombia`);
+    }
+    const viaMatch = normalized.match(/(Avenida|Calle|Carrera|Diagonal|Transversal)\s+\d+[A-Za-z]?/gi);
+    if (viaMatch && viaMatch.length >= 2) {
+        queries.push(`${viaMatch[0]} con ${viaMatch[1]}, Cúcuta, Colombia`);
+        queries.push(`${viaMatch[0]}, Cúcuta, Colombia`);
+    }
+
+    const viewbox = "-72.58,7.98,-72.42,7.80"; // Área metropolitana de Cúcuta
+
+    for (const q of queries) {
+        try {
+            const nomUrl = `https://nominatim.openstreetmap.org/search?format=jsonv2&q=${encodeURIComponent(q)}&countrycodes=co&viewbox=${viewbox}&bounded=1&limit=1&accept-language=es`;
+            const res = await fetch(nomUrl, { headers: { "Accept": "application/json" } });
+            if (res.ok) {
+                const results = await res.json();
+                if (Array.isArray(results) && results.length > 0) {
+                    const hit = results[0];
+                    setStoreHiddenCoords(hit.lat, hit.lon);
+                    placeConfigMapPin(hit.lat, hit.lon, 16);
+                    setGeocodeStatus("✓ Ubicación encontrada automáticamente en el mapa.", "success");
+                    return true;
+                }
+            }
+        } catch (err) {
+            console.warn("Nominatim search error:", err.message);
+        }
+    }
+
+    // Fallback: Photon (OpenStreetMap) sesgado a Cúcuta
+    try {
+        const photonUrl = `https://photon.komoot.io/api/?q=${encodeURIComponent(normalized + " Cucuta")}&lat=7.8939&lon=-72.5078&limit=1`;
+        const res = await fetch(photonUrl);
+        if (res.ok) {
+            const data = await res.json();
+            const feature = data?.features?.[0];
+            if (feature && Array.isArray(feature.geometry?.coordinates)) {
+                const [lon, lat] = feature.geometry.coordinates;
+                setStoreHiddenCoords(lat, lon);
+                placeConfigMapPin(lat, lon, 16);
+                setGeocodeStatus("✓ Ubicación encontrada automáticamente en el mapa.", "success");
+                return true;
+            }
+        }
+    } catch (err) {
+        console.warn("Photon fallback error:", err.message);
+    }
+
+    setGeocodeStatus("No encontramos esa dirección exacta; haz clic en el mapa para fijar tu pin.", "warning");
+    return false;
+}
+
+function bindAddressMapListeners() {
+    if (addressGeocodeListenersBound) return;
+    addressGeocodeListenersBound = true;
+
+    const inputUbicacion = document.getElementById("input-ubicacion-tienda");
+    const btnBuscarDir = document.getElementById("btn-buscar-direccion-mapa");
+    const btnGps = document.getElementById("btn-gps-tienda");
+
+    if (inputUbicacion) {
+        inputUbicacion.addEventListener("input", () => {
+            if (isUpdatingAddressFromMap) return;
+            clearTimeout(geocodeDebounceTimer);
+            const val = inputUbicacion.value.trim();
+            if (val.length < 4) return;
+            geocodeDebounceTimer = setTimeout(() => {
+                geocodeAddressToMap(val);
+            }, 750);
+        });
+
+        inputUbicacion.addEventListener("keydown", (e) => {
+            if (e.key === "Enter") {
+                e.preventDefault();
+                clearTimeout(geocodeDebounceTimer);
+                geocodeAddressToMap(inputUbicacion.value);
+            }
+        });
+    }
+
+    if (btnBuscarDir && inputUbicacion) {
+        btnBuscarDir.addEventListener("click", () => {
+            clearTimeout(geocodeDebounceTimer);
+            geocodeAddressToMap(inputUbicacion.value);
+        });
+    }
+
+    if (btnGps) {
+        btnGps.addEventListener("click", () => {
+            if (!navigator.geolocation) {
+                setGeocodeStatus("Tu navegador no soporta geolocalización GPS.", "warning");
+                return;
+            }
+            setGeocodeStatus("Detectando tu ubicación actual por GPS...", "loading");
+            navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                    const { latitude, longitude } = pos.coords;
+                    setStoreHiddenCoords(latitude, longitude);
+                    placeConfigMapPin(latitude, longitude, 16);
+                    reverseGeocodeToAddress(latitude, longitude);
+                },
+                () => {
+                    setGeocodeStatus("No se pudo obtener el GPS. Escribe tu dirección o toca el mapa.", "warning");
+                },
+                { enableHighAccuracy: true, timeout: 10000 }
+            );
+        });
+    }
+}
 
 function initConfigMap() {
+    bindAddressMapListeners();
+
     if (configMap) {
         setTimeout(() => {
             configMap.invalidateSize();
@@ -1499,7 +1731,7 @@ function initConfigMap() {
         const initialLat = parseFloat(window.currentStoreLat) || 7.8939;
         const initialLng = parseFloat(window.currentStoreLng) || -72.5078;
         
-        configMap = L.map('mapa-configuracion').setView([initialLat, initialLng], 14);
+        configMap = L.map('mapa-configuracion').setView([initialLat, initialLng], 15);
         
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
@@ -1508,14 +1740,17 @@ function initConfigMap() {
         if (window.currentStoreLat && window.currentStoreLng) {
             configMarker = L.marker([initialLat, initialLng], { draggable: true }).addTo(configMap);
             setupMarkerEvents(configMarker);
+        } else {
+            // Si la tienda ya tenía dirección escrita pero sin pin, ubicarla automáticamente
+            const existingAddr = document.getElementById("input-ubicacion-tienda")?.value?.trim();
+            if (existingAddr && existingAddr.length >= 4) {
+                geocodeAddressToMap(existingAddr);
+            }
         }
 
         configMap.on('click', function(e) {
             const { lat, lng } = e.latlng;
-            const inputLat = document.getElementById("input-latitud-tienda");
-            const inputLng = document.getElementById("input-longitud-tienda");
-            if (inputLat) inputLat.value = lat.toFixed(6);
-            if (inputLng) inputLng.value = lng.toFixed(6);
+            setStoreHiddenCoords(lat, lng);
             
             if (configMarker) {
                 configMarker.setLatLng(e.latlng);
@@ -1523,25 +1758,17 @@ function initConfigMap() {
                 configMarker = L.marker(e.latlng, { draggable: true }).addTo(configMap);
                 setupMarkerEvents(configMarker);
             }
-        });
 
-        // Sincronizar inputs manuales
-        const inputLat = document.getElementById("input-latitud-tienda");
-        const inputLng = document.getElementById("input-longitud-tienda");
-        if (inputLat && inputLng) {
-            inputLat.addEventListener("input", syncManualCoordinates);
-            inputLng.addEventListener("input", syncManualCoordinates);
-        }
+            reverseGeocodeToAddress(lat, lng);
+        });
     }, 350);
 }
 
 function setupMarkerEvents(marker) {
-    marker.on('dragend', function(e) {
+    marker.on('dragend', function() {
         const position = marker.getLatLng();
-        const inputLat = document.getElementById("input-latitud-tienda");
-        const inputLng = document.getElementById("input-longitud-tienda");
-        if (inputLat) inputLat.value = position.lat.toFixed(6);
-        if (inputLng) inputLng.value = position.lng.toFixed(6);
+        setStoreHiddenCoords(position.lat, position.lng);
+        reverseGeocodeToAddress(position.lat, position.lng);
     });
 }
 
@@ -1552,7 +1779,7 @@ function updateConfigMapMarker(lat, lng) {
     
     if (!isNaN(parsedLat) && !isNaN(parsedLng)) {
         const latlng = [parsedLat, parsedLng];
-        configMap.setView(latlng, 14);
+        configMap.setView(latlng, 15);
         if (configMarker) {
             configMarker.setLatLng(latlng);
         } else {
@@ -1565,12 +1792,6 @@ function updateConfigMapMarker(lat, lng) {
             configMarker = null;
         }
     }
-}
-
-function syncManualCoordinates() {
-    const lat = document.getElementById("input-latitud-tienda").value;
-    const lng = document.getElementById("input-longitud-tienda").value;
-    updateConfigMapMarker(lat, lng);
 }
 
 // --- PERFIL DE LA TIENDA Y CONFIGURACIÓN ---
@@ -1719,18 +1940,27 @@ document.addEventListener("DOMContentLoaded", () => {
         btnSaveStoreSettings.disabled = true;
 
         const fileInput = document.getElementById("input-logo-tienda");
+        const direccionVal = document.getElementById("input-ubicacion-tienda").value.trim();
+
+        // Si el tendero escribió dirección pero aún no tiene coordenadas, ubicarla automáticamente antes de guardar
+        let latVal = document.getElementById("input-latitud-tienda").value;
+        let lngVal = document.getElementById("input-longitud-tienda").value;
+        if (direccionVal.length >= 4 && (!latVal || !lngVal)) {
+            await geocodeAddressToMap(direccionVal);
+            latVal = document.getElementById("input-latitud-tienda").value;
+            lngVal = document.getElementById("input-longitud-tienda").value;
+        }
+
         const formData = new FormData();
         formData.append("nombre_tienda", document.getElementById("input-nombre-tienda").value);
         formData.append("nombre", document.getElementById("input-dueno-tienda").value);
         formData.append("descripcion", document.getElementById("input-descripcion-tienda").value);
-        formData.append("ubicacion", document.getElementById("input-ubicacion-tienda").value);
+        formData.append("ubicacion", direccionVal);
         
         const rawWhatsapp = document.getElementById("input-whatsapp-tienda") ? document.getElementById("input-whatsapp-tienda").value : "";
         const cleanWhatsapp = rawWhatsapp.replace(/\D/g, "");
         formData.append("whatsapp", cleanWhatsapp);
         
-        const latVal = document.getElementById("input-latitud-tienda").value;
-        const lngVal = document.getElementById("input-longitud-tienda").value;
         formData.append("latitud", latVal);
         formData.append("longitud", lngVal);
         
