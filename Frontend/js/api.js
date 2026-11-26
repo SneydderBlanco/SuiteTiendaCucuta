@@ -396,6 +396,18 @@ window.API = {
         }
     },
 
+    restoreAdminTienda: async (idHistorial) => {
+        const targetId = encodeURIComponent(idHistorial);
+        const url = buildApiUrl(`/api/admin/tiendas/eliminadas/${targetId}/restaurar`);
+        const response = await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "Accept": "application/json" }
+        });
+        const isJson = (response.headers.get("content-type") || "").includes("application/json");
+        const data = isJson ? await response.json() : { error: `Error HTTP ${response.status}` };
+        return { status: response.status, data };
+    },
+
     updateAdminProducto: async (idProducto, payload) => {
         const targetId = encodeURIComponent(idProducto);
         const url = buildApiUrl(`/api/admin/productos/${targetId}`);

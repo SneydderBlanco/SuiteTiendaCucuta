@@ -126,6 +126,15 @@ async function ensureAdminSchema() {
             fecha_eliminacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     `);
+    await db.query("ALTER TABLE historial_tiendas_eliminadas ADD COLUMN IF NOT EXISTS password_hash TEXT");
+    await db.query("ALTER TABLE historial_tiendas_eliminadas ADD COLUMN IF NOT EXISTS logo_url TEXT");
+    await db.query("ALTER TABLE historial_tiendas_eliminadas ADD COLUMN IF NOT EXISTS banner_url TEXT");
+    await db.query("ALTER TABLE historial_tiendas_eliminadas ADD COLUMN IF NOT EXISTS latitud NUMERIC");
+    await db.query("ALTER TABLE historial_tiendas_eliminadas ADD COLUMN IF NOT EXISTS longitud NUMERIC");
+    await db.query("ALTER TABLE historial_tiendas_eliminadas ADD COLUMN IF NOT EXISTS productos_snapshot JSONB DEFAULT '[]'::jsonb");
+    await db.query("ALTER TABLE historial_tiendas_eliminadas ADD COLUMN IF NOT EXISTS restaurada BOOLEAN DEFAULT FALSE");
+    await db.query("ALTER TABLE historial_tiendas_eliminadas ADD COLUMN IF NOT EXISTS fecha_restauracion TIMESTAMP");
+    await db.query("ALTER TABLE historial_tiendas_eliminadas ADD COLUMN IF NOT EXISTS id_tendero_restaurado INTEGER");
 }
 
 app.get('/api/admin/tiendas', async (req, res) => {
@@ -254,12 +263,143 @@ app.get('/api/admin/tiendas/eliminadas', async (req, res) => {
     try {
         await ensureAdminSchema();
         const { rows } = await db.query(
-            'SELECT * FROM historial_tiendas_eliminadas ORDER BY fecha_eliminacion DESC LIMIT 100'
+            `SELECT id_historial, id_tendero_original, nombre_tienda, nombre_propietario, email,
+                    ubicacion, whatsapp, descripcion, total_productos_eliminados, total_ventas_historicas,
+                    motivo_eliminacion, eliminado_por, fecha_registro_original, fecha_eliminacion,
+                    COALESCE(restaurada, FALSE) AS restaurada, fecha_restauracion, id_tendero_restaurado
+             FROM historial_tiendas_eliminadas
+             ORDER BY fecha_eliminacion DESC
+             LIMIT 100`
         );
         return res.status(200).json({ success: true, historial: rows });
     } catch (err) {
         console.error('Error en GET /api/admin/tiendas/eliminadas:', err.message);
         return res.status(500).json({ error: 'Error al obtener el historial de tiendas eliminadas.' });
+    }
+});
+
+// SuperAdmin: Recuperar / Restaurar una tienda eliminada (con su perfil y productos)
+app.post('/api/admin/tiendas/eliminadas/:id_historial/restaurar', async (req, res) => {
+    const { id_historial } = req.params;
+    try {
+        await ensureAdminSchema();
+        await db.query("ALTER TABLE tendero ADD COLUMN IF NOT EXISTS banner_url TEXT");
+        await db.query("ALTER TABLE tendero ADD COLUMN IF NOT EXISTS verificado BOOLEAN DEFAULT FALSE");
+        await db.query("ALTER TABLE productos ADD COLUMN IF NOT EXISTS unidad_medida VARCHAR(50) DEFAULT 'Unidad (Und)'");
+        await db.query("ALTER TABLE productos ADD COLUMN IF NOT EXISTS presentaciones JSONB DEFAULT '[]'::jsonb");
+        await db.query("ALTER TABLE productos ALTER COLUMN imagen_url TYPE TEXT");
+
+        const histRes = await db.query(
+            'SELECT * FROM historial_tiendas_eliminadas WHERE id_historial = $1',
+            [parseInt(id_historial, 10)]
+        );
+        if (histRes.rows.length === 0) {
+            return res.status(404).json({ error: 'Registro histórico no encontrado.' });
+        }
+
+        const hist = histRes.rows[0];
+        if (hist.restaurada) {
+            return res.status(400).json({ error: 'Esta tienda ya fue restaurada anteriormente.' });
+        }
+
+        const cleanEmail = String(hist.email || '').trim();
+        if (!cleanEmail) {
+            return res.status(400).json({ error: 'El registro histórico no tiene correo electrónico válido para restaurar.' });
+        }
+
+        const emailExists = await db.query(
+            'SELECT id_tendero FROM tendero WHERE LOWER(email) = LOWER($1)',
+            [cleanEmail]
+        );
+        if (emailExists.rows.length > 0) {
+            return res.status(400).json({
+                error: `Ya existe una tienda activa usando el correo ${cleanEmail}. No se puede duplicar.`
+            });
+        }
+
+        const usedDefaultPassword = !hist.password_hash;
+        const passwordToUse = hist.password_hash || hashPassword('123456');
+
+        await db.query('BEGIN');
+
+        const insertTiendaRes = await db.query(
+            `INSERT INTO tendero (
+                nombre, email, password, nombre_tienda, codigo_invitacion,
+                descripcion, ubicacion, whatsapp, logo_url, banner_url, latitud, longitud,
+                rol, verificado, estado_cuenta
+            ) VALUES ($1, $2, $3, $4, 'RESTAURADA', $5, $6, $7, $8, $9, $10, $11, 'tendero', TRUE, 'activo')
+            RETURNING id_tendero, nombre, email, nombre_tienda, ubicacion, whatsapp, estado_cuenta`,
+            [
+                hist.nombre_propietario || 'Propietario',
+                cleanEmail,
+                passwordToUse,
+                hist.nombre_tienda || 'Tienda Restaurada',
+                hist.descripcion || null,
+                hist.ubicacion || null,
+                hist.whatsapp || null,
+                hist.logo_url || null,
+                hist.banner_url || null,
+                hist.latitud ?? null,
+                hist.longitud ?? null
+            ]
+        );
+
+        const nuevaTienda = insertTiendaRes.rows[0];
+        const newTenderoId = nuevaTienda.id_tendero;
+
+        // Restaurar productos guardados en el snapshot (si existen)
+        let productosSnapshot = hist.productos_snapshot;
+        if (typeof productosSnapshot === 'string') {
+            try { productosSnapshot = JSON.parse(productosSnapshot); } catch (_) { productosSnapshot = []; }
+        }
+        let productosRestaurados = 0;
+        if (Array.isArray(productosSnapshot) && productosSnapshot.length > 0) {
+            for (const p of productosSnapshot) {
+                const pres = Array.isArray(p.presentaciones) ? p.presentaciones : [];
+                await db.query(
+                    `INSERT INTO productos (
+                        id_tendero, nombre, marca, categoria, unidad_medida, precio_venta, stock, imagen_url, presentaciones
+                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb)`,
+                    [
+                        newTenderoId,
+                        p.nombre || 'Producto',
+                        p.marca || '',
+                        p.categoria || 'General',
+                        p.unidad_medida || 'Unidad (Und)',
+                        parseFloat(p.precio_venta) || 0,
+                        parseInt(p.stock, 10) || 0,
+                        p.imagen_url || null,
+                        JSON.stringify(pres)
+                    ]
+                );
+                productosRestaurados += 1;
+            }
+        }
+
+        await db.query(
+            `UPDATE historial_tiendas_eliminadas
+             SET restaurada = TRUE,
+                 fecha_restauracion = NOW(),
+                 id_tendero_restaurado = $1
+             WHERE id_historial = $2`,
+            [newTenderoId, parseInt(id_historial, 10)]
+        );
+
+        await db.query('COMMIT');
+
+        return res.status(200).json({
+            success: true,
+            message: usedDefaultPassword
+                ? `Tienda "${nuevaTienda.nombre_tienda}" restaurada con ${productosRestaurados} producto(s). Contraseña temporal asignada: 123456.`
+                : `Tienda "${nuevaTienda.nombre_tienda}" restaurada correctamente con su contraseña original y ${productosRestaurados} producto(s).`,
+            tienda: nuevaTienda,
+            productos_restaurados: productosRestaurados,
+            password_temporal_asignada: usedDefaultPassword
+        });
+    } catch (err) {
+        await db.query('ROLLBACK').catch(() => {});
+        console.error('Error en POST /api/admin/tiendas/eliminadas/:id_historial/restaurar:', err.message);
+        return res.status(500).json({ error: `Error al restaurar la tienda: ${err.message}` });
     }
 });
 
@@ -462,9 +602,10 @@ app.delete('/api/admin/tiendas/:id', async (req, res) => {
     try {
         await ensureAdminSchema();
 
-        // 0. Capturar snapshot de la tienda antes de eliminarla para el historial de auditoría
+        // 0. Capturar snapshot completo de la tienda y sus productos antes de eliminarla (para historial y recuperación)
+        await db.query("ALTER TABLE tendero ADD COLUMN IF NOT EXISTS banner_url TEXT");
         const storeRes = await db.query(
-            'SELECT id_tendero, nombre, email, nombre_tienda, descripcion, ubicacion, whatsapp, fecha_registro FROM tendero WHERE id_tendero = $1',
+            'SELECT id_tendero, nombre, email, password, nombre_tienda, descripcion, ubicacion, whatsapp, logo_url, banner_url, latitud, longitud, fecha_registro FROM tendero WHERE id_tendero = $1',
             [id]
         );
         if (storeRes.rows.length === 0) {
@@ -472,17 +613,22 @@ app.delete('/api/admin/tiendas/:id', async (req, res) => {
         }
         const storeSnap = storeRes.rows[0];
 
-        const prodCountRes = await db.query('SELECT COUNT(*)::INT AS total FROM productos WHERE id_tendero = $1', [id]).catch(() => ({ rows: [{ total: 0 }] }));
+        const prodsSnapRes = await db.query(
+            'SELECT nombre, marca, categoria, unidad_medida, precio_venta, stock, imagen_url, presentaciones FROM productos WHERE id_tendero = $1 ORDER BY id_producto ASC',
+            [id]
+        ).catch(() => ({ rows: [] }));
         const ventasSumRes = await db.query('SELECT COALESCE(SUM(total), 0) AS total FROM venta WHERE id_tienda = $1', [id]).catch(() => ({ rows: [{ total: 0 }] }));
-        const totalProdsSnap = prodCountRes.rows[0]?.total || 0;
+        const prodsSnapshot = prodsSnapRes.rows || [];
+        const totalProdsSnap = prodsSnapshot.length;
         const totalVentasSnap = parseFloat(ventasSumRes.rows[0]?.total) || 0;
 
         await db.query(
             `INSERT INTO historial_tiendas_eliminadas (
                 id_tendero_original, nombre_tienda, nombre_propietario, email, ubicacion, whatsapp,
                 descripcion, total_productos_eliminados, total_ventas_historicas,
-                motivo_eliminacion, eliminado_por, fecha_registro_original
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+                motivo_eliminacion, eliminado_por, fecha_registro_original,
+                password_hash, logo_url, banner_url, latitud, longitud, productos_snapshot, restaurada
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18::jsonb, FALSE)`,
             [
                 storeSnap.id_tendero,
                 storeSnap.nombre_tienda || 'Sin nombre comercial',
@@ -495,7 +641,13 @@ app.delete('/api/admin/tiendas/:id', async (req, res) => {
                 totalVentasSnap,
                 String(motivo_eliminacion || '').trim() || 'Eliminada desde panel SuperAdmin',
                 String(eliminado_por || '').trim() || 'Super Administrador',
-                storeSnap.fecha_registro || null
+                storeSnap.fecha_registro || null,
+                storeSnap.password || null,
+                storeSnap.logo_url || null,
+                storeSnap.banner_url || null,
+                storeSnap.latitud ?? null,
+                storeSnap.longitud ?? null,
+                JSON.stringify(prodsSnapshot)
             ]
         );
 

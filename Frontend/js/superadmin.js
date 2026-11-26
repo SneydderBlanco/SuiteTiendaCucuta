@@ -372,7 +372,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         if (historial.length === 0) {
             eliminadasTbody.innerHTML = `
                 <tr>
-                    <td colspan="6" class="px-6 py-10 text-center text-slate-400 font-medium text-xs">
+                    <td colspan="7" class="px-6 py-10 text-center text-slate-400 font-medium text-xs">
                         Aún no se ha eliminado ninguna tienda. Cuando elimines una, su registro histórico quedará aquí.
                     </td>
                 </tr>
@@ -386,9 +386,31 @@ document.addEventListener("DOMContentLoaded", async () => {
             const ventasFmt = typeof Utils !== "undefined" && Utils.formatCurrency
                 ? Utils.formatCurrency(h.total_ventas_historicas || 0)
                 : `$${Number(h.total_ventas_historicas || 0).toLocaleString("es-CO")}`;
+            const safeStoreName = String(h.nombre_tienda || "esta tienda").replace(/'/g, "\\'");
+
+            let accionHtml = "";
+            if (h.restaurada) {
+                accionHtml = `
+                    <div class="inline-flex flex-col items-center">
+                        <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 font-extrabold text-[10px]">
+                            <span class="material-symbols-outlined text-[13px]">check_circle</span>
+                            RESTAURADA
+                        </span>
+                        ${h.id_tendero_restaurado ? `<span class="text-[10px] font-mono text-slate-400 mt-0.5">Nuevo #TC-${h.id_tendero_restaurado}</span>` : ""}
+                    </div>
+                `;
+            } else {
+                accionHtml = `
+                    <button type="button" onclick="window.__restoreDeletedStore(${h.id_historial}, '${safeStoreName}')"
+                        class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs transition-all active:scale-95 cursor-pointer">
+                        <span class="material-symbols-outlined text-[15px]">restore</span>
+                        <span>Recuperar</span>
+                    </button>
+                `;
+            }
 
             return `
-                <tr class="hover:bg-slate-50 transition-colors">
+                <tr class="hover:bg-slate-50 transition-colors ${h.restaurada ? "opacity-75" : ""}">
                     <td class="px-5 py-3.5 font-mono text-xs font-bold text-slate-500">#TC-${h.id_tendero_original || "?"}</td>
                     <td class="px-5 py-3.5">
                         <span class="block font-bold text-slate-800 text-xs">${h.nombre_tienda || "Sin nombre"}</span>
@@ -407,10 +429,28 @@ document.addEventListener("DOMContentLoaded", async () => {
                         <span class="block text-xs font-semibold text-slate-700">${h.eliminado_por || "Super Administrador"}</span>
                         <span class="text-[11px] text-slate-400">${fechaFmt}</span>
                     </td>
+                    <td class="px-5 py-3.5 text-center">
+                        ${accionHtml}
+                    </td>
                 </tr>
             `;
         }).join("");
     }
+
+    window.__restoreDeletedStore = async function(idHistorial, storeName) {
+        if (!confirm(`¿Deseas recuperar la tienda "${storeName}" y volver a activarla con sus productos guardados?`)) return;
+        try {
+            const resp = await API.restoreAdminTienda(idHistorial);
+            if (resp.status === 200 && resp.data?.success) {
+                alert(resp.data.message || "Tienda recuperada exitosamente.");
+                await loadSuperAdminData();
+            } else {
+                alert(resp.data?.error || "No se pudo recuperar la tienda.");
+            }
+        } catch (err) {
+            alert("Error de conexión al intentar recuperar la tienda.");
+        }
+    };
 
     function applySearchFilter() {
         const query = (searchInput ? searchInput.value : "").trim().toLowerCase();
