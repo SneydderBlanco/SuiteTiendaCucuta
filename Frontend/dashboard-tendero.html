@@ -630,6 +630,55 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- Pagos en Línea (Pasarela Simulada y Comisiones 3%) -->
+                <div class="w-full bg-white rounded-2xl shadow-sm p-6">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-5">
+                        <div>
+                            <h3 class="text-lg font-bold tracking-tight flex items-center gap-2">
+                                <span class="material-symbols-outlined text-primary">account_balance</span>
+                                Pagos en Línea (Pasarela PSE / Nequi / Tarjeta)
+                            </h3>
+                            <p class="text-xs text-slate-500">Modelo intermediario: la plataforma retiene 3% de comisión y abona el 97% neto a tu tienda.</p>
+                        </div>
+                        <span class="self-start sm:self-center px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[11px] font-extrabold uppercase tracking-wider">Comisión 3%</span>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-5">
+                        <div class="p-4 rounded-xl bg-surface-container-lowest border border-outline-variant/15">
+                            <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Total Ventas Online</span>
+                            <span id="pagos-online-bruto" class="text-xl font-black text-on-surface">0 COP</span>
+                        </div>
+                        <div class="p-4 rounded-xl bg-amber-50/70 border border-amber-200/60">
+                            <span class="text-[10px] font-bold uppercase tracking-wider text-amber-700 block">Comisión Plataforma (3%)</span>
+                            <span id="pagos-online-comision" class="text-xl font-black text-amber-700">0 COP</span>
+                        </div>
+                        <div class="p-4 rounded-xl bg-emerald-50/70 border border-emerald-200/60">
+                            <span class="text-[10px] font-bold uppercase tracking-wider text-emerald-700 block">Neto para Tu Tienda (97%)</span>
+                            <span id="pagos-online-neto" class="text-xl font-black text-emerald-700">0 COP</span>
+                        </div>
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left">
+                            <thead>
+                                <tr class="text-slate-400 text-xs font-bold uppercase tracking-widest bg-surface-container-low/50">
+                                    <th class="px-4 py-3">Referencia</th>
+                                    <th class="px-4 py-3">Fecha</th>
+                                    <th class="px-4 py-3">Pagador</th>
+                                    <th class="px-4 py-3">Medio / Banco</th>
+                                    <th class="px-4 py-3 text-right">Total</th>
+                                    <th class="px-4 py-3 text-right">Comisión (3%)</th>
+                                    <th class="px-4 py-3 text-right">Neto Tienda</th>
+                                    <th class="px-4 py-3 text-center">Estado</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tabla-pagos-online" class="divide-y divide-surface-container">
+                                <tr><td colspan="8" class="px-4 py-5 text-center text-xs text-slate-400">Cargando pagos en línea...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </section>
 
             <section id="vista-ventas" class="hidden flex-1 flex flex-col lg:flex-row overflow-hidden p-3 sm:p-4 gap-4 h-full w-full relative">

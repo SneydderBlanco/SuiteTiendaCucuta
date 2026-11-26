@@ -248,10 +248,242 @@
                 </div>
             </div>
 
-            <button id="btn-confirmar-pedido" class="w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl font-black text-sm tracking-wide shadow-lg shadow-emerald-600/20 hover:shadow-emerald-600/30 transition-all flex items-center justify-center gap-2 active:scale-[0.98] cursor-pointer">
-                <span class="material-symbols-outlined">payments</span>
-                Confirmar Pedido / Enviar al Tendero
-            </button>
+            <div class="space-y-2.5">
+                <button id="btn-abrir-pasarela" class="w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl font-black text-sm tracking-wide shadow-lg shadow-emerald-600/20 hover:shadow-emerald-600/30 transition-all flex items-center justify-center gap-2 active:scale-[0.98] cursor-pointer">
+                    <span class="material-symbols-outlined">account_balance</span>
+                    Pagar en Línea (PSE / Nequi / Tarjeta)
+                </button>
+                <button id="btn-confirmar-pedido" class="w-full py-3 bg-white hover:bg-slate-100 text-emerald-700 border border-emerald-200 rounded-2xl font-bold text-xs tracking-wide transition-all flex items-center justify-center gap-2 active:scale-[0.98] cursor-pointer">
+                    <span class="material-symbols-outlined text-[18px]">chat</span>
+                    O enviar pedido por WhatsApp
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Pasarela de Pago Simulada (PSE / Nequi / Tarjeta - Modelo Intermediario 3%) -->
+    <div id="modal-pasarela-pago" class="fixed inset-0 z-[120] hidden items-center justify-center p-3 sm:p-4 bg-slate-900/70 backdrop-blur-sm">
+        <div class="bg-white w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[92dvh] border border-slate-100">
+            <!-- Cabecera Pasarela -->
+            <div class="bg-gradient-to-r from-slate-900 via-emerald-950 to-slate-900 text-white px-6 py-4 flex items-center justify-between shrink-0">
+                <div class="flex items-center gap-3 min-w-0">
+                    <div class="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center shrink-0">
+                        <span class="material-symbols-outlined text-emerald-400">verified_user</span>
+                    </div>
+                    <div class="min-w-0">
+                        <div class="flex items-center gap-2">
+                            <h3 class="font-extrabold text-sm sm:text-base tracking-tight truncate">Pasarela Tiendas Cúcuta</h3>
+                            <span class="px-2 py-0.5 text-[9px] font-black uppercase tracking-wider rounded-full bg-amber-400/20 text-amber-300 border border-amber-400/40 shrink-0">Simulación</span>
+                        </div>
+                        <p id="pasarela-store-subtitle" class="text-[11px] text-slate-300 truncate">Comercio: Cargando...</p>
+                    </div>
+                </div>
+                <button id="btn-cerrar-pasarela" type="button" class="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors cursor-pointer shrink-0">
+                    <span class="material-symbols-outlined text-[18px]">close</span>
+                </button>
+            </div>
+
+            <!-- Barra de Total -->
+            <div class="bg-emerald-50/70 border-b border-emerald-100 px-6 py-3 flex items-center justify-between shrink-0">
+                <div>
+                    <span class="block text-[10px] font-bold uppercase tracking-wider text-emerald-800/70">Total a pagar</span>
+                    <span id="pasarela-total-display" class="text-xl font-black text-emerald-700">0 COP</span>
+                </div>
+                <div class="text-right">
+                    <span class="block text-[10px] font-bold uppercase tracking-wider text-slate-400">Intermediación (3%)</span>
+                    <span id="pasarela-comision-hint" class="text-xs font-bold text-slate-600">Incluida al comercio</span>
+                </div>
+            </div>
+
+            <!-- Cuerpo con scroll -->
+            <div class="flex-1 overflow-y-auto p-5 sm:p-6">
+                <!-- PASO 1: Selección de método y datos -->
+                <div id="pasarela-step-1" class="space-y-5">
+                    <div>
+                        <label class="block text-[11px] font-extrabold uppercase tracking-wider text-slate-400 mb-2">Selecciona tu medio de pago</label>
+                        <div class="grid grid-cols-3 gap-2">
+                            <button type="button" data-pay-method="PSE" class="pay-method-tab py-3 px-2 rounded-xl border-2 border-emerald-600 bg-emerald-50 text-emerald-800 font-extrabold text-xs flex flex-col items-center gap-1 transition-all cursor-pointer">
+                                <span class="material-symbols-outlined text-xl">account_balance</span>
+                                <span>PSE</span>
+                            </button>
+                            <button type="button" data-pay-method="Nequi" class="pay-method-tab py-3 px-2 rounded-xl border border-slate-200 bg-white text-slate-600 hover:border-emerald-300 font-bold text-xs flex flex-col items-center gap-1 transition-all cursor-pointer">
+                                <span class="material-symbols-outlined text-xl">smartphone</span>
+                                <span>Nequi</span>
+                            </button>
+                            <button type="button" data-pay-method="Tarjeta" class="pay-method-tab py-3 px-2 rounded-xl border border-slate-200 bg-white text-slate-600 hover:border-emerald-300 font-bold text-xs flex flex-col items-center gap-1 transition-all cursor-pointer">
+                                <span class="material-symbols-outlined text-xl">credit_card</span>
+                                <span>Tarjeta</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <form id="form-pasarela-datos" class="space-y-3.5">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-[11px] font-bold text-slate-600 mb-1">Nombre completo</label>
+                                <input id="pay-nombre" type="text" required placeholder="Ej. Carlos Mendoza" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none" />
+                            </div>
+                            <div>
+                                <label class="block text-[11px] font-bold text-slate-600 mb-1">Correo electrónico</label>
+                                <input id="pay-email" type="email" required placeholder="carlos@gmail.com" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none" />
+                            </div>
+                        </div>
+
+                        <!-- Campos PSE -->
+                        <div id="pay-fields-pse" class="space-y-3 pt-1">
+                            <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label class="block text-[11px] font-bold text-slate-600 mb-1">Tipo de persona</label>
+                                    <select id="pay-pse-persona" class="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none">
+                                        <option value="Natural">Persona Natural</option>
+                                        <option value="Jurídica">Persona Jurídica</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-[11px] font-bold text-slate-600 mb-1">Tipo de documento</label>
+                                    <select id="pay-doc-tipo" class="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none">
+                                        <option value="CC">Cédula (CC)</option>
+                                        <option value="CE">Cédula Extranjería (CE)</option>
+                                        <option value="NIT">NIT</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-[11px] font-bold text-slate-600 mb-1">Número de documento</label>
+                                <input id="pay-doc-numero" type="text" placeholder="Ej. 1090456789" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none" />
+                            </div>
+                            <div>
+                                <label class="block text-[11px] font-bold text-slate-600 mb-1">Selecciona tu banco (PSE)</label>
+                                <select id="pay-pse-banco" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-700 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none">
+                                    <option value="">Elige tu entidad bancaria...</option>
+                                    <option value="Bancolombia">Bancolombia</option>
+                                    <option value="Nequi">Nequi</option>
+                                    <option value="Daviplata">Daviplata</option>
+                                    <option value="Davivienda">Banco Davivienda</option>
+                                    <option value="Banco de Bogotá">Banco de Bogotá</option>
+                                    <option value="BBVA Colombia">BBVA Colombia</option>
+                                    <option value="Banco de Occidente">Banco de Occidente</option>
+                                    <option value="Banco Popular">Banco Popular</option>
+                                    <option value="Banco AV Villas">Banco AV Villas</option>
+                                    <option value="Banco Caja Social">Banco Caja Social</option>
+                                    <option value="Nu Colombia">Nu Colombia</option>
+                                    <option value="Lulo Bank">Lulo Bank</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Campos Nequi -->
+                        <div id="pay-fields-nequi" class="hidden space-y-3 pt-1">
+                            <div>
+                                <label class="block text-[11px] font-bold text-slate-600 mb-1">Número celular Nequi (10 dígitos)</label>
+                                <input id="pay-nequi-celular" type="tel" maxlength="10" placeholder="Ej. 3101234567" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none" />
+                                <p class="text-[11px] text-slate-400 mt-1">Simularemos la notificación push en tu app Nequi para confirmar el pago.</p>
+                            </div>
+                        </div>
+
+                        <!-- Campos Tarjeta -->
+                        <div id="pay-fields-tarjeta" class="hidden space-y-3 pt-1">
+                            <div>
+                                <label class="block text-[11px] font-bold text-slate-600 mb-1">Número de tarjeta (ficticia de prueba)</label>
+                                <input id="pay-card-num" type="text" maxlength="19" placeholder="4532 1100 2200 3300" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-mono focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none" />
+                            </div>
+                            <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label class="block text-[11px] font-bold text-slate-600 mb-1">Vencimiento (MM/AA)</label>
+                                    <input id="pay-card-exp" type="text" maxlength="5" placeholder="12/29" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-mono focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none" />
+                                </div>
+                                <div>
+                                    <label class="block text-[11px] font-bold text-slate-600 mb-1">CVV</label>
+                                    <input id="pay-card-cvv" type="password" maxlength="4" placeholder="123" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-mono focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none" />
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Desglose Modelo Intermediario -->
+                        <div class="bg-slate-50 border border-slate-200/80 rounded-2xl p-3.5 text-xs space-y-1">
+                            <div class="flex justify-between text-slate-500">
+                                <span>Valor de tu compra:</span>
+                                <span id="pay-box-total" class="font-bold text-slate-800">0 COP</span>
+                            </div>
+                            <div class="flex justify-between text-slate-500">
+                                <span>Comisión intermediación Tiendas Cúcuta (3%):</span>
+                                <span id="pay-box-comision" class="font-semibold text-amber-700">0 COP</span>
+                            </div>
+                            <div class="flex justify-between text-slate-500 pt-1 border-t border-slate-200/70">
+                                <span>Neto que recibe el tendero (97%):</span>
+                                <span id="pay-box-neto" class="font-extrabold text-emerald-700">0 COP</span>
+                            </div>
+                        </div>
+
+                        <p id="pasarela-form-error" class="hidden text-xs font-bold text-red-600 bg-red-50 border border-red-200 rounded-xl px-3 py-2"></p>
+
+                        <button type="submit" class="w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl font-black text-sm shadow-lg shadow-emerald-600/20 transition-all active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer">
+                            <span class="material-symbols-outlined text-[20px]">lock</span>
+                            Continuar al Banco / Simular Pago
+                        </button>
+                    </form>
+                </div>
+
+                <!-- PASO 2: Simulador Bancario (estilo PSE / BetPlay) -->
+                <div id="pasarela-step-2" class="hidden space-y-5 text-center">
+                    <div id="pasarela-connecting" class="py-10 space-y-3">
+                        <div class="w-14 h-14 mx-auto rounded-full border-4 border-emerald-100 border-t-emerald-600 animate-spin"></div>
+                        <p class="text-sm font-extrabold text-slate-800">Conectando con la entidad financiera...</p>
+                        <p id="pasarela-connecting-sub" class="text-xs text-slate-500">Estableciendo sesión segura PSE (Simulación)</p>
+                    </div>
+
+                    <div id="pasarela-bank-panel" class="hidden space-y-5">
+                        <div class="bg-blue-50 border border-blue-200/80 rounded-2xl p-4 text-left space-y-2">
+                            <div class="flex items-center justify-between">
+                                <span class="text-[10px] font-black uppercase tracking-widest text-blue-700 bg-blue-100 px-2.5 py-1 rounded-full">Portal Bancario Simulado</span>
+                                <span id="sim-bank-method-badge" class="text-xs font-extrabold text-slate-700">PSE</span>
+                            </div>
+                            <h4 id="sim-bank-name" class="text-lg font-black text-slate-900">Bancolombia</h4>
+                            <div class="text-xs text-slate-600 space-y-1 pt-1 border-t border-blue-200/60">
+                                <div class="flex justify-between"><span>Comercio intermediario:</span><strong class="text-slate-800">Tiendas Cúcuta</strong></div>
+                                <div class="flex justify-between"><span>Tienda destino:</span><strong id="sim-store-name" class="text-slate-800">---</strong></div>
+                                <div class="flex justify-between"><span>Pagador:</span><strong id="sim-payer-name" class="text-slate-800">---</strong></div>
+                                <div class="flex justify-between"><span>Valor a debitar:</span><strong id="sim-amount" class="text-emerald-700 text-sm">0 COP</strong></div>
+                            </div>
+                        </div>
+
+                        <p class="text-xs text-slate-500">Elige el resultado que deseas simular para probar el comportamiento del sistema:</p>
+
+                        <div class="space-y-2.5">
+                            <button id="btn-simular-aprobar" type="button" class="w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl font-black text-sm shadow-lg shadow-emerald-600/20 transition-all flex items-center justify-center gap-2 cursor-pointer">
+                                <span class="material-symbols-outlined">check_circle</span>
+                                Aprobar Pago (Transacción Exitosa)
+                            </button>
+                            <button id="btn-simular-rechazar" type="button" class="w-full py-3 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 rounded-2xl font-extrabold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer">
+                                <span class="material-symbols-outlined text-[18px]">cancel</span>
+                                Simular Pago Rechazado (Fondos insuficientes)
+                            </button>
+                            <button id="btn-pasarela-volver" type="button" class="w-full py-2.5 text-slate-500 hover:text-slate-800 font-bold text-xs cursor-pointer">
+                                ← Volver a los datos de pago
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- PASO 3: Comprobante / Resultado -->
+                <div id="pasarela-step-3" class="hidden space-y-5 text-center">
+                    <div id="pasarela-res-icon" class="w-16 h-16 mx-auto rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center">
+                        <span class="material-symbols-outlined text-4xl">check_circle</span>
+                    </div>
+                    <div>
+                        <h4 id="pasarela-res-title" class="text-xl font-black text-slate-900">¡Pago Aprobado!</h4>
+                        <p id="pasarela-res-subtitle" class="text-xs text-slate-500 mt-1">Tu compra fue confirmada y el inventario se actualizó automáticamente.</p>
+                    </div>
+
+                    <div id="pasarela-res-details" class="bg-slate-50 border border-slate-200 rounded-2xl p-4 text-left text-xs space-y-2">
+                        <!-- Inyectado dinámicamente -->
+                    </div>
+
+                    <div id="pasarela-res-actions" class="space-y-2.5">
+                        <!-- Botones dinámicos según aprobado/rechazado -->
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -1175,7 +1407,322 @@
                 const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
                 window.open(whatsappUrl, '_blank');
             });
+
+            // Pasarela de Pago Simulada (PSE / Nequi / Tarjeta - Modelo Intermediario 3%)
+            setupPasarelaEvents();
         }
+
+        let selectedPayMethod = 'PSE';
+        let pendingPasarelaPayload = null;
+        let lastApprovedPaymentData = null;
+
+        function getCartTotalAmount() {
+            return cart.reduce((sum, item) => {
+                const price = parseFloat(item.precio_venta) || getActivePrice(item.id_producto, item.precio_venta);
+                return sum + (price * item.cantidad);
+            }, 0);
+        }
+
+        function showPasarelaStep(stepNum) {
+            [1, 2, 3].forEach(n => {
+                const el = document.getElementById(`pasarela-step-${n}`);
+                if (el) el.classList.toggle('hidden', n !== stepNum);
+            });
+        }
+
+        function selectPayMethod(method) {
+            selectedPayMethod = method;
+            document.querySelectorAll('.pay-method-tab').forEach(btn => {
+                const isSelected = btn.getAttribute('data-pay-method') === method;
+                if (isSelected) {
+                    btn.className = 'pay-method-tab py-3 px-2 rounded-xl border-2 border-emerald-600 bg-emerald-50 text-emerald-800 font-extrabold text-xs flex flex-col items-center gap-1 transition-all cursor-pointer';
+                } else {
+                    btn.className = 'pay-method-tab py-3 px-2 rounded-xl border border-slate-200 bg-white text-slate-600 hover:border-emerald-300 font-bold text-xs flex flex-col items-center gap-1 transition-all cursor-pointer';
+                }
+            });
+
+            document.getElementById('pay-fields-pse').classList.toggle('hidden', method !== 'PSE');
+            document.getElementById('pay-fields-nequi').classList.toggle('hidden', method !== 'Nequi');
+            document.getElementById('pay-fields-tarjeta').classList.toggle('hidden', method !== 'Tarjeta');
+        }
+
+        function openPasarelaModal() {
+            if (cart.length === 0) {
+                alert('Tu carrito está vacío. Agrega productos antes de pagar.');
+                return;
+            }
+            const total = getCartTotalAmount();
+            const comision = Math.round(total * 0.03 * 100) / 100;
+            const neto = Math.round((total - comision) * 100) / 100;
+
+            document.getElementById('pasarela-store-subtitle').textContent = `Tienda destino: ${storeDataGlobal?.nombre_tienda || 'Tienda Local'}`;
+            document.getElementById('pasarela-total-display').textContent = Utils.formatCurrency(total);
+            document.getElementById('pay-box-total').textContent = Utils.formatCurrency(total);
+            document.getElementById('pay-box-comision').textContent = Utils.formatCurrency(comision);
+            document.getElementById('pay-box-neto').textContent = Utils.formatCurrency(neto);
+
+            // Autocompletar si el usuario inició sesión
+            const savedName = localStorage.getItem('userName') || '';
+            const savedUserRaw = localStorage.getItem('user');
+            let savedEmail = '';
+            try {
+                if (savedUserRaw) savedEmail = JSON.parse(savedUserRaw).email || '';
+            } catch (_) {}
+
+            const inputNombre = document.getElementById('pay-nombre');
+            const inputEmail = document.getElementById('pay-email');
+            if (inputNombre && !inputNombre.value && savedName) inputNombre.value = savedName;
+            if (inputEmail && !inputEmail.value && savedEmail) inputEmail.value = savedEmail;
+
+            document.getElementById('pasarela-form-error').classList.add('hidden');
+            selectPayMethod('PSE');
+            showPasarelaStep(1);
+
+            toggleCarritoSidebar(false);
+            const modal = document.getElementById('modal-pasarela-pago');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function closePasarelaModal() {
+            const modal = document.getElementById('modal-pasarela-pago');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        function setupPasarelaEvents() {
+            const btnAbrir = document.getElementById('btn-abrir-pasarela');
+            const btnCerrar = document.getElementById('btn-cerrar-pasarela');
+            const formDatos = document.getElementById('form-pasarela-datos');
+            const btnVolver = document.getElementById('btn-pasarela-volver');
+            const btnAprobar = document.getElementById('btn-simular-aprobar');
+            const btnRechazar = document.getElementById('btn-simular-rechazar');
+
+            if (btnAbrir) btnAbrir.addEventListener('click', openPasarelaModal);
+            if (btnCerrar) btnCerrar.addEventListener('click', closePasarelaModal);
+
+            document.querySelectorAll('.pay-method-tab').forEach(btn => {
+                btn.addEventListener('click', () => selectPayMethod(btn.getAttribute('data-pay-method')));
+            });
+
+            if (formDatos) {
+                formDatos.addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    const errBox = document.getElementById('pasarela-form-error');
+                    errBox.classList.add('hidden');
+
+                    const nombre = document.getElementById('pay-nombre').value.trim();
+                    const email = document.getElementById('pay-email').value.trim();
+                    let bancoOEntidad = '';
+                    let docTipo = 'CC';
+                    let docNumero = '';
+
+                    if (selectedPayMethod === 'PSE') {
+                        const banco = document.getElementById('pay-pse-banco').value;
+                        docTipo = document.getElementById('pay-doc-tipo').value;
+                        docNumero = document.getElementById('pay-doc-numero').value.trim();
+                        if (!docNumero) {
+                            errBox.textContent = 'Ingresa tu número de documento para continuar con PSE.';
+                            errBox.classList.remove('hidden');
+                            return;
+                        }
+                        if (!banco) {
+                            errBox.textContent = 'Selecciona tu banco en la lista de PSE.';
+                            errBox.classList.remove('hidden');
+                            return;
+                        }
+                        bancoOEntidad = banco;
+                    } else if (selectedPayMethod === 'Nequi') {
+                        const cel = document.getElementById('pay-nequi-celular').value.replace(/\D/g, '');
+                        if (cel.length !== 10) {
+                            errBox.textContent = 'Ingresa un número celular Nequi válido de 10 dígitos.';
+                            errBox.classList.remove('hidden');
+                            return;
+                        }
+                        bancoOEntidad = `Nequi (${cel})`;
+                        docNumero = cel;
+                    } else {
+                        const card = document.getElementById('pay-card-num').value.replace(/\s+/g, '');
+                        const exp = document.getElementById('pay-card-exp').value.trim();
+                        const cvv = document.getElementById('pay-card-cvv').value.trim();
+                        if (card.length < 12 || !exp || cvv.length < 3) {
+                            errBox.textContent = 'Completa los datos ficticios de la tarjeta para simular el pago.';
+                            errBox.classList.remove('hidden');
+                            return;
+                        }
+                        bancoOEntidad = `Tarjeta terminada en ${card.slice(-4)}`;
+                    }
+
+                    const loggedRole = (localStorage.getItem('userRole') || '').toLowerCase();
+                    const loggedId = localStorage.getItem('userId');
+                    const idCliente = (loggedRole === 'consumer' || loggedRole === 'consumidor' || loggedRole === 'cliente') && loggedId
+                        ? parseInt(loggedId, 10)
+                        : null;
+
+                    pendingPasarelaPayload = {
+                        id_tienda: parseInt(tenderoId, 10),
+                        id_cliente: idCliente,
+                        nombre_pagador: nombre,
+                        email_pagador: email,
+                        metodo_pago: selectedPayMethod,
+                        banco_o_entidad: bancoOEntidad,
+                        documento_tipo: docTipo,
+                        documento_numero: docNumero,
+                        items: cart.map(item => ({
+                            id_producto: item.id_producto,
+                            unidad: item.unidad || 'Unidad',
+                            cantidad: item.cantidad,
+                            precio_unitario: parseFloat(item.precio_venta) || getActivePrice(item.id_producto, item.precio_venta)
+                        }))
+                    };
+
+                    // Mostrar paso 2 (conexión simulada con el banco)
+                    showPasarelaStep(2);
+                    const connectingDiv = document.getElementById('pasarela-connecting');
+                    const bankPanel = document.getElementById('pasarela-bank-panel');
+                    connectingDiv.classList.remove('hidden');
+                    bankPanel.classList.add('hidden');
+                    document.getElementById('pasarela-connecting-sub').textContent = `Estableciendo sesión segura con ${bancoOEntidad} (${selectedPayMethod})...`;
+
+                    document.getElementById('sim-bank-method-badge').textContent = selectedPayMethod;
+                    document.getElementById('sim-bank-name').textContent = bancoOEntidad;
+                    document.getElementById('sim-store-name').textContent = storeDataGlobal?.nombre_tienda || 'Tienda Local';
+                    document.getElementById('sim-payer-name').textContent = nombre;
+                    document.getElementById('sim-amount').textContent = Utils.formatCurrency(getCartTotalAmount());
+
+                    setTimeout(() => {
+                        connectingDiv.classList.add('hidden');
+                        bankPanel.classList.remove('hidden');
+                    }, 750);
+                });
+            }
+
+            if (btnVolver) {
+                btnVolver.addEventListener('click', () => showPasarelaStep(1));
+            }
+
+            async function ejecutarSimulacion(resultado) {
+                if (!pendingPasarelaPayload) return;
+                btnAprobar.disabled = true;
+                btnRechazar.disabled = true;
+                const prevApproveText = btnAprobar.innerHTML;
+                const prevRejectText = btnRechazar.innerHTML;
+                if (resultado === 'APROBADO') {
+                    btnAprobar.innerHTML = '<span class="material-symbols-outlined animate-spin">sync</span> Procesando aprobación...';
+                } else {
+                    btnRechazar.innerHTML = '<span class="material-symbols-outlined animate-spin">sync</span> Simulando rechazo...';
+                }
+
+                try {
+                    const resp = await API.simularPagoOnline({
+                        ...pendingPasarelaPayload,
+                        simular_resultado: resultado
+                    });
+
+                    const resIcon = document.getElementById('pasarela-res-icon');
+                    const resTitle = document.getElementById('pasarela-res-title');
+                    const resSub = document.getElementById('pasarela-res-subtitle');
+                    const resDetails = document.getElementById('pasarela-res-details');
+                    const resActions = document.getElementById('pasarela-res-actions');
+
+                    if (resp.status === 200 && resp.data && resp.data.success && resp.data.estado === 'APROBADO') {
+                        const pago = resp.data.pago;
+                        lastApprovedPaymentData = { pago, items: [...cart] };
+
+                        resIcon.className = 'w-16 h-16 mx-auto rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center';
+                        resIcon.innerHTML = '<span class="material-symbols-outlined text-4xl">check_circle</span>';
+                        resTitle.textContent = '¡Pago Aprobado con Éxito!';
+                        resSub.textContent = 'Tu pedido quedó pagado, registrado en la tienda y descontado del inventario.';
+
+                        resDetails.innerHTML = `
+                            <div class="flex justify-between"><span class="text-slate-500">Referencia de pago:</span><strong class="font-mono text-slate-900">${pago.referencia}</strong></div>
+                            <div class="flex justify-between"><span class="text-slate-500">Factura / Ticket:</span><strong class="font-mono text-emerald-700">#TKT-${pago.id_venta}</strong></div>
+                            <div class="flex justify-between"><span class="text-slate-500">Estado:</span><span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-black text-[10px]">APROBADO</span></div>
+                            <div class="flex justify-between"><span class="text-slate-500">Medio / Entidad:</span><strong class="text-slate-800">${pago.metodo_pago} · ${pago.banco_o_entidad}</strong></div>
+                            <div class="flex justify-between"><span class="text-slate-500">Pagador:</span><strong class="text-slate-800">${pago.nombre_pagador}</strong></div>
+                            <div class="pt-2 mt-2 border-t border-slate-200 space-y-1">
+                                <div class="flex justify-between"><span class="text-slate-600 font-bold">Total pagado:</span><strong class="text-slate-900 text-sm">${Utils.formatCurrency(pago.total_bruto)}</strong></div>
+                                <div class="flex justify-between text-[11px]"><span class="text-slate-500">Comisión plataforma (${pago.porcentaje_comision}%):</span><span class="font-bold text-amber-700">${Utils.formatCurrency(pago.comision_plataforma)}</span></div>
+                                <div class="flex justify-between text-[11px]"><span class="text-slate-500">Neto para ${storeDataGlobal?.nombre_tienda || 'el tendero'} (97%):</span><span class="font-extrabold text-emerald-700">${Utils.formatCurrency(pago.neto_tendero)}</span></div>
+                            </div>
+                        `;
+
+                        resActions.innerHTML = `
+                            <button type="button" onclick="enviarComprobanteWhatsApp()" class="w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl font-black text-xs flex items-center justify-center gap-2 cursor-pointer shadow-md">
+                                <span class="material-symbols-outlined text-[18px]">chat</span>
+                                Enviar Comprobante al Tendero por WhatsApp
+                            </button>
+                            <button type="button" onclick="window.print()" class="w-full py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 cursor-pointer">
+                                <span class="material-symbols-outlined text-[18px]">print</span>
+                                Imprimir / Guardar Comprobante
+                            </button>
+                            <button type="button" onclick="closePasarelaModal()" class="w-full py-2.5 text-emerald-700 font-bold text-xs hover:underline cursor-pointer">
+                                Finalizar y volver a la tienda
+                            </button>
+                        `;
+
+                        // Vaciar carrito y recargar stock actualizado desde la BD
+                        vaciarCarrito();
+                        loadStoreCatalog();
+                        showPasarelaStep(3);
+                    } else if (resp.data && resp.data.estado === 'RECHAZADO') {
+                        const pago = resp.data.pago || {};
+                        resIcon.className = 'w-16 h-16 mx-auto rounded-full bg-red-100 text-red-600 flex items-center justify-center';
+                        resIcon.innerHTML = '<span class="material-symbols-outlined text-4xl">cancel</span>';
+                        resTitle.textContent = 'Pago Rechazado';
+                        resSub.textContent = resp.data.message || 'La entidad bancaria declinó la transacción. No se descontó stock ni se realizó cobro.';
+
+                        resDetails.innerHTML = `
+                            <div class="flex justify-between"><span class="text-slate-500">Referencia intento:</span><strong class="font-mono text-slate-900">${pago.referencia || '---'}</strong></div>
+                            <div class="flex justify-between"><span class="text-slate-500">Estado:</span><span class="px-2 py-0.5 rounded-full bg-red-100 text-red-700 font-black text-[10px]">RECHAZADO</span></div>
+                            <div class="flex justify-between"><span class="text-slate-500">Medio / Entidad:</span><strong class="text-slate-800">${pago.metodo_pago || selectedPayMethod} · ${pago.banco_o_entidad || ''}</strong></div>
+                            <div class="flex justify-between"><span class="text-slate-500">Monto intentado:</span><strong class="text-slate-800">${Utils.formatCurrency(pago.total_bruto || getCartTotalAmount())}</strong></div>
+                        `;
+
+                        resActions.innerHTML = `
+                            <button type="button" onclick="showPasarelaStep(1)" class="w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl font-black text-xs cursor-pointer shadow-md">
+                                Reintentar con otro método o banco
+                            </button>
+                            <button type="button" onclick="closePasarelaModal()" class="w-full py-2.5 text-slate-500 font-bold text-xs hover:text-slate-800 cursor-pointer">
+                                Cerrar (mantener productos en mi carrito)
+                            </button>
+                        `;
+                        showPasarelaStep(3);
+                    } else {
+                        alert(resp.data?.error || 'No se pudo completar el pago simulado.');
+                        showPasarelaStep(1);
+                    }
+                } catch (err) {
+                    console.error('Error ejecutando pago simulado:', err);
+                    alert('Error de conexión con el servidor al procesar el pago.');
+                    showPasarelaStep(1);
+                } finally {
+                    btnAprobar.disabled = false;
+                    btnRechazar.disabled = false;
+                    btnAprobar.innerHTML = prevApproveText;
+                    btnRechazar.innerHTML = prevRejectText;
+                }
+            }
+
+            if (btnAprobar) btnAprobar.addEventListener('click', () => ejecutarSimulacion('APROBADO'));
+            if (btnRechazar) btnRechazar.addEventListener('click', () => ejecutarSimulacion('RECHAZADO'));
+        }
+
+        window.enviarComprobanteWhatsApp = function() {
+            if (!lastApprovedPaymentData) return;
+            const { pago, items } = lastApprovedPaymentData;
+            const itemsText = items.map(i => `• ${i.cantidad}x *${i.nombre}${i.unidad ? ' - ' + i.unidad : ''}*`).join('\n');
+            const msg = `¡Hola *${storeDataGlobal?.nombre_tienda || 'Tienda'}*! Acabo de pagar mi pedido en línea en Tiendas Cúcuta:\n\n` +
+                `✅ *Estado:* APROBADO\n` +
+                `🔖 *Referencia:* ${pago.referencia}\n` +
+                `🧾 *Ticket:* #TKT-${pago.id_venta}\n` +
+                `🏦 *Medio:* ${pago.metodo_pago} (${pago.banco_o_entidad})\n` +
+                `💰 *Total pagado:* ${Utils.formatCurrency(pago.total_bruto)}\n\n` +
+                `*Productos:*\n${itemsText}\n\nQuedo atento a la entrega.`;
+            const rawPhone = (storeDataGlobal && storeDataGlobal.whatsapp) ? storeDataGlobal.whatsapp : '573000000000';
+            const cleanPhone = rawPhone.replace(/\D/g, '');
+            window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`, '_blank');
+        };
 
         // Global functions called via onclick attributes
         window.agregarAlCarritoClick = function(product, event) {

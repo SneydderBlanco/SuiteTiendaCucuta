@@ -1532,6 +1532,297 @@ app.delete('/api/vitrina/:id_oferta', async (req, res) => {
 
 
 
+// ==========================================
+// PASARELA DE PAGO SIMULADA (MODELO INTERMEDIARIO - COMISIÓN 3%)
+// ==========================================
+
+async function ensurePagosOnlineTable() {
+    await db.query(`
+        CREATE TABLE IF NOT EXISTS pagos_online (
+            id_pago SERIAL PRIMARY KEY,
+            referencia VARCHAR(60) UNIQUE NOT NULL,
+            id_venta INTEGER REFERENCES venta(id_venta) ON DELETE SET NULL,
+            id_tienda INTEGER REFERENCES tendero(id_tendero) ON DELETE CASCADE,
+            id_cliente INTEGER REFERENCES cliente(id_cliente) ON DELETE SET NULL,
+            nombre_pagador VARCHAR(120) NOT NULL,
+            email_pagador VARCHAR(255) NOT NULL,
+            metodo_pago VARCHAR(40) NOT NULL,
+            banco_o_entidad VARCHAR(100),
+            documento_tipo VARCHAR(20),
+            documento_numero VARCHAR(40),
+            total_bruto NUMERIC(12, 2) NOT NULL,
+            porcentaje_comision NUMERIC(5, 2) DEFAULT 3.00,
+            comision_plataforma NUMERIC(12, 2) NOT NULL,
+            neto_tendero NUMERIC(12, 2) NOT NULL,
+            estado VARCHAR(20) NOT NULL,
+            motivo_rechazo TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    `);
+}
+
+// Endpoint: Procesar pago en línea simulado (PSE / Nequi / Tarjeta) con comisión del 3%
+app.post('/api/pagos/simular', async (req, res) => {
+    const {
+        id_tienda,
+        id_cliente,
+        nombre_pagador,
+        email_pagador,
+        metodo_pago = 'PSE',
+        banco_o_entidad = '',
+        documento_tipo = 'CC',
+        documento_numero = '',
+        items = [],
+        simular_resultado = 'APROBADO'
+    } = req.body || {};
+
+    if (!id_tienda || !nombre_pagador || !email_pagador) {
+        return res.status(400).json({ error: 'Faltan datos obligatorios del pagador o de la tienda.' });
+    }
+    if (!Array.isArray(items) || items.length === 0) {
+        return res.status(400).json({ error: 'El carrito está vacío. Agrega productos antes de pagar.' });
+    }
+
+    const metodoClean = String(metodo_pago || 'PSE').trim();
+    const prefijo = metodoClean.toUpperCase().startsWith('PSE')
+        ? 'PSE'
+        : metodoClean.toUpperCase().startsWith('NEQ')
+        ? 'NEQ'
+        : 'TAR';
+    const fechaTag = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    const randomTag = Math.floor(100000 + Math.random() * 900000);
+    const referencia = `${prefijo}-${fechaTag}-${randomTag}`;
+
+    const totalBruto = Math.round(
+        items.reduce((acc, item) => {
+            const cant = parseInt(item.cantidad, 10) || 0;
+            const precio = parseFloat(item.precio_unitario) || 0;
+            return acc + (cant * precio);
+        }, 0) * 100
+    ) / 100;
+
+    if (totalBruto <= 0) {
+        return res.status(400).json({ error: 'El monto total del pago debe ser mayor a 0.' });
+    }
+
+    const porcentajeComision = 3.0;
+    const comisionPlataforma = Math.round(totalBruto * (porcentajeComision / 100) * 100) / 100;
+    const netoTendero = Math.round((totalBruto - comisionPlataforma) * 100) / 100;
+    const resultadoFinal = String(simular_resultado || 'APROBADO').toUpperCase() === 'RECHAZADO' ? 'RECHAZADO' : 'APROBADO';
+
+    try {
+        await ensurePagosOnlineTable();
+
+        // Intentar vincular cliente si existe por id o correo
+        let clienteIdFinal = id_cliente ? parseInt(id_cliente, 10) : null;
+        if (!clienteIdFinal && email_pagador) {
+            const cliRes = await db.query(
+                'SELECT id_cliente FROM cliente WHERE LOWER(email) = LOWER($1) LIMIT 1',
+                [String(email_pagador).trim()]
+            );
+            if (cliRes.rows.length > 0) {
+                clienteIdFinal = cliRes.rows[0].id_cliente;
+            }
+        }
+
+        // Caso 1: Pago RECHAZADO (simulación de fondos insuficientes / declinado) -> NO descuenta stock ni crea venta
+        if (resultadoFinal === 'RECHAZADO') {
+            const motivo = 'Transacción declinada por la entidad bancaria (fondos insuficientes o rechazo simulado).';
+            const rechazoRes = await db.query(
+                `INSERT INTO pagos_online (
+                    referencia, id_venta, id_tienda, id_cliente, nombre_pagador, email_pagador,
+                    metodo_pago, banco_o_entidad, documento_tipo, documento_numero,
+                    total_bruto, porcentaje_comision, comision_plataforma, neto_tendero,
+                    estado, motivo_rechazo
+                ) VALUES ($1, NULL, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 'RECHAZADO', $14)
+                RETURNING *`,
+                [
+                    referencia,
+                    parseInt(id_tienda, 10),
+                    clienteIdFinal,
+                    String(nombre_pagador).trim(),
+                    String(email_pagador).trim(),
+                    metodoClean,
+                    String(banco_o_entidad || '').trim(),
+                    String(documento_tipo || 'CC').trim(),
+                    String(documento_numero || '').trim(),
+                    totalBruto,
+                    porcentajeComision,
+                    comisionPlataforma,
+                    netoTendero,
+                    motivo
+                ]
+            );
+
+            return res.status(200).json({
+                success: false,
+                estado: 'RECHAZADO',
+                message: motivo,
+                pago: rechazoRes.rows[0]
+            });
+        }
+
+        // Caso 2: Pago APROBADO -> Transacción atómica (venta + detalle_venta + descuento de stock + pagos_online)
+        await db.query('BEGIN');
+
+        const tipoPagoVenta = metodoClean.toLowerCase(); // 'pse', 'nequi', 'tarjeta'
+        const ventaRes = await db.query(
+            'INSERT INTO venta (id_tienda, id_cliente, tipo_pago, total, fecha) VALUES ($1, $2, $3, $4, NOW()) RETURNING id_venta, fecha',
+            [parseInt(id_tienda, 10), clienteIdFinal, tipoPagoVenta, totalBruto]
+        );
+        const id_venta = ventaRes.rows[0].id_venta;
+
+        for (const item of items) {
+            const prodId = parseInt(item.id_producto, 10);
+            const cantidad = parseInt(item.cantidad, 10) || 1;
+            const precioUnit = parseFloat(item.precio_unitario) || 0;
+
+            const prodRes = await db.query(
+                'SELECT id_producto, nombre, stock, presentaciones FROM productos WHERE id_producto = $1 FOR UPDATE',
+                [prodId]
+            );
+            if (prodRes.rows.length === 0) {
+                await db.query('ROLLBACK');
+                return res.status(404).json({ error: `Producto ID ${prodId} no encontrado.` });
+            }
+
+            const prodRow = prodRes.rows[0];
+            let presentacionesArr = Array.isArray(prodRow.presentaciones) ? [...prodRow.presentaciones] : [];
+            const unidadVendida = String(item.unidad || '').trim().toLowerCase();
+
+            if (presentacionesArr.length > 0 && unidadVendida) {
+                const presIndex = presentacionesArr.findIndex(
+                    p => String(p?.unidad || p?.unidad_medida || '').trim().toLowerCase() === unidadVendida
+                );
+
+                if (presIndex !== -1) {
+                    const currentPresStock = parseInt(presentacionesArr[presIndex].stock, 10) || 0;
+                    if (currentPresStock < cantidad) {
+                        await db.query('ROLLBACK');
+                        return res.status(400).json({
+                            error: `Stock insuficiente para "${prodRow.nombre}" (${presentacionesArr[presIndex].unidad}). Disponible: ${currentPresStock}.`
+                        });
+                    }
+                    presentacionesArr[presIndex] = {
+                        ...presentacionesArr[presIndex],
+                        stock: currentPresStock - cantidad
+                    };
+                    const nuevoStockTotal = presentacionesArr.reduce((acc, pr) => acc + (parseInt(pr.stock, 10) || 0), 0);
+                    await db.query(
+                        'UPDATE productos SET presentaciones = $1::jsonb, stock = $2 WHERE id_producto = $3',
+                        [JSON.stringify(presentacionesArr), nuevoStockTotal, prodId]
+                    );
+                } else {
+                    const stockRes = await db.query(
+                        'UPDATE productos SET stock = stock - $1 WHERE id_producto = $2 AND stock >= $1',
+                        [cantidad, prodId]
+                    );
+                    if (stockRes.rowCount === 0) {
+                        await db.query('ROLLBACK');
+                        return res.status(400).json({ error: `Stock insuficiente para "${prodRow.nombre}".` });
+                    }
+                }
+            } else {
+                const stockRes = await db.query(
+                    'UPDATE productos SET stock = stock - $1 WHERE id_producto = $2 AND stock >= $1',
+                    [cantidad, prodId]
+                );
+                if (stockRes.rowCount === 0) {
+                    await db.query('ROLLBACK');
+                    return res.status(400).json({ error: `Stock insuficiente para "${prodRow.nombre}".` });
+                }
+            }
+
+            await db.query(
+                'INSERT INTO detalle_venta (id_venta, id_producto, cantidad, precio_unitario_en_momento) VALUES ($1, $2, $3, $4)',
+                [id_venta, prodId, cantidad, precioUnit]
+            );
+        }
+
+        const pagoRes = await db.query(
+            `INSERT INTO pagos_online (
+                referencia, id_venta, id_tienda, id_cliente, nombre_pagador, email_pagador,
+                metodo_pago, banco_o_entidad, documento_tipo, documento_numero,
+                total_bruto, porcentaje_comision, comision_plataforma, neto_tendero,
+                estado, motivo_rechazo
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, 'APROBADO', NULL)
+            RETURNING *`,
+            [
+                referencia,
+                id_venta,
+                parseInt(id_tienda, 10),
+                clienteIdFinal,
+                String(nombre_pagador).trim(),
+                String(email_pagador).trim(),
+                metodoClean,
+                String(banco_o_entidad || '').trim(),
+                String(documento_tipo || 'CC').trim(),
+                String(documento_numero || '').trim(),
+                totalBruto,
+                porcentajeComision,
+                comisionPlataforma,
+                netoTendero
+            ]
+        );
+
+        await db.query('COMMIT');
+
+        return res.status(200).json({
+            success: true,
+            estado: 'APROBADO',
+            message: 'Pago aprobado y venta registrada correctamente.',
+            id_venta,
+            pago: pagoRes.rows[0]
+        });
+    } catch (err) {
+        await db.query('ROLLBACK').catch(() => {});
+        console.error('Error en POST /api/pagos/simular:', err.message);
+        return res.status(500).json({ error: 'Error interno procesando el pago simulado.' });
+    }
+});
+
+// Endpoint: Consultar historial de pagos online y comisiones de una tienda
+app.get('/api/pagos/tienda/:id_tendero', async (req, res) => {
+    const { id_tendero } = req.params;
+    try {
+        await ensurePagosOnlineTable();
+        const { rows } = await db.query(
+            `SELECT * FROM pagos_online WHERE id_tienda = $1 ORDER BY created_at DESC LIMIT 50`,
+            [id_tendero]
+        );
+
+        const resumen = rows.reduce(
+            (acc, row) => {
+                if (row.estado === 'APROBADO') {
+                    acc.cantidad_aprobados += 1;
+                    acc.total_bruto += parseFloat(row.total_bruto) || 0;
+                    acc.total_comision += parseFloat(row.comision_plataforma) || 0;
+                    acc.total_neto_tendero += parseFloat(row.neto_tendero) || 0;
+                } else {
+                    acc.cantidad_rechazados += 1;
+                }
+                return acc;
+            },
+            {
+                cantidad_aprobados: 0,
+                cantidad_rechazados: 0,
+                total_bruto: 0,
+                total_comision: 0,
+                total_neto_tendero: 0
+            }
+        );
+
+        return res.status(200).json({
+            success: true,
+            resumen,
+            pagos: rows
+        });
+    } catch (err) {
+        console.error('Error en GET /api/pagos/tienda/:id_tendero:', err.message);
+        return res.status(500).json({ error: 'Error al consultar los pagos en línea de la tienda.' });
+    }
+});
+
 // Start Server
 app.listen(port, async () => {
     console.log(`Servidor iniciado correctamente en http://localhost:${port}`);
@@ -1561,7 +1852,8 @@ app.listen(port, async () => {
         await db.query("ALTER TABLE cliente ADD COLUMN IF NOT EXISTS nombre_tienda VARCHAR(150)");
         await db.query("ALTER TABLE cliente ADD COLUMN IF NOT EXISTS codigo_verificacion VARCHAR(20)");
         await db.query("ALTER TABLE cliente ADD COLUMN IF NOT EXISTS verificado BOOLEAN DEFAULT FALSE");
-        console.log("Columnas 'codigo_verificacion' y 'verificado' verificadas en tablas 'cliente' y 'tendero'.");
+        await ensurePagosOnlineTable();
+        console.log("Columnas 'codigo_verificacion', 'verificado' y tabla 'pagos_online' verificadas en PostgreSQL.");
     } catch (err) {
         console.error("Error al inicializar la tabla 'vitrina_digital':", err.message);
     }

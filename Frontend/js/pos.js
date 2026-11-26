@@ -754,6 +754,9 @@ let historyDebounceTimer = null;
 
 window.cargarHistorialVentas = async function(tenderoId = null) {
     if (!tenderoId) tenderoId = localStorage.getItem('userId');
+    if (typeof window.cargarPagosOnline === 'function') {
+        window.cargarPagosOnline(tenderoId);
+    }
     const tbody = document.getElementById('tabla-historial-ventas');
     if (!tbody) return;
 
@@ -958,4 +961,58 @@ window.verDetalleFactura = async function(idVenta) {
 
 window.imprimirTicket = function() {
     window.print();
+};
+
+window.cargarPagosOnline = async function(tenderoId = null) {
+    if (!tenderoId) tenderoId = localStorage.getItem('userId');
+    const tbody = document.getElementById('tabla-pagos-online');
+    if (!tbody || !tenderoId) return;
+
+    tbody.innerHTML = '<tr><td colspan="8" class="px-4 py-5 text-center text-xs text-slate-400">Cargando pagos en línea...</td></tr>';
+
+    try {
+        const resp = await API.getPagosOnlineTienda(tenderoId);
+        if (resp.status !== 200 || !resp.data || !resp.data.success) {
+            tbody.innerHTML = '<tr><td colspan="8" class="px-4 py-5 text-center text-xs text-red-500">No se pudieron cargar los pagos en línea.</td></tr>';
+            return;
+        }
+
+        const { resumen = {}, pagos = [] } = resp.data;
+        const elBruto = document.getElementById('pagos-online-bruto');
+        const elComision = document.getElementById('pagos-online-comision');
+        const elNeto = document.getElementById('pagos-online-neto');
+        if (elBruto) elBruto.textContent = Utils.formatCurrency(resumen.total_bruto || 0);
+        if (elComision) elComision.textContent = Utils.formatCurrency(resumen.total_comision || 0);
+        if (elNeto) elNeto.textContent = Utils.formatCurrency(resumen.total_neto_tendero || 0);
+
+        if (pagos.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="8" class="px-4 py-6 text-center text-xs text-slate-400">Aún no se han recibido pagos por pasarela en línea.</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = pagos.map(p => {
+            const d = new Date(p.created_at);
+            const fechaFmt = `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}/${d.getFullYear()} ${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
+            const isApproved = p.estado === 'APROBADO';
+            const badge = isApproved
+                ? '<span class="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-700">APROBADO</span>'
+                : '<span class="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-red-100 text-red-700">RECHAZADO</span>';
+
+            return `
+                <tr class="hover:bg-surface-container-low/30 transition-colors">
+                    <td class="px-4 py-3 font-mono text-xs font-bold text-slate-700">${p.referencia}</td>
+                    <td class="px-4 py-3 text-xs text-slate-600">${fechaFmt}</td>
+                    <td class="px-4 py-3 text-xs font-bold text-slate-800">${p.nombre_pagador}</td>
+                    <td class="px-4 py-3 text-xs text-slate-600">${p.metodo_pago}${p.banco_o_entidad ? ' · ' + p.banco_o_entidad : ''}</td>
+                    <td class="px-4 py-3 text-xs font-bold text-right text-slate-800">${Utils.formatCurrency(p.total_bruto)}</td>
+                    <td class="px-4 py-3 text-xs font-bold text-right text-amber-700">${isApproved ? Utils.formatCurrency(p.comision_plataforma) : '-'}</td>
+                    <td class="px-4 py-3 text-xs font-black text-right text-emerald-700">${isApproved ? Utils.formatCurrency(p.neto_tendero) : '-'}</td>
+                    <td class="px-4 py-3 text-center">${badge}</td>
+                </tr>
+            `;
+        }).join('');
+    } catch (err) {
+        console.error('Error cargando pagos online:', err);
+        tbody.innerHTML = '<tr><td colspan="8" class="px-4 py-5 text-center text-xs text-red-500">Error de red al consultar pagos en línea.</td></tr>';
+    }
 };

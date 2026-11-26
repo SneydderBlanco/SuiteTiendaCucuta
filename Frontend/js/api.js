@@ -181,6 +181,30 @@ window.API = {
         }
     },
 
+    simularPagoOnline: async (payload) => {
+        try {
+            const response = await fetch(buildApiUrl("/api/pagos/simular"), {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
+            return { status: response.status, data: await response.json() };
+        } catch (error) {
+            console.error("Error en API simularPagoOnline:", error);
+            return { status: 500, data: { error: "Error de conexión con la pasarela de pagos" } };
+        }
+    },
+
+    getPagosOnlineTienda: async (tenderoId) => {
+        try {
+            const response = await fetch(buildApiUrl(`/api/pagos/tienda/${encodeURIComponent(tenderoId)}`));
+            return { status: response.status, data: await response.json() };
+        } catch (error) {
+            console.error("Error en API getPagosOnlineTienda:", error);
+            return { status: 500, data: { error: "Error de red" } };
+        }
+    },
+
     getDashboardData: async (tenderoId) => {
         try {
             const response = await fetch(buildApiUrl(`/api/dashboard/${encodeURIComponent(tenderoId)}`));
