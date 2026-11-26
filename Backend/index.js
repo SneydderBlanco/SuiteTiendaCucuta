@@ -275,19 +275,31 @@ app.put('/api/admin/tiendas/:id/estado', async (req, res) => {
 
     try {
         await ensureAdminSchema();
-        const motivoFinal = nuevoEstado === 'congelado'
-            ? (String(motivo_bloqueo || '').trim() || 'Falta de pago de suscripción mensual.')
-            : null;
-
-        const updateQuery = `
-            UPDATE tendero
-            SET estado_cuenta = $1,
-                motivo_bloqueo = $2,
-                fecha_bloqueo = CASE WHEN $1 = 'congelado' THEN NOW() ELSE NULL END
-            WHERE id_tendero = $3
-            RETURNING id_tendero, nombre, nombre_tienda, email, estado_cuenta, motivo_bloqueo, fecha_bloqueo
-        `;
-        const { rows } = await db.query(updateQuery, [nuevoEstado, motivoFinal, id]);
+        let rows;
+        if (nuevoEstado === 'congelado') {
+            const motivoFinal = String(motivo_bloqueo || '').trim() || 'Falta de pago de suscripción mensual.';
+            const result = await db.query(
+                `UPDATE tendero
+                 SET estado_cuenta = $1,
+                     motivo_bloqueo = $2,
+                     fecha_bloqueo = NOW()
+                 WHERE id_tendero = $3
+                 RETURNING id_tendero, nombre, nombre_tienda, email, estado_cuenta, motivo_bloqueo, fecha_bloqueo`,
+                ['congelado', motivoFinal, parseInt(id, 10)]
+            );
+            rows = result.rows;
+        } else {
+            const result = await db.query(
+                `UPDATE tendero
+                 SET estado_cuenta = $1,
+                     motivo_bloqueo = NULL,
+                     fecha_bloqueo = NULL
+                 WHERE id_tendero = $2
+                 RETURNING id_tendero, nombre, nombre_tienda, email, estado_cuenta, motivo_bloqueo, fecha_bloqueo`,
+                ['activo', parseInt(id, 10)]
+            );
+            rows = result.rows;
+        }
 
         if (rows.length === 0) {
             return res.status(404).json({ error: 'Tienda no encontrada.' });
@@ -302,7 +314,7 @@ app.put('/api/admin/tiendas/:id/estado', async (req, res) => {
         });
     } catch (err) {
         console.error('Error en PUT /api/admin/tiendas/:id/estado:', err.message);
-        return res.status(500).json({ error: 'Error al cambiar el estado de la tienda.' });
+        return res.status(500).json({ error: `Error al cambiar el estado de la tienda: ${err.message}` });
     }
 });
 
