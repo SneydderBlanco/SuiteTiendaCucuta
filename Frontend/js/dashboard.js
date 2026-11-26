@@ -577,7 +577,105 @@ document.addEventListener("DOMContentLoaded", () => {
 
     renderPresentacionesRows();
 
-    // Edit Product logic
+    // Estado reactivo para Presentaciones del modal "Editar Producto"
+    let editPresentacionesState = [{ unidad: '', precio: '', stock: '' }];
+    const editPresentacionesContainer = document.getElementById('edit-presentaciones-rows-container');
+    const btnAddEditPresentacion = document.getElementById('btn-add-edit-presentacion');
+    const editPresentacionesBadge = document.getElementById('edit-presentaciones-count-badge');
+
+    function renderEditPresentacionesRows() {
+        if (!editPresentacionesContainer) return;
+        editPresentacionesContainer.innerHTML = '';
+
+        if (editPresentacionesBadge) {
+            const count = editPresentacionesState.length;
+            editPresentacionesBadge.textContent = `${count} ${count === 1 ? 'variante' : 'variantes'}`;
+        }
+
+        editPresentacionesState.forEach((item, index) => {
+            const row = document.createElement('div');
+            row.className = 'grid grid-cols-12 gap-2 items-center bg-surface-container-low/60 p-2 rounded-xl border border-slate-200/70 transition-all';
+
+            const colUnidad = document.createElement('div');
+            colUnidad.className = 'col-span-5';
+            const inputUnidad = document.createElement('input');
+            inputUnidad.type = 'text';
+            inputUnidad.setAttribute('list', 'datalist-unidades-medida');
+            inputUnidad.required = true;
+            inputUnidad.placeholder = 'Ej. Kg, Lb, Und...';
+            inputUnidad.value = item.unidad ?? '';
+            inputUnidad.className = 'w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 text-xs font-medium text-on-surface placeholder:text-slate-400 transition-all';
+            inputUnidad.addEventListener('input', (ev) => {
+                editPresentacionesState[index].unidad = ev.target.value;
+            });
+            colUnidad.appendChild(inputUnidad);
+
+            const colPrecio = document.createElement('div');
+            colPrecio.className = 'col-span-4 relative';
+            const spanCop = document.createElement('span');
+            spanCop.className = 'absolute left-2.5 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400 pointer-events-none';
+            spanCop.textContent = '$';
+            const inputPrecio = document.createElement('input');
+            inputPrecio.type = 'number';
+            inputPrecio.min = '0';
+            inputPrecio.step = 'any';
+            inputPrecio.required = true;
+            inputPrecio.placeholder = '0.00';
+            inputPrecio.value = item.precio ?? '';
+            inputPrecio.className = 'w-full pl-6 pr-2.5 py-2.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 text-xs font-medium text-on-surface placeholder:text-slate-400 transition-all';
+            inputPrecio.addEventListener('input', (ev) => {
+                editPresentacionesState[index].precio = ev.target.value;
+            });
+            colPrecio.appendChild(spanCop);
+            colPrecio.appendChild(inputPrecio);
+
+            const colStock = document.createElement('div');
+            colStock.className = 'col-span-2';
+            const inputStock = document.createElement('input');
+            inputStock.type = 'number';
+            inputStock.min = '0';
+            inputStock.required = true;
+            inputStock.placeholder = '0';
+            inputStock.value = item.stock ?? '';
+            inputStock.className = 'w-full px-2.5 py-2.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 text-xs font-medium text-center text-on-surface placeholder:text-slate-400 transition-all';
+            inputStock.addEventListener('input', (ev) => {
+                editPresentacionesState[index].stock = ev.target.value;
+            });
+            colStock.appendChild(inputStock);
+
+            const colAction = document.createElement('div');
+            colAction.className = 'col-span-1 flex justify-center';
+            const btnDelete = document.createElement('button');
+            btnDelete.type = 'button';
+            btnDelete.title = editPresentacionesState.length > 1 ? 'Eliminar presentación' : 'Debe existir al menos una presentación';
+            btnDelete.disabled = editPresentacionesState.length <= 1;
+            btnDelete.className = editPresentacionesState.length > 1
+                ? 'w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors'
+                : 'w-8 h-8 rounded-lg flex items-center justify-center text-slate-300 cursor-not-allowed';
+            btnDelete.innerHTML = '<span class="material-symbols-outlined text-[18px]">delete</span>';
+            btnDelete.addEventListener('click', () => {
+                if (editPresentacionesState.length <= 1) return;
+                editPresentacionesState.splice(index, 1);
+                renderEditPresentacionesRows();
+            });
+            colAction.appendChild(btnDelete);
+
+            row.appendChild(colUnidad);
+            row.appendChild(colPrecio);
+            row.appendChild(colStock);
+            row.appendChild(colAction);
+            editPresentacionesContainer.appendChild(row);
+        });
+    }
+
+    if (btnAddEditPresentacion) {
+        btnAddEditPresentacion.addEventListener('click', () => {
+            editPresentacionesState.push({ unidad: '', precio: '', stock: '' });
+            renderEditPresentacionesRows();
+        });
+    }
+
+    // Edit Product logic (carga todas las presentaciones separadas por unidad, precio y stock)
     window.editProduct = function(id, nombre) {
         const product = window.loadedProducts.find(p => (p.id || p.id_producto) === id);
         if (!product) {
@@ -590,15 +688,32 @@ document.addEventListener("DOMContentLoaded", () => {
         document.getElementById('edit-prod-nombre').value = product.nombre;
         document.getElementById('edit-prod-marca').value = product.marca || '';
         document.getElementById('edit-prod-categoria').value = product.categoria;
-        const editUnidadEl = document.getElementById('edit-prod-unidad');
-        if (editUnidadEl) editUnidadEl.value = product.unidad_medida || 'Unidad (Und)';
         const clearEditCat = document.getElementById('clear-edit-prod-categoria');
         if (clearEditCat) clearEditCat.classList.toggle('hidden', !product.categoria);
-        const clearEditUni = document.getElementById('clear-edit-prod-unidad');
-        if (clearEditUni) clearEditUni.classList.remove('hidden');
-        document.getElementById('edit-prod-precio').value = product.precio_venta;
-        document.getElementById('edit-prod-stock').value = product.stock;
 
+        const editImageInput = document.getElementById('edit-prod-imagen');
+        if (editImageInput) editImageInput.value = '';
+
+        // Parsear presentaciones del producto (divididas por sección/fila)
+        let rawPres = product.presentaciones;
+        if (typeof rawPres === 'string') {
+            try { rawPres = JSON.parse(rawPres); } catch (_) { rawPres = []; }
+        }
+        if (Array.isArray(rawPres) && rawPres.length > 0) {
+            editPresentacionesState = rawPres.map(item => ({
+                unidad: String(item.unidad || item.unidad_medida || product.unidad_medida || 'Unidad (Und)').trim(),
+                precio: item.precio ?? item.precio_venta ?? product.precio_venta ?? 0,
+                stock: item.stock ?? 0
+            }));
+        } else {
+            editPresentacionesState = [{
+                unidad: String(product.unidad_medida || 'Unidad (Und)').trim(),
+                precio: product.precio_venta ?? 0,
+                stock: product.stock ?? 0
+            }];
+        }
+
+        renderEditPresentacionesRows();
         toggleEditModal();
     };
 
@@ -703,34 +818,50 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-    // Edit Product Form Submission
+    // Edit Product Form Submission (guarda todas las presentaciones por separado)
     const editForm = document.getElementById("edit-product-form");
     if (editForm) {
         editForm.addEventListener("submit", async(e) => {
             e.preventDefault();
 
-            const precio = parseFloat(document.getElementById("edit-prod-precio").value);
-            const stock = parseInt(document.getElementById("edit-prod-stock").value, 10);
+            const presentacionesValidas = editPresentacionesState
+                .map(p => ({
+                    unidad: String(p.unidad || '').trim() || 'Unidad (Und)',
+                    precio: parseFloat(p.precio),
+                    stock: parseInt(p.stock, 10)
+                }))
+                .filter(p => !isNaN(p.precio) && !isNaN(p.stock));
 
-            // Validations
-            if (precio < 0) {
-                Utils.showAlert("Error: El precio no puede ser negativo");
+            if (presentacionesValidas.length === 0) {
+                Utils.showAlert("Por favor completa al menos una presentación con unidad, precio y stock.");
                 return;
             }
-            if (stock === 0) {
-                if (!confirm("Advertencia: El stock está en cero. ¿Deseas guardar de todos modos?")) {
+
+            if (presentacionesValidas.some(p => p.precio < 0)) {
+                Utils.showAlert("Error: El precio de una presentación no puede ser negativo.");
+                return;
+            }
+            if (presentacionesValidas.some(p => p.stock < 0)) {
+                Utils.showAlert("Error: El stock de una presentación no puede ser negativo.");
+                return;
+            }
+
+            const totalStockEdit = presentacionesValidas.reduce((acc, p) => acc + p.stock, 0);
+            if (totalStockEdit === 0 || presentacionesValidas.some(p => p.stock === 0)) {
+                if (!confirm("Advertencia: Una o más presentaciones tienen stock en cero. ¿Deseas guardar de todos modos?")) {
                     return;
                 }
             }
 
+            const primera = presentacionesValidas[0];
             const formData = new FormData();
-            formData.append("nombre", document.getElementById("edit-prod-nombre").value);
-            formData.append("marca", document.getElementById("edit-prod-marca").value);
-            formData.append("categoria", document.getElementById("edit-prod-categoria").value);
-            const editUnidadInput = document.getElementById("edit-prod-unidad");
-            formData.append("unidad_medida", editUnidadInput ? editUnidadInput.value : "Unidad (Und)");
-            formData.append("precio_venta", precio);
-            formData.append("stock", stock);
+            formData.append("nombre", document.getElementById("edit-prod-nombre").value.trim());
+            formData.append("marca", document.getElementById("edit-prod-marca").value.trim());
+            formData.append("categoria", document.getElementById("edit-prod-categoria").value.trim());
+            formData.append("unidad_medida", primera.unidad);
+            formData.append("precio_venta", primera.precio);
+            formData.append("stock", totalStockEdit);
+            formData.append("presentaciones", JSON.stringify(presentacionesValidas));
 
             const editImageInput = document.getElementById("edit-prod-imagen");
             const imageFile = editImageInput && editImageInput.files ? editImageInput.files[0] : null;
@@ -749,7 +880,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
                 if(resp.status === 200) {
                     toggleEditModal();
-                    loadProducts(userId); // Refresh table
+                    loadProducts(userId); // Refresh inventory table
+                    if (typeof window.loadPosProducts === "function") {
+                        window.loadPosProducts(userId); // Sync POS immediately
+                    }
                 } else {
                     const data = resp.data;
                     Utils.showAlert(data.error || "Fallo al actualizar producto en BD");
@@ -816,20 +950,56 @@ async function loadProducts(tenderoId) {
             }
 
             productos.forEach(p => {
-                const unidadLabel = p.unidad_medida || 'Unidades';
-                let stockContent = `<span class="text-sm font-bold text-on-surface">${p.stock} ${unidadLabel}</span>`;
-                if(p.stock < 15) {
-                    stockContent = `
-                        <span class="text-sm font-bold text-error">${p.stock} ${unidadLabel} (Bajo Stock)</span>
-                        <div class="w-24 h-1.5 bg-surface-container mt-1 rounded-full overflow-hidden">
-                            <div class="bg-error w-1/4 h-full"></div>
-                        </div>`;
+                let rawPres = p.presentaciones;
+                if (typeof rawPres === 'string') {
+                    try { rawPres = JSON.parse(rawPres); } catch (_) { rawPres = []; }
+                }
+                const presentaciones = Array.isArray(rawPres) && rawPres.length > 0
+                    ? rawPres.map(pr => ({
+                        unidad: String(pr.unidad || pr.unidad_medida || p.unidad_medida || 'Unidad').trim(),
+                        precio: parseFloat(pr.precio ?? pr.precio_venta ?? p.precio_venta ?? 0) || 0,
+                        stock: parseInt(pr.stock ?? 0, 10) || 0
+                    }))
+                    : [{
+                        unidad: String(p.unidad_medida || 'Unidades').trim(),
+                        precio: parseFloat(p.precio_venta) || 0,
+                        stock: parseInt(p.stock, 10) || 0
+                    }];
+
+                let precioContent = Utils.formatCurrency(p.precio_venta);
+                let stockContent = '';
+
+                if (presentaciones.length > 1) {
+                    precioContent = `<div class="flex flex-col items-end gap-1">` +
+                        presentaciones.map(pr =>
+                            `<span class="text-xs font-bold text-on-surface">${Utils.formatCurrency(pr.precio)} <span class="text-[10px] font-semibold text-slate-400">/ ${pr.unidad}</span></span>`
+                        ).join('') +
+                        `</div>`;
+
+                    stockContent = `<div class="flex flex-col items-center gap-1.5">` +
+                        presentaciones.map(pr => {
+                            const isLow = pr.stock < 15;
+                            const badgeCls = isLow
+                                ? 'bg-red-50 text-error border-red-200'
+                                : 'bg-emerald-50 text-emerald-700 border-emerald-200/70';
+                            return `<span class="text-xs font-bold px-2.5 py-0.5 rounded-full border ${badgeCls}">${pr.stock} ${pr.unidad}${isLow ? ' (Bajo)' : ''}</span>`;
+                        }).join('') +
+                        `</div>`;
                 } else {
-                    stockContent = `
-                        <span class="text-sm font-bold text-on-surface">${p.stock} ${unidadLabel}</span>
-                        <div class="w-24 h-1.5 bg-surface-container mt-1 rounded-full overflow-hidden">
-                            <div class="bg-primary w-3/4 h-full"></div>
-                        </div>`;
+                    const unico = presentaciones[0];
+                    if (unico.stock < 15) {
+                        stockContent = `
+                            <span class="text-sm font-bold text-error">${unico.stock} ${unico.unidad} (Bajo Stock)</span>
+                            <div class="w-24 h-1.5 bg-surface-container mt-1 rounded-full overflow-hidden">
+                                <div class="bg-error w-1/4 h-full"></div>
+                            </div>`;
+                    } else {
+                        stockContent = `
+                            <span class="text-sm font-bold text-on-surface">${unico.stock} ${unico.unidad}</span>
+                            <div class="w-24 h-1.5 bg-surface-container mt-1 rounded-full overflow-hidden">
+                                <div class="bg-primary w-3/4 h-full"></div>
+                            </div>`;
+                    }
                 }
 
                 tbody.innerHTML += `
@@ -847,7 +1017,7 @@ async function loadProducts(tenderoId) {
     <td class="px-8 py-6">
         <span class="px-3 py-1 bg-secondary-container text-on-secondary-container rounded-full text-xs font-bold uppercase">${p.categoria}</span>
     </td>
-    <td class="px-8 py-6 text-right font-bold text-on-surface">${Utils.formatCurrency(p.precio_venta)}</td>
+    <td class="px-8 py-6 text-right font-bold text-on-surface">${precioContent}</td>
     <td class="px-8 py-6 text-center">
         <div class="flex flex-col items-center">
             ${stockContent}

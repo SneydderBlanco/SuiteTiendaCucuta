@@ -1064,7 +1064,7 @@
     <div class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-3 sm:p-4"
         id="edit-modal-overlay">
         <div
-            class="bg-surface-container-lowest w-full max-w-md md:max-w-lg mx-4 md:mx-auto max-h-[90dvh] flex flex-col rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+            class="bg-surface-container-lowest w-full max-w-md md:max-w-xl mx-4 md:mx-auto max-h-[90dvh] flex flex-col rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
             <div class="px-4 md:px-8 py-4 md:py-5 border-b border-surface-container flex items-center justify-between shrink-0 bg-surface-container-lowest">
                 <h3 class="text-lg md:text-xl font-bold text-on-surface">Editar Producto</h3>
                 <button
@@ -1088,34 +1088,43 @@
                     </div>
                     <div>
                         <label class="block text-sm font-bold text-on-surface-variant mb-2">Categoría</label>
-                        <div class="relative" id="wrapper-edit-categoria"><div class="relative flex items-center"><input id="edit-prod-categoria" type="text" autocomplete="off" class="w-full pl-4 pr-10 py-3 bg-surface-container-low border-none rounded-xl focus:ring-2 focus:ring-primary text-sm placeholder:text-on-surface-variant/40" placeholder="Seleccionar o escribir nueva categoría..." required /><button type="button" id="clear-edit-prod-categoria" data-clear-input="edit-prod-categoria" class="hidden absolute right-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full flex items-center justify-center text-on-surface-variant/60 hover:text-error hover:bg-error/10 transition-colors" title="Limpiar campo">✕</button></div><div id="dropdown-edit-prod-categoria" class="hidden absolute left-0 top-full mt-1 bg-white shadow-lg rounded-md border border-slate-100 z-50 w-full max-h-48 overflow-y-auto py-1"></div></div></div><div><label class="block text-sm font-bold text-on-surface-variant mb-2">Unidad de Medida</label><div class="relative" id="wrapper-edit-unidad"><div class="relative flex items-center"><input id="edit-prod-unidad" type="text" autocomplete="off" class="w-full pl-4 pr-10 py-3 bg-surface-container-low border-none rounded-xl focus:ring-2 focus:ring-primary text-sm placeholder:text-on-surface-variant/40" placeholder="Ej. Kg, Lb, Unidad, Docena, Cubeta..." required /><button type="button" id="clear-edit-prod-unidad" data-clear-input="edit-prod-unidad" class="hidden absolute right-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full flex items-center justify-center text-on-surface-variant/60 hover:text-error hover:bg-error/10 transition-colors" title="Limpiar campo">✕</button></div><div id="dropdown-edit-prod-unidad" class="hidden absolute left-0 top-full mt-1 bg-white shadow-lg rounded-md border border-slate-100 z-50 w-full max-h-48 overflow-y-auto py-1"></div></div><!--
-                            class="w-full px-4 py-3 bg-surface-container-low border-none rounded-xl focus:ring-2 focus:ring-primary text-sm"
-                            required>
-                            <option value="">Seleccionar categoría...</option>
-                            <option value="alimentos">Alimentos</option>
-                            <option value="artesanias">Artesanías</option>
-                            <option value="dulces">Dulces</option>
-                            <option value="bebidas">Bebidas</option>
-                        </select> -->
-                    </div>
-                    <div class="grid grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-sm font-bold text-on-surface-variant mb-2">Precio de Venta</label>
-                            <div class="relative">
-                                <span
-                                    class="absolute left-4 top-1/2 -translate-y-1/2 text-xs font-bold text-on-surface-variant/60">COP</span>
-                                <input id="edit-prod-precio"
-                                    class="w-full pl-12 pr-4 py-3 bg-surface-container-low border-none rounded-xl focus:ring-2 focus:ring-primary text-sm placeholder:text-on-surface-variant/40"
-                                    placeholder="0.00" type="number" required />
+                        <div class="relative" id="wrapper-edit-categoria">
+                            <div class="relative flex items-center">
+                                <input id="edit-prod-categoria" type="text" autocomplete="off" class="w-full pl-4 pr-10 py-3 bg-surface-container-low border-none rounded-xl focus:ring-2 focus:ring-primary text-sm placeholder:text-on-surface-variant/40" placeholder="Seleccionar o escribir nueva categoría..." required />
+                                <button type="button" id="clear-edit-prod-categoria" data-clear-input="edit-prod-categoria" class="hidden absolute right-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full flex items-center justify-center text-on-surface-variant/60 hover:text-error hover:bg-error/10 transition-colors" title="Limpiar campo">✕</button>
                             </div>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-bold text-on-surface-variant mb-2">Stock Actual</label>
-                            <input id="edit-prod-stock"
-                                class="w-full px-4 py-3 bg-surface-container-low border-none rounded-xl focus:ring-2 focus:ring-primary text-sm placeholder:text-on-surface-variant/40"
-                                placeholder="0" type="number" required />
+                            <div id="dropdown-edit-prod-categoria" class="hidden absolute left-0 top-full mt-1 bg-white shadow-lg rounded-md border border-slate-100 z-50 w-full max-h-48 overflow-y-auto py-1"></div>
                         </div>
                     </div>
+
+                    <!-- Sección Dinámica: Presentaciones en Edición (separadas por unidad, precio y stock) -->
+                    <div class="pt-1 border-t border-surface-container">
+                        <div class="flex items-center justify-between mb-3">
+                            <div>
+                                <label class="block text-sm font-bold text-on-surface-variant">Presentaciones</label>
+                                <p class="text-xs text-slate-400">Edita el precio y stock de cada presentación por separado.</p>
+                            </div>
+                            <span id="edit-presentaciones-count-badge" class="text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200/70 px-2.5 py-1 rounded-full">1 variante</span>
+                        </div>
+
+                        <div class="grid grid-cols-12 gap-2 px-1 mb-1.5 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                            <div class="col-span-5">Unidad / Medida</div>
+                            <div class="col-span-4">Precio (COP)</div>
+                            <div class="col-span-2">Stock</div>
+                            <div class="col-span-1 text-center"></div>
+                        </div>
+
+                        <div id="edit-presentaciones-rows-container" class="space-y-2.5">
+                            <!-- Filas inyectadas dinámicamente por dashboard.js -->
+                        </div>
+
+                        <button id="btn-add-edit-presentacion" type="button"
+                            class="mt-3 w-full py-2.5 px-4 rounded-xl border border-dashed border-emerald-300 bg-emerald-50/40 hover:bg-emerald-50 text-emerald-700 font-bold text-xs flex items-center justify-center gap-1.5 transition-all">
+                            <span class="material-symbols-outlined text-[16px]">add_circle</span>
+                            <span>+ Agregar presentación</span>
+                        </button>
+                    </div>
+
                     <div>
                         <label class="block text-sm font-bold text-on-surface-variant mb-2">Imagen del Producto (Opcional)</label>
                         <input id="edit-prod-imagen" type="file" accept="image/*" class="w-full text-sm text-on-surface-variant file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 transition-all"/>

@@ -899,10 +899,10 @@ app.delete('/api/productos/:id', async (req, res) => {
     }
 });
 
-// Endpoint para ACTUALIZAR un producto
+// Endpoint para ACTUALIZAR un producto (con soporte completo para múltiples presentaciones JSONB)
 app.put('/api/productos/:id', upload.single('imagen'), async (req, res) => {
     const { id } = req.params;
-    const { nombre, marca, categoria, unidad_medida, precio_venta, stock } = req.body;
+    const { nombre, marca, categoria, unidad_medida, precio_venta, stock, presentaciones } = req.body || {};
     try {
         await db.query('ALTER TABLE productos ADD COLUMN IF NOT EXISTS imagen_url TEXT');
         await db.query("ALTER TABLE productos ADD COLUMN IF NOT EXISTS unidad_medida VARCHAR(50) DEFAULT 'Unidad (Und)'");
@@ -910,24 +910,74 @@ app.put('/api/productos/:id', upload.single('imagen'), async (req, res) => {
         await db.query("ALTER TABLE productos ALTER COLUMN imagen_url TYPE TEXT");
         await db.query("ALTER TABLE tendero ADD COLUMN IF NOT EXISTS rol VARCHAR(50) DEFAULT 'tendero'");
         await db.query("ALTER TABLE cliente ADD COLUMN IF NOT EXISTS rol VARCHAR(50) DEFAULT 'cliente'");
+
+        let listaPresentaciones = [];
+        if (presentaciones) {
+            try {
+                const parsed = typeof presentaciones === 'string' ? JSON.parse(presentaciones) : presentaciones;
+                if (Array.isArray(parsed) && parsed.length > 0) {
+                    listaPresentaciones = parsed.map((p) => ({
+                        unidad: String(p.unidad || p.unidad_medida || 'Unidad (Und)').trim(),
+                        precio: parseFloat(p.precio ?? p.precio_venta ?? 0) || 0,
+                        stock: parseInt(p.stock ?? 0, 10) || 0
+                    }));
+                }
+            } catch (parseErr) {
+                console.warn('Error parseando presentaciones en PUT /api/productos:', parseErr.message);
+                listaPresentaciones = [];
+            }
+        }
+
+        if (listaPresentaciones.length === 0) {
+            listaPresentaciones = [{
+                unidad: String(unidad_medida || 'Unidad (Und)').trim(),
+                precio: parseFloat(precio_venta) || 0,
+                stock: parseInt(stock, 10) || 0
+            }];
+        }
+
+        const primera = listaPresentaciones[0];
+        const unidadPrincipal = primera.unidad || 'Unidad (Und)';
+        const precioPrincipal = parseFloat(primera.precio) || 0;
+        const stockTotal = listaPresentaciones.reduce((acc, item) => acc + (parseInt(item.stock, 10) || 0), 0);
+
         let text, values;
         if (req.file) {
             const imagen_url = req.file.path || `/uploads/${req.file.filename}`;
             text = `
                 UPDATE productos 
-                SET nombre = $1, marca = $2, categoria = $3, unidad_medida = $4, precio_venta = $5, stock = $6, imagen_url = $7 
-                WHERE id_producto = $8 
+                SET nombre = $1, marca = $2, categoria = $3, unidad_medida = $4, precio_venta = $5, stock = $6, presentaciones = $7::jsonb, imagen_url = $8 
+                WHERE id_producto = $9 
                 RETURNING *
             `;
-            values = [nombre, marca, (categoria || '').trim(), unidad_medida || 'Unidad (Und)', parseFloat(precio_venta), parseInt(stock, 10), imagen_url, id];
+            values = [
+                (nombre || '').trim(),
+                (marca || '').trim(),
+                (categoria || '').trim(),
+                unidadPrincipal,
+                precioPrincipal,
+                stockTotal,
+                JSON.stringify(listaPresentaciones),
+                imagen_url,
+                id
+            ];
         } else {
             text = `
                 UPDATE productos 
-                SET nombre = $1, marca = $2, categoria = $3, unidad_medida = $4, precio_venta = $5, stock = $6 
-                WHERE id_producto = $7 
+                SET nombre = $1, marca = $2, categoria = $3, unidad_medida = $4, precio_venta = $5, stock = $6, presentaciones = $7::jsonb 
+                WHERE id_producto = $8 
                 RETURNING *
             `;
-            values = [nombre, marca, (categoria || '').trim(), unidad_medida || 'Unidad (Und)', parseFloat(precio_venta), parseInt(stock, 10), id];
+            values = [
+                (nombre || '').trim(),
+                (marca || '').trim(),
+                (categoria || '').trim(),
+                unidadPrincipal,
+                precioPrincipal,
+                stockTotal,
+                JSON.stringify(listaPresentaciones),
+                id
+            ];
         }
         const result = await db.query(text, values);
         
