@@ -168,17 +168,31 @@ window.API = {
     },
 
     procesarVenta: async (payload) => {
-        try {
-            const response = await fetch(buildApiUrl("/api/ventas"), {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload)
-            });
-            return { status: response.status, data: await response.json() };
-        } catch (error) {
-            console.error("Error en API procesarVenta:", error);
-            return { status: 500, data: { error: "Error de red" } };
+        const url = buildApiUrl("/api/ventas");
+        let lastError = null;
+        for (let attempt = 1; attempt <= 2; attempt++) {
+            try {
+                const response = await fetch(url, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json", "Accept": "application/json" },
+                    body: JSON.stringify(payload)
+                });
+                const isJson = (response.headers.get("content-type") || "").includes("application/json");
+                const data = isJson ? await response.json() : { error: `Error HTTP ${response.status} al procesar la venta` };
+                return { status: response.status, data };
+            } catch (error) {
+                lastError = error;
+                console.warn(`Intento ${attempt} fallido en API procesarVenta:`, error.message || error);
+                if (attempt < 2) {
+                    await new Promise((resolve) => setTimeout(resolve, 1200));
+                }
+            }
         }
+        console.error("Error en API procesarVenta tras reintento:", lastError);
+        return {
+            status: 503,
+            data: { error: "No se pudo conectar con el servidor (cambio de red o servidor iniciando). Verifica tu conexión e inténtalo de nuevo." }
+        };
     },
 
     simularPagoOnline: async (payload) => {

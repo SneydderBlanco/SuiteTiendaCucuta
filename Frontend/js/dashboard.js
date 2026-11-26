@@ -1479,9 +1479,9 @@ function updateStoreDOM(settings) {
     const ubicacion = settings.ubicacion || 'Sin ubicación registrada';
     document.querySelectorAll('.ubicacion-tienda-dinamico').forEach(el => el.textContent = ubicacion);
 
-    // 5. Logo de la tienda
+    // 5. Logo de la tienda (soporta Data URI Base64, http y /uploads/)
     if (settings.logo_url) {
-        const fullUrl = settings.logo_url.startsWith('http') ? settings.logo_url : `${window.API_URL}${settings.logo_url}`;
+        const fullUrl = Utils.resolveImageUrl(settings.logo_url, DEFAULT_PRODUCT_IMAGE);
         document.querySelectorAll('.logo-tienda-dinamico').forEach(el => el.src = fullUrl);
         const preview = document.getElementById("preview-store-logo");
         if (preview) {
@@ -1824,9 +1824,7 @@ let currentOffersCount = 0;
             const card = document.createElement("div");
             card.className = "group bg-white dark:bg-gray-900 rounded-2xl overflow-hidden border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md transition-all duration-300 flex flex-col";
             
-            const imgUrl = o.imagen_url 
-                ? (o.imagen_url.startsWith('http') ? o.imagen_url : `${window.API_URL}${o.imagen_url}`) 
-                : DEFAULT_PRODUCT_IMAGE;
+            const imgUrl = Utils.resolveImageUrl(o.imagen_url, DEFAULT_PRODUCT_IMAGE);
 
             // Formatear fecha de vigencia a algo legible (dd/mm/aaaa)
             let fechaLegible = o.vigencia_fecha;

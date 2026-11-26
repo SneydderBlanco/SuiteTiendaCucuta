@@ -93,8 +93,8 @@ const corsOptions = {
     allowedHeaders: ['Content-Type', 'Authorization', 'Accept']
 };
 app.use(cors(corsOptions));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '15mb' }));
+app.use(express.urlencoded({ extended: true, limit: '15mb' }));
 
 // ==========================================
 // BLOQUE DE RUTAS DE ADMINISTRACIÓN (SUPERADMIN)
@@ -1543,17 +1543,28 @@ app.get('/api/ventas/:id/detalles', async (req, res) => {
 
 // Endpoint: Registrar Venta y Descontar Stock
 app.post('/api/ventas', async (req, res) => {
-    // Nota: mapeamos id_tendero a id_tienda y asumimos que el frontend envía id_tienda o lo usamos como default 1 si no viene.
-    const { id_tienda, id_cliente, tipo_pago, total, items } = req.body;
-    
+    const { id_tienda, id_cliente, tipo_pago, total, items } = req.body || {};
+
+    if (!Array.isArray(items) || items.length === 0) {
+        return res.status(400).json({ error: 'No hay productos en el carrito para procesar la venta.' });
+    }
+
     try {
         await db.query('BEGIN');
 
+        // Validar que id_cliente exista realmente en la tabla cliente (evita error FK si el cliente #1 no existe)
+        let clienteIdValido = null;
+        if (id_cliente) {
+            const cliCheck = await db.query('SELECT id_cliente FROM cliente WHERE id_cliente = $1', [parseInt(id_cliente, 10)]);
+            if (cliCheck.rows.length > 0) {
+                clienteIdValido = cliCheck.rows[0].id_cliente;
+            }
+        }
+
         // Insertar venta (Paso 1)
-        const tiendaIdFinal = id_tienda ? id_tienda : 1;
+        const tiendaIdFinal = id_tienda ? parseInt(id_tienda, 10) : 1;
         const insertVentaText = 'INSERT INTO venta (id_tienda, id_cliente, tipo_pago, total, fecha) VALUES ($1, $2, $3, $4, NOW()) RETURNING id_venta';
-        // temporalmente usamos null para id_cliente si no viene, o un valor por defecto.
-        const ventaRes = await db.query(insertVentaText, [tiendaIdFinal, id_cliente || null, tipo_pago || 'efectivo', total]);
+        const ventaRes = await db.query(insertVentaText, [tiendaIdFinal, clienteIdValido, tipo_pago || 'efectivo', parseFloat(total) || 0]);
         const id_venta = ventaRes.rows[0].id_venta;
 
         for (let item of items) {
@@ -1587,10 +1598,10 @@ app.post('/api/ventas', async (req, res) => {
                         ...presentacionesArr[presIndex],
                         stock: currentPresStock - item.cantidad
                     };
-                    const newPrimaryStock = parseInt(presentacionesArr[0]?.stock ?? prodRow.stock, 10) || 0;
+                    const nuevoStockTotal = presentacionesArr.reduce((acc, pr) => acc + (parseInt(pr.stock, 10) || 0), 0);
                     await db.query(
                         'UPDATE productos SET presentaciones = $1::jsonb, stock = $2 WHERE id_producto = $3',
-                        [JSON.stringify(presentacionesArr), newPrimaryStock, item.id_producto]
+                        [JSON.stringify(presentacionesArr), nuevoStockTotal, item.id_producto]
                     );
                 } else {
                     const updateStockText = 'UPDATE productos SET stock = stock - $1 WHERE id_producto = $2 AND stock >= $1';
@@ -1618,9 +1629,9 @@ app.post('/api/ventas', async (req, res) => {
         res.status(200).json({ success: true, message: 'Venta registrada exitosamente', id_venta });
 
     } catch (err) {
-        await db.query('ROLLBACK');
+        await db.query('ROLLBACK').catch(() => {});
         console.error('Error procesando venta:', err.message);
-        res.status(500).json({ error: 'Error interno al procesar la venta' });
+        res.status(500).json({ error: `Error interno al procesar la venta: ${err.message}` });
     }
 });
 

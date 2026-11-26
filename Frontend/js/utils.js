@@ -14,6 +14,21 @@ window.Utils = {
     },
 
     /**
+     * Resuelve cualquier URL de imagen (Data URI Base64, http/https o ruta relativa /uploads/...)
+     * evitando prefijar API_URL delante de data:image/...
+     */
+    resolveImageUrl: function(rawUrl, fallback = null) {
+        if (!rawUrl || typeof rawUrl !== "string") return fallback;
+        const clean = rawUrl.trim();
+        if (!clean) return fallback;
+        if (clean.startsWith("data:") || clean.startsWith("http://") || clean.startsWith("https://") || clean.startsWith("blob:")) {
+            return clean;
+        }
+        const base = (window.API_URL || "").replace(/\/+$/, "");
+        return `${base}${clean.startsWith("/") ? "" : "/"}${clean}`;
+    },
+
+    /**
      * Muestra una alerta en pantalla (Por ahora usa el alert nativo)
      * @param {string} message Mensaje a mostrar
      */

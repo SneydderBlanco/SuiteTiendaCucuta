@@ -71,14 +71,9 @@ document.addEventListener("DOMContentLoaded", async () => {
                 window.location.href = `tienda.html?id=${tienda.id_tendero}`;
             });
 
-            // Formatear imágenes
-            const fullLogoUrl = tienda.logo_url 
-                ? (tienda.logo_url.startsWith('http') ? tienda.logo_url : `${window.API_URL}${tienda.logo_url}`)
-                : null;
-
-            const fullBannerUrl = tienda.banner_url
-                ? (tienda.banner_url.startsWith('http') ? tienda.banner_url : `${window.API_URL}${tienda.banner_url}`)
-                : null;
+            // Formatear imágenes (soporta Data URI Base64, Cloudinary https y /uploads/)
+            const fullLogoUrl = Utils.resolveImageUrl(tienda.logo_url, null);
+            const fullBannerUrl = Utils.resolveImageUrl(tienda.banner_url, null);
 
             card.innerHTML = `
                 <!-- Banner Section -->
@@ -159,9 +154,10 @@ document.addEventListener("DOMContentLoaded", async () => {
                 window.location.href = `tienda.html?id=${tiendaId}`;
             });
 
-            const imgUrl = prod.imagen_url
-                ? (prod.imagen_url.startsWith('http') ? prod.imagen_url : `${window.API_URL}${prod.imagen_url}`)
-                : 'https://placehold.co/300x300/e2e8f0/475569?text=Sin+Imagen';
+            const imgUrl = Utils.resolveImageUrl(
+                prod.imagen_url,
+                'https://placehold.co/300x300/e2e8f0/475569?text=Sin+Imagen'
+            );
 
             const precioFormateado = window.Utils && typeof Utils.formatCurrency === "function"
                 ? Utils.formatCurrency(prod.precio_venta)

@@ -637,17 +637,19 @@
                     document.getElementById('store-description').textContent = store.descripcion || '¡Bienvenido a nuestra tienda! Explora nuestros productos y disfruta de la mejor atención personalizada.';
                     document.getElementById('store-location-text').textContent = store.ubicacion || 'Cúcuta, Norte de Santander';
 
-                    // Cargar Imágenes
+                    // Cargar Imágenes (soporta Data URI Base64, https y /uploads/)
                     const logoEl = document.getElementById('store-logo-img');
-                    if (store.logo_url) {
-                        logoEl.src = store.logo_url.startsWith('http') ? store.logo_url : `${window.API_URL}${store.logo_url}`;
+                    const resolvedLogo = Utils.resolveImageUrl(store.logo_url, null);
+                    if (resolvedLogo) {
+                        logoEl.src = resolvedLogo;
                     } else {
                         logoEl.src = `https://placehold.co/200x200/10b981/ffffff?text=${encodeURIComponent(store.nombre_tienda.substring(0,2).toUpperCase())}`;
                     }
 
-                    if (store.banner_url) {
+                    const resolvedBanner = Utils.resolveImageUrl(store.banner_url, null);
+                    if (resolvedBanner) {
                         const bannerImg = document.getElementById('store-banner-img');
-                        bannerImg.src = store.banner_url.startsWith('http') ? store.banner_url : `${window.API_URL}${store.banner_url}`;
+                        bannerImg.src = resolvedBanner;
                         bannerImg.classList.remove('hidden');
                     }
 
@@ -738,9 +740,7 @@
                 const card = document.createElement("div");
                 card.className = "group bg-white rounded-3xl overflow-hidden border border-orange-100 hover:border-orange-200 hover:shadow-xl transition-all duration-300 flex flex-col relative cursor-pointer";
                 
-                const imgUrl = o.imagen_url 
-                    ? (o.imagen_url.startsWith('http') ? o.imagen_url : `${window.API_URL}${o.imagen_url}`) 
-                    : 'https://placehold.co/300x300/e2e8f0/475569?text=Sin+Imagen';
+                const imgUrl = Utils.resolveImageUrl(o.imagen_url, DEFAULT_PRODUCT_PLACEHOLDER);
 
                 // Buscar cantidad en el carrito
                 const cartItem = cart.find(item => item.id_producto === o.id_producto);
@@ -1094,9 +1094,7 @@
             const modalBody = modal.querySelector('div');
 
             // Cargar datos
-            const imgUrl = product.imagen_url 
-                ? (product.imagen_url.startsWith('http') ? product.imagen_url : `${window.API_URL}${product.imagen_url}`) 
-                : 'https://placehold.co/400x400/e2e8f0/475569?text=Sin+Imagen';
+            const imgUrl = Utils.resolveImageUrl(product.imagen_url, DEFAULT_PRODUCT_PLACEHOLDER);
 
             document.getElementById('modal-product-img').src = imgUrl;
             document.getElementById('modal-product-tag').textContent = product.categoria || 'General';

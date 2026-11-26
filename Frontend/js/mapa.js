@@ -184,9 +184,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             const item = document.createElement("div");
             item.className = "group bg-white hover:bg-emerald-50/40 p-2.5 sm:p-3.5 rounded-2xl border border-slate-100 hover:border-emerald-100 transition-all duration-300 flex items-center gap-2.5 sm:gap-3 cursor-pointer relative overflow-hidden select-none snap-center min-w-[215px] sm:min-w-[250px] lg:min-w-0 shrink-0";
             
-            const logoUrl = tienda.logo_url 
-                ? (tienda.logo_url.startsWith('http') ? tienda.logo_url : `${window.API_URL}${tienda.logo_url}`)
-                : null;
+            const logoUrl = Utils.resolveImageUrl(tienda.logo_url, null);
 
             item.innerHTML = `
                 <!-- Logo -->
@@ -336,9 +334,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         // 4.1 Banner de la Tienda
         const bannerContainer = document.getElementById("tienda-detalle-banner");
         if (bannerContainer) {
-            const bannerUrl = tienda.banner_url
-                ? (tienda.banner_url.startsWith('http') ? tienda.banner_url : `${window.API_URL}${tienda.banner_url}`)
-                : null;
+            const bannerUrl = Utils.resolveImageUrl(tienda.banner_url, null);
             
             if (bannerUrl) {
                 bannerContainer.innerHTML = `<img src="${bannerUrl}" class="w-full h-full object-cover" alt="Banner ${tienda.nombre_tienda}">`;
@@ -350,9 +346,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         // 4.2 Logo de la Tienda
         const logoImg = document.getElementById("tienda-detalle-logo");
         if (logoImg) {
-            const logoUrl = tienda.logo_url 
-                ? (tienda.logo_url.startsWith('http') ? tienda.logo_url : `${window.API_URL}${tienda.logo_url}`)
-                : null;
+            const logoUrl = Utils.resolveImageUrl(tienda.logo_url, null);
 
             if (logoUrl) {
                 logoImg.src = logoUrl;

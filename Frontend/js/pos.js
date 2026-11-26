@@ -23,16 +23,16 @@ const POS_PRODUCT_PLACEHOLDER = "data:image/svg+xml;utf8," + encodeURIComponent(
  * Si empieza con /uploads/, le concatena la URL base del backend (API_URL).
  */
 function resolvePosProductImage(imagenUrl) {
+    if (window.Utils && typeof window.Utils.resolveImageUrl === 'function') {
+        return window.Utils.resolveImageUrl(imagenUrl, POS_PRODUCT_PLACEHOLDER);
+    }
     if (!imagenUrl || typeof imagenUrl !== 'string' || !imagenUrl.trim()) {
         return POS_PRODUCT_PLACEHOLDER;
     }
     const raw = imagenUrl.trim();
     const baseApi = (window.API_URL || 'http://localhost:3000').replace(/\/+$/, '');
 
-    if (raw.startsWith('/uploads/')) {
-        return `${baseApi}${raw}`;
-    }
-    if (raw.startsWith('http://') || raw.startsWith('https://') || raw.startsWith('data:image/')) {
+    if (raw.startsWith('data:') || raw.startsWith('http://') || raw.startsWith('https://')) {
         return raw;
     }
     if (raw.startsWith('/')) {
@@ -715,7 +715,7 @@ async function processVentaReal(metodoPago, buttonEl) {
             
             // Reset de Cliente
             clienteActual = 1;
-            const lblCliente = document.getElementById('pos-customer-label');
+            const lblCliente = document.getElementById('lbl-cliente-actual') || document.getElementById('pos-customer-label');
             if (lblCliente) {
                 lblCliente.innerHTML = `Cliente / Facturar a: <span class="text-primary bg-primary/10 px-2 py-0.5 rounded-md ml-1 border border-primary/20">Consumidor Final</span>`;
             }
@@ -724,9 +724,15 @@ async function processVentaReal(metodoPago, buttonEl) {
                 posSearchCliente.value = '';
             }
             
-            // Recargar inventario actual y reportes
+            // Recargar inventario, dashboard y reportes actualizados
             setTimeout(() => {
-                loadPosProducts(merchantId); 
+                loadPosProducts(merchantId);
+                if (typeof loadProducts === 'function') {
+                    loadProducts(merchantId);
+                }
+                if (typeof loadDashboard === 'function') {
+                    loadDashboard(merchantId);
+                }
                 if (typeof loadReportes === 'function') {
                     loadReportes(merchantId);
                 }
