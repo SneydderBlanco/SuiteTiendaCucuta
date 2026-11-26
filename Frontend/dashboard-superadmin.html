@@ -104,6 +104,15 @@
                         <span class="material-symbols-outlined text-[20px]">storefront</span>
                         <span>Gestión de Tiendas</span>
                     </a>
+                    <a id="nav-sa-eliminadas"
+                        class="sa-nav-link flex items-center justify-between gap-2 px-4 py-3.5 rounded-xl text-slate-600 hover:text-emerald-700 hover:bg-emerald-50 cursor-pointer transition-all"
+                        href="#eliminadas">
+                        <span class="flex items-center gap-3">
+                            <span class="material-symbols-outlined text-[20px]">history</span>
+                            <span>Tiendas Eliminadas</span>
+                        </span>
+                        <span id="sa-deleted-nav-badge" class="px-2 py-0.5 rounded-full text-[10px] font-black bg-slate-200 text-slate-600">0</span>
+                    </a>
                 </nav>
             </div>
 
@@ -143,6 +152,11 @@
                         <input id="sa-search-input" type="text" placeholder="Buscar tienda, dueño o correo..."
                             class="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-800 placeholder:text-slate-400 focus:ring-2 focus:ring-emerald-600 focus:border-emerald-600 outline-none shadow-xs transition-all" />
                     </div>
+                    <button id="btn-sa-create-store" type="button"
+                        class="inline-flex items-center gap-2 px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-sm font-bold rounded-xl shadow-md active:scale-95 transition-all">
+                        <span class="material-symbols-outlined text-lg">add_business</span>
+                        <span>Crear Tendero</span>
+                    </button>
                     <button id="btn-sa-refresh" type="button"
                         class="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold rounded-xl shadow-md shadow-emerald-600/20 active:scale-95 transition-all">
                         <span class="material-symbols-outlined text-lg">refresh</span>
@@ -315,13 +329,14 @@
                                 <th scope="col" class="px-6 py-4">Nombre de Tienda</th>
                                 <th scope="col" class="px-6 py-4">Propietario / Correo</th>
                                 <th scope="col" class="px-6 py-4">Ubicación / Contacto</th>
+                                <th scope="col" class="px-6 py-4 text-center">Estado / Suscripción</th>
                                 <th scope="col" class="px-6 py-4 text-center">Total Productos</th>
                                 <th scope="col" class="px-6 py-4 text-right">Acciones CRUD</th>
                             </tr>
                         </thead>
                         <tbody id="sa-tiendas-tbody" class="divide-y divide-slate-100 text-sm">
                             <tr>
-                                <td colspan="6" class="px-6 py-12 text-center text-slate-500 font-medium">
+                                <td colspan="7" class="px-6 py-12 text-center text-slate-500 font-medium">
                                     Cargando tiendas registradas desde el servidor...
                                 </td>
                             </tr>
@@ -330,7 +345,249 @@
                 </div>
             </section>
 
+            <!-- ==========================================
+                 SECCIÓN 4: HISTORIAL DE TIENDAS ELIMINADAS (AUDITORÍA)
+                 ========================================== -->
+            <section id="seccion-sa-eliminadas"
+                class="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+                <div
+                    class="px-6 py-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-50/60">
+                    <div class="flex items-center gap-3">
+                        <div class="w-9 h-9 rounded-xl bg-red-50 text-red-600 border border-red-100 flex items-center justify-center shrink-0">
+                            <span class="material-symbols-outlined text-xl">history</span>
+                        </div>
+                        <div>
+                            <h3 class="text-lg font-extrabold text-slate-800">Historial de Tiendas Eliminadas</h3>
+                            <p class="text-xs text-slate-500 font-medium mt-0.5">Registro de auditoría de comercios que estuvieron activos en la plataforma y fueron dados de baja.</p>
+                        </div>
+                    </div>
+                    <span id="sa-eliminadas-count"
+                        class="px-3.5 py-1.5 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-bold self-start sm:self-center">
+                        0 Registros
+                    </span>
+                </div>
+
+                <div class="overflow-x-auto max-w-full">
+                    <table class="w-full text-left border-collapse">
+                        <thead class="bg-slate-50 border-b border-slate-200">
+                            <tr class="text-[11px] font-extrabold uppercase tracking-wider text-slate-500">
+                                <th scope="col" class="px-5 py-3.5">ID Original</th>
+                                <th scope="col" class="px-5 py-3.5">Tienda</th>
+                                <th scope="col" class="px-5 py-3.5">Propietario / Correo</th>
+                                <th scope="col" class="px-5 py-3.5 text-center">Resumen Histórico</th>
+                                <th scope="col" class="px-5 py-3.5">Motivo</th>
+                                <th scope="col" class="px-5 py-3.5">Eliminada Por / Fecha</th>
+                            </tr>
+                        </thead>
+                        <tbody id="sa-eliminadas-tbody" class="divide-y divide-slate-100 text-sm">
+                            <tr>
+                                <td colspan="6" class="px-6 py-10 text-center text-slate-400 font-medium text-xs">
+                                    Cargando historial de auditoría...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
         </main>
+    </div>
+
+    <!-- Modal Crear Nuevo Tendero / Tienda (POST /api/admin/tiendas) -->
+    <div id="sa-create-store-modal"
+        class="hidden fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4">
+        <div
+            class="bg-white w-full max-w-lg max-h-[90vh] flex flex-col rounded-2xl shadow-2xl overflow-hidden border border-slate-200">
+            <div class="px-6 py-5 bg-white text-slate-800 flex items-center justify-between shrink-0 border-b border-slate-100">
+                <div class="flex items-center gap-2.5">
+                    <span class="material-symbols-outlined text-emerald-600">add_business</span>
+                    <h3 class="text-lg font-extrabold text-slate-800">Crear Nuevo Tendero</h3>
+                </div>
+                <button id="btn-close-create-store-modal" type="button"
+                    class="text-slate-400 hover:text-slate-700 transition-colors">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+
+            <form id="sa-create-store-form" class="flex flex-col flex-1 min-h-0 overflow-hidden">
+                <div class="p-6 overflow-y-auto flex-1 space-y-4 text-sm">
+                    <div>
+                        <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">Nombre de la Tienda *</label>
+                        <input id="sa-create-nombre-tienda" type="text" required
+                            class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 text-sm focus:ring-2 focus:ring-emerald-600 focus:border-emerald-600 outline-none"
+                            placeholder="Ej. Tienda La Esperanza" />
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">Propietario *</label>
+                            <input id="sa-create-propietario" type="text" required
+                                class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 text-sm focus:ring-2 focus:ring-emerald-600 focus:border-emerald-600 outline-none"
+                                placeholder="Ej. Carlos Pérez" />
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">Correo Electrónico *</label>
+                            <input id="sa-create-email" type="email" required
+                                class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 text-sm focus:ring-2 focus:ring-emerald-600 focus:border-emerald-600 outline-none"
+                                placeholder="tendero@gmail.com" />
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">Contraseña de Acceso *</label>
+                        <input id="sa-create-password" type="password" required minlength="4"
+                            class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 text-sm focus:ring-2 focus:ring-emerald-600 focus:border-emerald-600 outline-none"
+                            placeholder="Contraseña inicial para el tendero" />
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">Dirección / Barrio</label>
+                            <input id="sa-create-ubicacion" type="text"
+                                class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 text-sm focus:ring-2 focus:ring-emerald-600 focus:border-emerald-600 outline-none"
+                                placeholder="Ej. Av 5 #10-20, Centro" />
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">WhatsApp</label>
+                            <input id="sa-create-whatsapp" type="text"
+                                class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 text-sm focus:ring-2 focus:ring-emerald-600 focus:border-emerald-600 outline-none"
+                                placeholder="Ej. 573101234567" />
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">Descripción</label>
+                        <textarea id="sa-create-descripcion" rows="2"
+                            class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 text-sm focus:ring-2 focus:ring-emerald-600 focus:border-emerald-600 outline-none resize-none"
+                            placeholder="Breve descripción del negocio..."></textarea>
+                    </div>
+                </div>
+
+                <div class="px-6 py-4 border-t border-slate-100 bg-slate-50 flex items-center justify-end gap-3 shrink-0">
+                    <button id="btn-cancel-create-store" type="button"
+                        class="px-5 py-2.5 rounded-xl bg-white hover:bg-slate-100 text-slate-600 border border-slate-200 text-xs font-bold transition-colors">
+                        Cancelar
+                    </button>
+                    <button id="btn-submit-create-store" type="submit"
+                        class="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-md shadow-emerald-600/20 transition-all">
+                        Crear Tendero
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Editar Producto desde SuperAdmin (PUT /api/admin/productos/:id) -->
+    <div id="sa-edit-product-modal"
+        class="hidden fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4">
+        <div
+            class="bg-white w-full max-w-md max-h-[90vh] flex flex-col rounded-2xl shadow-2xl overflow-hidden border border-slate-200">
+            <div class="px-6 py-4 bg-white border-b border-slate-100 flex items-center justify-between shrink-0">
+                <div class="flex items-center gap-2">
+                    <span class="material-symbols-outlined text-emerald-600">edit</span>
+                    <h3 class="text-base font-extrabold text-slate-800">Editar Producto (SuperAdmin)</h3>
+                </div>
+                <button id="btn-close-sa-edit-prod" type="button" class="text-slate-400 hover:text-slate-700">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+            <form id="sa-edit-product-form" class="flex flex-col flex-1 min-h-0 overflow-hidden">
+                <input type="hidden" id="sa-prod-id" />
+                <input type="hidden" id="sa-prod-store-id" />
+                <div class="p-6 overflow-y-auto flex-1 space-y-3.5 text-sm">
+                    <div>
+                        <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Nombre *</label>
+                        <input id="sa-prod-nombre" type="text" required class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-emerald-600" />
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Marca</label>
+                            <input id="sa-prod-marca" type="text" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-emerald-600" />
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Categoría</label>
+                            <input id="sa-prod-categoria" type="text" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-emerald-600" />
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Unidad de Medida</label>
+                        <input id="sa-prod-unidad" type="text" placeholder="Ej. Unidad (Und), Libra (Lb)" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-emerald-600" />
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Precio Venta (COP) *</label>
+                            <input id="sa-prod-precio" type="number" min="0" step="any" required class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-emerald-600" />
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Stock *</label>
+                            <input id="sa-prod-stock" type="number" min="0" required class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-emerald-600" />
+                        </div>
+                    </div>
+                </div>
+                <div class="px-6 py-4 border-t border-slate-100 bg-slate-50 flex items-center justify-end gap-3 shrink-0">
+                    <button id="btn-cancel-sa-edit-prod" type="button" class="px-4 py-2 rounded-xl bg-white border border-slate-200 text-slate-600 text-xs font-bold">Cancelar</button>
+                    <button id="btn-submit-sa-edit-prod" type="submit" class="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-md">Guardar Producto</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Congelar / Reactivar Tienda (Suscripción) -->
+    <div id="sa-freeze-store-modal"
+        class="hidden fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4">
+        <div class="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden border border-slate-200">
+            <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+                <div class="flex items-center gap-2.5">
+                    <span id="sa-freeze-icon" class="material-symbols-outlined text-sky-600">ac_unit</span>
+                    <h3 id="sa-freeze-title" class="text-base font-extrabold text-slate-800">Congelar Tienda</h3>
+                </div>
+                <button id="btn-close-freeze-modal" type="button" class="text-slate-400 hover:text-slate-700">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+            <form id="sa-freeze-store-form" class="p-6 space-y-4">
+                <input type="hidden" id="sa-freeze-id" />
+                <input type="hidden" id="sa-freeze-target-state" />
+                <p id="sa-freeze-desc" class="text-xs text-slate-600 leading-relaxed"></p>
+                <div id="sa-freeze-reason-wrap">
+                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">Motivo del bloqueo</label>
+                    <input id="sa-freeze-reason" type="text" value="Falta de pago de suscripción mensual"
+                        class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-sky-500" />
+                </div>
+                <div class="flex items-center justify-end gap-2.5 pt-2">
+                    <button id="btn-cancel-freeze-modal" type="button" class="px-4 py-2 rounded-xl bg-white border border-slate-200 text-slate-600 text-xs font-bold">Cancelar</button>
+                    <button id="btn-submit-freeze-modal" type="submit" class="px-5 py-2 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold shadow-md">Confirmar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Eliminar Tienda con Motivo (Guarda en Historial) -->
+    <div id="sa-delete-store-modal"
+        class="hidden fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4">
+        <div class="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden border border-slate-200">
+            <div class="px-6 py-4 border-b border-red-100 bg-red-50/40 flex items-center justify-between">
+                <div class="flex items-center gap-2.5">
+                    <span class="material-symbols-outlined text-red-600">delete_forever</span>
+                    <h3 class="text-base font-extrabold text-red-700">Eliminar Tienda</h3>
+                </div>
+                <button id="btn-close-delete-modal" type="button" class="text-slate-400 hover:text-slate-700">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+            <form id="sa-delete-store-form" class="p-6 space-y-4">
+                <input type="hidden" id="sa-delete-id" />
+                <p id="sa-delete-desc" class="text-xs text-slate-600 leading-relaxed"></p>
+                <div class="p-3 rounded-xl bg-amber-50 border border-amber-200 text-[11px] text-amber-800 font-medium">
+                    Se guardará automáticamente un registro de auditoría en <strong>Tiendas Eliminadas</strong> (nombre, propietario, correo, total de productos y ventas históricas).
+                </div>
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">Motivo de eliminación</label>
+                    <input id="sa-delete-reason" type="text" placeholder="Ej. Incumplimiento de términos / Cierre definitivo"
+                        class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-red-500" />
+                </div>
+                <div class="flex items-center justify-end gap-2.5 pt-2">
+                    <button id="btn-cancel-delete-modal" type="button" class="px-4 py-2 rounded-xl bg-white border border-slate-200 text-slate-600 text-xs font-bold">Cancelar</button>
+                    <button id="btn-submit-delete-modal" type="submit" class="px-5 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold shadow-md">Sí, Eliminar Tienda</button>
+                </div>
+            </form>
+        </div>
     </div>
 
     <!-- Modal Editar Tienda (PUT /api/admin/tiendas/:id) -->

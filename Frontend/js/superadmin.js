@@ -12,12 +12,14 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     const navDashboard = document.getElementById("nav-sa-dashboard");
     const navTiendas = document.getElementById("nav-sa-tiendas");
+    const navEliminadas = document.getElementById("nav-sa-eliminadas");
     const navLogout = document.getElementById("nav-sa-logout");
     const btnHeaderLogout = document.getElementById("btn-header-logout");
 
     const seccionKpis = document.getElementById("seccion-sa-kpis");
     const seccionMapa = document.getElementById("seccion-sa-mapa");
     const seccionTiendas = document.getElementById("seccion-sa-tiendas");
+    const seccionEliminadas = document.getElementById("seccion-sa-eliminadas");
 
     const viewTitle = document.getElementById("sa-view-title");
     const viewSubtitle = document.getElementById("sa-view-subtitle");
@@ -25,16 +27,40 @@ document.addEventListener("DOMContentLoaded", async () => {
     // 2. Referencias de Búsqueda, Mapa y Tabla CRUD
     const searchInput = document.getElementById("sa-search-input");
     const btnRefresh = document.getElementById("btn-sa-refresh");
+    const btnCreateStore = document.getElementById("btn-sa-create-store");
     const btnResetMap = document.getElementById("btn-reset-map");
     const tiendasTbody = document.getElementById("sa-tiendas-tbody");
     const tableCountBadge = document.getElementById("sa-table-count");
     const mapCounterBadge = document.getElementById("sa-map-counter");
+    const eliminadasTbody = document.getElementById("sa-eliminadas-tbody");
+    const eliminadasCountBadge = document.getElementById("sa-eliminadas-count");
+    const deletedNavBadge = document.getElementById("sa-deleted-nav-badge");
 
-    // 3. Referencias del Modal de Edición (PUT /api/admin/tiendas/:id)
+    // 3. Referencias de Modales (Crear, Editar Tienda, Congelar, Eliminar, Editar Producto)
+    const createModal = document.getElementById("sa-create-store-modal");
+    const createForm = document.getElementById("sa-create-store-form");
+    const btnCloseCreateModal = document.getElementById("btn-close-create-store-modal");
+    const btnCancelCreateModal = document.getElementById("btn-cancel-create-store");
+
     const editModal = document.getElementById("sa-edit-store-modal");
     const editForm = document.getElementById("sa-edit-store-form");
     const btnCloseEditModal = document.getElementById("btn-close-edit-store-modal");
     const btnCancelEditModal = document.getElementById("btn-cancel-edit-store");
+
+    const freezeModal = document.getElementById("sa-freeze-store-modal");
+    const freezeForm = document.getElementById("sa-freeze-store-form");
+    const btnCloseFreezeModal = document.getElementById("btn-close-freeze-modal");
+    const btnCancelFreezeModal = document.getElementById("btn-cancel-freeze-modal");
+
+    const deleteModal = document.getElementById("sa-delete-store-modal");
+    const deleteForm = document.getElementById("sa-delete-store-form");
+    const btnCloseDeleteModal = document.getElementById("btn-close-delete-modal");
+    const btnCancelDeleteModal = document.getElementById("btn-cancel-delete-modal");
+
+    const editProdModal = document.getElementById("sa-edit-product-modal");
+    const editProdForm = document.getElementById("sa-edit-product-form");
+    const btnCloseEditProd = document.getElementById("btn-close-sa-edit-prod");
+    const btnCancelEditProd = document.getElementById("btn-cancel-sa-edit-prod");
 
     // Mostrar nombre del SuperAdmin
     const storedName = localStorage.getItem("userName");
@@ -45,6 +71,8 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     // Estado en memoria
     let allStores = [];
+    let currentModalProducts = [];
+    let currentProductsStoreId = null;
     const cucutaCenter = [7.8939, -72.5078];
     let map = null;
     let markersLayer = null;
@@ -104,18 +132,22 @@ document.addEventListener("DOMContentLoaded", async () => {
             tienda.final_lng = lng;
             renderedCount++;
 
-            // Icono de pin verde esmeralda acorde a la paleta de la marca
+            const isFrozen = (tienda.estado_cuenta || "activo") === "congelado";
+            const pinColor = isFrozen ? "#0284c7" : "#059669";
+            const pinIconName = isFrozen ? "ac_unit" : "storefront";
+
+            // Icono de pin (verde activa, azul hielo congelada)
             const markerIcon = L.divIcon({
                 className: "custom-sa-marker",
                 html: `
                     <div class="marker-pin-wrapper flex flex-col items-center justify-center">
                         <div class="relative flex items-center justify-center">
-                            <div class="absolute w-9 h-9 rounded-full bg-emerald-500/30 animate-pulse"></div>
-                            <div class="w-8 h-8 rounded-full bg-emerald-600 border-2 border-white shadow-lg flex items-center justify-center text-white" style="background-color: #059669;">
-                                <span class="material-symbols-outlined text-white text-[16px] select-none">storefront</span>
+                            <div class="absolute w-9 h-9 rounded-full ${isFrozen ? "bg-sky-400/30" : "bg-emerald-500/30"} animate-pulse"></div>
+                            <div class="w-8 h-8 rounded-full border-2 border-white shadow-lg flex items-center justify-center text-white" style="background-color: ${pinColor};">
+                                <span class="material-symbols-outlined text-white text-[16px] select-none">${pinIconName}</span>
                             </div>
                         </div>
-                        <div class="w-2.5 h-2.5 bg-emerald-600 rotate-45 -mt-1.5 border-r border-b border-white shadow-md" style="background-color: #059669;"></div>
+                        <div class="w-2.5 h-2.5 rotate-45 -mt-1.5 border-r border-b border-white shadow-md" style="background-color: ${pinColor};"></div>
                     </div>
                 `,
                 iconSize: [36, 42],
@@ -130,10 +162,15 @@ document.addEventListener("DOMContentLoaded", async () => {
             const totalProds = parseInt(tienda.total_productos, 10) || 0;
 
             marker.bindPopup(`
-                <div style="min-width: 190px; padding: 2px;">
-                    <p style="font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; color: #059669; margin: 0 0 2px 0;">
-                        #TC-${tienda.id_tendero}
-                    </p>
+                <div style="min-width: 210px; padding: 2px;">
+                    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:2px;">
+                        <p style="font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; color: ${pinColor}; margin: 0;">
+                            #TC-${tienda.id_tendero}
+                        </p>
+                        <span style="font-size:9px; font-weight:800; padding:2px 6px; border-radius:999px; background:${isFrozen ? '#e0f2fe' : '#ecfdf5'}; color:${isFrozen ? '#0369a1' : '#047857'};">
+                            ${isFrozen ? 'CONGELADA' : 'ACTIVA'}
+                        </span>
+                    </div>
                     <h4 style="font-size: 14px; font-weight: 800; color: #1e293b; margin: 0 0 4px 0;">
                         ${storeTitle}
                     </h4>
@@ -143,11 +180,16 @@ document.addEventListener("DOMContentLoaded", async () => {
                     <p style="font-size: 11px; color: #64748b; margin: 0 0 8px 0;">
                         📍 ${address}
                     </p>
-                    <div style="display: flex; align-items: center; justify-content: space-between; border-top: 1px solid #e2e8f0; padding-top: 6px;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; gap:6px; border-top: 1px solid #e2e8f0; padding-top: 6px;">
                         <span style="font-size: 11px; font-weight: 700; color: #059669;">${totalProds} Productos</span>
-                        <button type="button" onclick="window.__openSaEditModal(${tienda.id_tendero})" style="background: #059669; color: #fff; border: none; border-radius: 6px; padding: 3px 8px; font-size: 11px; font-weight: 700; cursor: pointer;">
-                            Editar
-                        </button>
+                        <div style="display:flex; gap:4px;">
+                            <a href="tienda.html?id=${tienda.id_tendero}" target="_blank" style="background: #0f172a; color: #fff; text-decoration:none; border-radius: 6px; padding: 3px 7px; font-size: 11px; font-weight: 700;">
+                                Tienda
+                            </a>
+                            <button type="button" onclick="window.__openSaEditModal(${tienda.id_tendero})" style="background: #059669; color: #fff; border: none; border-radius: 6px; padding: 3px 7px; font-size: 11px; font-weight: 700; cursor: pointer;">
+                                Editar
+                            </button>
+                        </div>
                     </div>
                 </div>
             `);
@@ -171,7 +213,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         if (stores.length === 0) {
             tiendasTbody.innerHTML = `
                 <tr>
-                    <td colspan="6" class="px-6 py-12 text-center text-slate-500 font-semibold">
+                    <td colspan="7" class="px-6 py-12 text-center text-slate-500 font-semibold">
                         No se encontraron tiendas registradas con ese criterio.
                     </td>
                 </tr>
@@ -188,6 +230,8 @@ document.addEventListener("DOMContentLoaded", async () => {
                 const ubicacion = tienda.ubicacion || "Sin dirección registrada";
                 const whatsapp = tienda.whatsapp || "Sin teléfono";
                 const totalProductos = parseInt(tienda.total_productos, 10) || 0;
+                const isFrozen = (tienda.estado_cuenta || "activo") === "congelado";
+                const motivoBloqueo = tienda.motivo_bloqueo || "Falta de pago de suscripción";
                 const initials = nombreTienda
                     .split(" ")
                     .filter(Boolean)
@@ -195,12 +239,25 @@ document.addEventListener("DOMContentLoaded", async () => {
                     .map((w) => w[0].toUpperCase())
                     .join("") || "TC";
 
+                const statusHtml = isFrozen
+                    ? `<div class="inline-flex flex-col items-center gap-0.5">
+                            <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-sky-100 border border-sky-300 text-sky-800 font-extrabold text-[11px]">
+                                <span class="material-symbols-outlined text-[14px]">ac_unit</span>
+                                CONGELADA
+                            </span>
+                            <span class="text-[10px] text-sky-700 max-w-[140px] truncate" title="${motivoBloqueo}">${motivoBloqueo}</span>
+                       </div>`
+                    : `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 font-extrabold text-[11px]">
+                            <span class="material-symbols-outlined text-[14px]">check_circle</span>
+                            ACTIVA
+                       </span>`;
+
                 return `
-                    <tr class="hover:bg-slate-50 transition-colors" data-store-id="${id}">
-                        <td class="px-6 py-4 font-mono text-xs font-bold text-emerald-600">#TC-${id}</td>
+                    <tr class="hover:bg-slate-50 transition-colors ${isFrozen ? "bg-sky-50/40" : ""}" data-store-id="${id}">
+                        <td class="px-6 py-4 font-mono text-xs font-bold ${isFrozen ? "text-sky-700" : "text-emerald-600"}">#TC-${id}</td>
                         <th scope="row" class="px-6 py-4 font-bold text-slate-800">
                             <div class="flex items-center gap-3">
-                                <div class="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 font-black text-xs flex items-center justify-center shrink-0">
+                                <div class="w-10 h-10 rounded-xl ${isFrozen ? "bg-sky-100 border-sky-300 text-sky-700" : "bg-emerald-50 border-emerald-200 text-emerald-700"} border font-black text-xs flex items-center justify-center shrink-0">
                                     ${initials}
                                 </div>
                                 <div>
@@ -218,6 +275,9 @@ document.addEventListener("DOMContentLoaded", async () => {
                             <span class="text-[11px] text-slate-500">Tel: ${whatsapp}</span>
                         </td>
                         <td class="px-6 py-4 text-center">
+                            ${statusHtml}
+                        </td>
+                        <td class="px-6 py-4 text-center">
                             <span class="px-3 py-1 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 font-bold text-xs">
                                 ${totalProductos} Productos
                             </span>
@@ -231,21 +291,31 @@ document.addEventListener("DOMContentLoaded", async () => {
                                     <span class="material-symbols-outlined text-[18px]">more_vert</span>
                                 </button>
                                 <div id="sa-dropdown-${id}"
-                                    class="sa-row-dropdown absolute right-0 mt-2 w-48 bg-white border border-slate-200 shadow-xl rounded-md hidden z-50 overflow-hidden">
+                                    class="sa-row-dropdown absolute right-0 mt-2 w-56 bg-white border border-slate-200 shadow-xl rounded-xl hidden z-50 overflow-hidden">
+                                    <a href="tienda.html?id=${id}" target="_blank"
+                                        class="w-full text-left px-4 py-2.5 hover:bg-slate-50 transition-colors flex items-center gap-2 text-xs font-bold text-slate-700">
+                                        <span class="material-symbols-outlined text-[18px] text-slate-600">open_in_new</span>
+                                        <span>Acceder a la Tienda</span>
+                                    </a>
                                     <button type="button" data-action="view-products" data-id="${id}"
-                                        class="w-full text-left px-4 py-3 hover:bg-slate-50 transition-colors flex items-center gap-2 text-sm font-semibold text-blue-600">
-                                        <span class="material-symbols-outlined text-[18px] text-blue-600">visibility</span>
-                                        <span>Ver Productos</span>
+                                        class="w-full text-left px-4 py-2.5 hover:bg-slate-50 transition-colors flex items-center gap-2 text-xs font-bold text-blue-600 border-t border-slate-100">
+                                        <span class="material-symbols-outlined text-[18px] text-blue-600">inventory_2</span>
+                                        <span>Ver / Editar Productos</span>
                                     </button>
                                     <button type="button" data-action="edit-store" data-id="${id}"
-                                        class="w-full text-left px-4 py-3 hover:bg-slate-50 transition-colors flex items-center gap-2 text-sm font-semibold text-emerald-600 border-t border-slate-100">
+                                        class="w-full text-left px-4 py-2.5 hover:bg-slate-50 transition-colors flex items-center gap-2 text-xs font-bold text-emerald-600 border-t border-slate-100">
                                         <span class="material-symbols-outlined text-[18px] text-emerald-600">edit</span>
-                                        <span>Editar</span>
+                                        <span>Editar Tienda</span>
+                                    </button>
+                                    <button type="button" data-action="toggle-freeze" data-id="${id}"
+                                        class="w-full text-left px-4 py-2.5 hover:bg-slate-50 transition-colors flex items-center gap-2 text-xs font-bold ${isFrozen ? "text-emerald-700" : "text-sky-700"} border-t border-slate-100">
+                                        <span class="material-symbols-outlined text-[18px]">${isFrozen ? "lock_open" : "ac_unit"}</span>
+                                        <span>${isFrozen ? "Reactivar Tienda" : "Congelar (Sin pago)"}</span>
                                     </button>
                                     <button type="button" data-action="delete-store" data-id="${id}"
-                                        class="w-full text-left px-4 py-3 hover:bg-slate-50 transition-colors flex items-center gap-2 text-sm font-semibold text-red-600 border-t border-slate-100">
+                                        class="w-full text-left px-4 py-2.5 hover:bg-red-50 transition-colors flex items-center gap-2 text-xs font-bold text-red-600 border-t border-slate-100">
                                         <span class="material-symbols-outlined text-[18px] text-red-600">delete</span>
-                                        <span>Eliminar</span>
+                                        <span>Eliminar Tienda</span>
                                     </button>
                                 </div>
                             </div>
@@ -283,6 +353,63 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         renderStoreMarkers(allStores);
         applySearchFilter();
+        await loadDeletedStoresHistory();
+    }
+
+    // --- Cargar Historial de Tiendas Eliminadas ---
+    async function loadDeletedStoresHistory() {
+        if (!eliminadasTbody) return;
+        const resp = await API.getAdminTiendasEliminadas();
+        const historial = (resp && resp.data && Array.isArray(resp.data.historial)) ? resp.data.historial : [];
+
+        if (eliminadasCountBadge) {
+            eliminadasCountBadge.textContent = `${historial.length} ${historial.length === 1 ? "Registro" : "Registros"}`;
+        }
+        if (deletedNavBadge) {
+            deletedNavBadge.textContent = String(historial.length);
+        }
+
+        if (historial.length === 0) {
+            eliminadasTbody.innerHTML = `
+                <tr>
+                    <td colspan="6" class="px-6 py-10 text-center text-slate-400 font-medium text-xs">
+                        Aún no se ha eliminado ninguna tienda. Cuando elimines una, su registro histórico quedará aquí.
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        eliminadasTbody.innerHTML = historial.map((h) => {
+            const d = new Date(h.fecha_eliminacion);
+            const fechaFmt = `${d.getDate().toString().padStart(2, "0")}/${(d.getMonth() + 1).toString().padStart(2, "0")}/${d.getFullYear()} ${d.getHours().toString().padStart(2, "0")}:${d.getMinutes().toString().padStart(2, "0")}`;
+            const ventasFmt = typeof Utils !== "undefined" && Utils.formatCurrency
+                ? Utils.formatCurrency(h.total_ventas_historicas || 0)
+                : `$${Number(h.total_ventas_historicas || 0).toLocaleString("es-CO")}`;
+
+            return `
+                <tr class="hover:bg-slate-50 transition-colors">
+                    <td class="px-5 py-3.5 font-mono text-xs font-bold text-slate-500">#TC-${h.id_tendero_original || "?"}</td>
+                    <td class="px-5 py-3.5">
+                        <span class="block font-bold text-slate-800 text-xs">${h.nombre_tienda || "Sin nombre"}</span>
+                        <span class="text-[11px] text-slate-400">${h.ubicacion || "Sin dirección"}</span>
+                    </td>
+                    <td class="px-5 py-3.5">
+                        <span class="block font-semibold text-slate-700 text-xs">${h.nombre_propietario || "---"}</span>
+                        <span class="text-[11px] text-slate-400">${h.email || "---"}</span>
+                    </td>
+                    <td class="px-5 py-3.5 text-center">
+                        <span class="inline-block px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 font-bold text-[11px]">${h.total_productos_eliminados || 0} prod.</span>
+                        <span class="block text-[11px] font-bold text-emerald-700 mt-0.5">${ventasFmt}</span>
+                    </td>
+                    <td class="px-5 py-3.5 text-xs text-slate-600 max-w-[220px]">${h.motivo_eliminacion || "Eliminada por SuperAdmin"}</td>
+                    <td class="px-5 py-3.5">
+                        <span class="block text-xs font-semibold text-slate-700">${h.eliminado_por || "Super Administrador"}</span>
+                        <span class="text-[11px] text-slate-400">${fechaFmt}</span>
+                    </td>
+                </tr>
+            `;
+        }).join("");
     }
 
     function applySearchFilter() {
@@ -380,27 +507,188 @@ document.addEventListener("DOMContentLoaded", async () => {
         });
     }
 
-    // --- Eliminar Tienda en Cascada (DELETE /api/admin/tiendas/:id) ---
-    async function handleDeleteStore(storeId) {
-        const store = allStores.find((s) => Number(s.id_tendero) === Number(storeId));
-        const storeName = store?.nombre_tienda || `#TC-${storeId}`;
-        const prodCount = parseInt(store?.total_productos, 10) || 0;
+    // --- Modal Crear Nuevo Tendero / Tienda (POST /api/admin/tiendas) ---
+    function openCreateModal() {
+        if (!createModal) return;
+        if (createForm) createForm.reset();
+        createModal.classList.remove("hidden");
+    }
+    function closeCreateModal() {
+        if (createModal) createModal.classList.add("hidden");
+    }
+    if (btnCreateStore) btnCreateStore.addEventListener("click", openCreateModal);
+    if (btnCloseCreateModal) btnCloseCreateModal.addEventListener("click", closeCreateModal);
+    if (btnCancelCreateModal) btnCancelCreateModal.addEventListener("click", closeCreateModal);
+    if (createModal) {
+        createModal.addEventListener("click", (e) => {
+            if (e.target === createModal) closeCreateModal();
+        });
+    }
+    if (createForm) {
+        createForm.addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const payload = {
+                nombre_tienda: document.getElementById("sa-create-nombre-tienda").value.trim(),
+                nombre: document.getElementById("sa-create-propietario").value.trim(),
+                email: document.getElementById("sa-create-email").value.trim(),
+                password: document.getElementById("sa-create-password").value,
+                ubicacion: document.getElementById("sa-create-ubicacion").value.trim(),
+                whatsapp: document.getElementById("sa-create-whatsapp").value.trim(),
+                descripcion: document.getElementById("sa-create-descripcion").value.trim()
+            };
 
-        const confirmed = confirm(
-            `¿Estás seguro de que deseas ELIMINAR la tienda "${storeName}"?\n\n⚠️ Esta acción eliminará en cascada la tienda y sus ${prodCount} productos asociados de la base de datos.`
-        );
-        if (!confirmed) return;
+            const btn = document.getElementById("btn-submit-create-store");
+            const prev = btn.textContent;
+            btn.disabled = true;
+            btn.textContent = "Creando...";
 
-        try {
-            const resp = await API.deleteAdminTienda(storeId);
-            if (resp.status === 200) {
-                await loadSuperAdminData();
-            } else {
-                alert(resp.data?.error || "Error al eliminar la tienda.");
+            try {
+                const resp = await API.createAdminTienda(payload);
+                if (resp.status === 201 || resp.status === 200) {
+                    closeCreateModal();
+                    alert("¡Tendero y tienda creados exitosamente! Ya puede iniciar sesión con su correo y contraseña.");
+                    await loadSuperAdminData();
+                } else {
+                    alert(resp.data?.error || "No se pudo crear el tendero.");
+                }
+            } catch (err) {
+                alert("Error de red al crear el tendero.");
+            } finally {
+                btn.disabled = false;
+                btn.textContent = prev;
             }
-        } catch (err) {
-            alert("Error de conexión con el servidor al eliminar la tienda.");
+        });
+    }
+
+    // --- Modal Congelar / Reactivar Tienda (PUT /api/admin/tiendas/:id/estado) ---
+    function openFreezeModal(storeId) {
+        const store = allStores.find((s) => Number(s.id_tendero) === Number(storeId));
+        if (!store || !freezeModal) return;
+
+        const isFrozen = (store.estado_cuenta || "activo") === "congelado";
+        const nextState = isFrozen ? "activo" : "congelado";
+
+        document.getElementById("sa-freeze-id").value = store.id_tendero;
+        document.getElementById("sa-freeze-target-state").value = nextState;
+
+        const iconEl = document.getElementById("sa-freeze-icon");
+        const titleEl = document.getElementById("sa-freeze-title");
+        const descEl = document.getElementById("sa-freeze-desc");
+        const reasonWrap = document.getElementById("sa-freeze-reason-wrap");
+        const reasonInput = document.getElementById("sa-freeze-reason");
+        const submitBtn = document.getElementById("btn-submit-freeze-modal");
+
+        if (nextState === "congelado") {
+            iconEl.textContent = "ac_unit";
+            iconEl.className = "material-symbols-outlined text-sky-600";
+            titleEl.textContent = `Congelar "${store.nombre_tienda}"`;
+            descEl.textContent = "Al congelar esta tienda, el tendero NO podrá iniciar sesión en su panel y la tienda dejará de aparecer en el marketplace y mapa público hasta que sea reactivada.";
+            reasonWrap.classList.remove("hidden");
+            reasonInput.value = store.motivo_bloqueo || "Falta de pago de suscripción mensual";
+            submitBtn.textContent = "Congelar Tienda";
+            submitBtn.className = "px-5 py-2 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold shadow-md";
+        } else {
+            iconEl.textContent = "lock_open";
+            iconEl.className = "material-symbols-outlined text-emerald-600";
+            titleEl.textContent = `Reactivar "${store.nombre_tienda}"`;
+            descEl.textContent = "Esta tienda volverá a estar ACTIVA: el tendero podrá iniciar sesión normalmente y su catálogo volverá a mostrarse en el marketplace y el mapa.";
+            reasonWrap.classList.add("hidden");
+            submitBtn.textContent = "Reactivar Tienda";
+            submitBtn.className = "px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-md";
         }
+
+        freezeModal.classList.remove("hidden");
+    }
+
+    function closeFreezeModal() {
+        if (freezeModal) freezeModal.classList.add("hidden");
+    }
+    if (btnCloseFreezeModal) btnCloseFreezeModal.addEventListener("click", closeFreezeModal);
+    if (btnCancelFreezeModal) btnCancelFreezeModal.addEventListener("click", closeFreezeModal);
+    if (freezeModal) {
+        freezeModal.addEventListener("click", (e) => {
+            if (e.target === freezeModal) closeFreezeModal();
+        });
+    }
+    if (freezeForm) {
+        freezeForm.addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const id = document.getElementById("sa-freeze-id").value;
+            const targetState = document.getElementById("sa-freeze-target-state").value;
+            const motivo = document.getElementById("sa-freeze-reason").value.trim();
+            const btn = document.getElementById("btn-submit-freeze-modal");
+            const prev = btn.textContent;
+            btn.disabled = true;
+            btn.textContent = "Aplicando...";
+
+            try {
+                const resp = await API.updateAdminTiendaEstado(id, targetState, motivo);
+                if (resp.status === 200) {
+                    closeFreezeModal();
+                    await loadSuperAdminData();
+                } else {
+                    alert(resp.data?.error || "No se pudo cambiar el estado de la tienda.");
+                }
+            } catch (err) {
+                alert("Error de red al cambiar el estado de la tienda.");
+            } finally {
+                btn.disabled = false;
+                btn.textContent = prev;
+            }
+        });
+    }
+
+    // --- Eliminar Tienda en Cascada con Motivo (Guarda en Historial) ---
+    function openDeleteModal(storeId) {
+        const store = allStores.find((s) => Number(s.id_tendero) === Number(storeId));
+        if (!store || !deleteModal) return;
+        const prodCount = parseInt(store.total_productos, 10) || 0;
+        document.getElementById("sa-delete-id").value = store.id_tendero;
+        document.getElementById("sa-delete-reason").value = "";
+        document.getElementById("sa-delete-desc").textContent =
+            `¿Estás seguro de eliminar permanentemente la tienda "${store.nombre_tienda}" (#TC-${store.id_tendero}) junto con sus ${prodCount} producto(s)?`;
+        deleteModal.classList.remove("hidden");
+    }
+
+    function closeDeleteModal() {
+        if (deleteModal) deleteModal.classList.add("hidden");
+    }
+    if (btnCloseDeleteModal) btnCloseDeleteModal.addEventListener("click", closeDeleteModal);
+    if (btnCancelDeleteModal) btnCancelDeleteModal.addEventListener("click", closeDeleteModal);
+    if (deleteModal) {
+        deleteModal.addEventListener("click", (e) => {
+            if (e.target === deleteModal) closeDeleteModal();
+        });
+    }
+    if (deleteForm) {
+        deleteForm.addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const id = document.getElementById("sa-delete-id").value;
+            const motivo = document.getElementById("sa-delete-reason").value.trim() || "Eliminada desde panel SuperAdmin";
+            const eliminadoPor = localStorage.getItem("userName") || "Super Administrador";
+            const btn = document.getElementById("btn-submit-delete-modal");
+            const prev = btn.textContent;
+            btn.disabled = true;
+            btn.textContent = "Eliminando...";
+
+            try {
+                const resp = await API.deleteAdminTienda(id, {
+                    motivo_eliminacion: motivo,
+                    eliminado_por: eliminadoPor
+                });
+                if (resp.status === 200) {
+                    closeDeleteModal();
+                    await loadSuperAdminData();
+                } else {
+                    alert(resp.data?.error || "Error al eliminar la tienda.");
+                }
+            } catch (err) {
+                alert("Error de conexión con el servidor al eliminar la tienda.");
+            } finally {
+                btn.disabled = false;
+                btn.textContent = prev;
+            }
+        });
     }
 
     // --- Modal de Ver Productos de Tienda (GET /api/admin/tiendas/:id/productos) ---
@@ -423,6 +711,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     async function openViewProductsModal(storeId) {
         if (!productsModal || !productsContainer) return;
+        currentProductsStoreId = storeId;
         const store = allStores.find((s) => Number(s.id_tendero) === Number(storeId));
         const storeName = store?.nombre_tienda || `Tienda #TC-${storeId}`;
 
@@ -440,6 +729,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         try {
             const resp = await API.getAdminTiendaProductos(storeId);
             const productos = Array.isArray(resp.data) ? resp.data : [];
+            currentModalProducts = productos;
 
             if (productsModalCount) {
                 productsModalCount.textContent = `${productos.length} ${productos.length === 1 ? "producto registrado" : "productos registrados"}`;
@@ -466,21 +756,35 @@ document.addEventListener("DOMContentLoaded", async () => {
                                 : `$${Number(p.precio_venta || 0).toLocaleString("es-CO")}`;
                             const unidad = p.unidad_medida || "Unidad (Und)";
                             return `
-                                <div class="flex items-center gap-3.5 p-3.5 rounded-xl border border-slate-200 bg-white hover:border-emerald-300 hover:shadow-xs transition-all">
-                                    <img src="${imgUrl}" alt="${p.nombre || "Producto"}"
-                                        onerror="this.onerror=null;this.src='${DEFAULT_BOX_SVG}';"
-                                        class="w-14 h-14 rounded-xl object-cover bg-slate-100 border border-slate-200 shrink-0" />
-                                    <div class="min-w-0 flex-1">
-                                        <h4 class="font-bold text-slate-800 text-sm truncate">${p.nombre || "Sin nombre"}</h4>
-                                        <p class="text-[11px] text-slate-500 uppercase font-semibold truncate">
-                                            ${p.marca || "S/M"} • ${p.categoria || "General"}
-                                        </p>
-                                        <div class="mt-1.5 flex items-center justify-between gap-2">
-                                            <span class="text-sm font-black text-emerald-600">${precio}</span>
-                                            <span class="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 font-bold text-[11px]">
-                                                Stock: ${p.stock ?? 0} (${unidad})
-                                            </span>
+                                <div class="flex flex-col gap-3 p-3.5 rounded-xl border border-slate-200 bg-white hover:border-emerald-300 hover:shadow-xs transition-all">
+                                    <div class="flex items-center gap-3.5">
+                                        <img src="${imgUrl}" alt="${p.nombre || "Producto"}"
+                                            onerror="this.onerror=null;this.src='${DEFAULT_BOX_SVG}';"
+                                            class="w-14 h-14 rounded-xl object-cover bg-slate-100 border border-slate-200 shrink-0" />
+                                        <div class="min-w-0 flex-1">
+                                            <h4 class="font-bold text-slate-800 text-sm truncate">${p.nombre || "Sin nombre"}</h4>
+                                            <p class="text-[11px] text-slate-500 uppercase font-semibold truncate">
+                                                ${p.marca || "S/M"} • ${p.categoria || "General"}
+                                            </p>
+                                            <div class="mt-1.5 flex items-center justify-between gap-2">
+                                                <span class="text-sm font-black text-emerald-600">${precio}</span>
+                                                <span class="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 font-bold text-[11px]">
+                                                    Stock: ${p.stock ?? 0} (${unidad})
+                                                </span>
+                                            </div>
                                         </div>
+                                    </div>
+                                    <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                                        <button type="button" onclick="window.__openSaEditProduct(${p.id_producto})"
+                                            class="px-3 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold text-xs flex items-center gap-1 transition-colors cursor-pointer">
+                                            <span class="material-symbols-outlined text-[15px]">edit</span>
+                                            Editar
+                                        </button>
+                                        <button type="button" onclick="window.__deleteSaProduct(${p.id_producto})"
+                                            class="px-3 py-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 font-bold text-xs flex items-center gap-1 transition-colors cursor-pointer">
+                                            <span class="material-symbols-outlined text-[15px]">delete</span>
+                                            Eliminar
+                                        </button>
                                     </div>
                                 </div>
                             `;
@@ -495,6 +799,82 @@ document.addEventListener("DOMContentLoaded", async () => {
                 </div>
             `;
         }
+    }
+
+    // --- Editar / Eliminar Producto desde SuperAdmin ---
+    window.__openSaEditProduct = function(productId) {
+        const prod = currentModalProducts.find((p) => Number(p.id_producto) === Number(productId));
+        if (!prod || !editProdModal) return;
+
+        document.getElementById("sa-prod-id").value = prod.id_producto;
+        document.getElementById("sa-prod-store-id").value = currentProductsStoreId || prod.id_tendero;
+        document.getElementById("sa-prod-nombre").value = prod.nombre || "";
+        document.getElementById("sa-prod-marca").value = prod.marca || "";
+        document.getElementById("sa-prod-categoria").value = prod.categoria || "";
+        document.getElementById("sa-prod-unidad").value = prod.unidad_medida || "Unidad (Und)";
+        document.getElementById("sa-prod-precio").value = prod.precio_venta ?? 0;
+        document.getElementById("sa-prod-stock").value = prod.stock ?? 0;
+
+        editProdModal.classList.remove("hidden");
+    };
+
+    window.__deleteSaProduct = async function(productId) {
+        const prod = currentModalProducts.find((p) => Number(p.id_producto) === Number(productId));
+        if (!confirm(`¿Seguro que deseas eliminar el producto "${prod?.nombre || productId}" de esta tienda?`)) return;
+        const resp = await API.deleteAdminProducto(productId);
+        if (resp.status === 200) {
+            await openViewProductsModal(currentProductsStoreId);
+            await loadSuperAdminData();
+        } else {
+            alert(resp.data?.error || "No se pudo eliminar el producto.");
+        }
+    };
+
+    function closeEditProdModal() {
+        if (editProdModal) editProdModal.classList.add("hidden");
+    }
+    if (btnCloseEditProd) btnCloseEditProd.addEventListener("click", closeEditProdModal);
+    if (btnCancelEditProd) btnCancelEditProd.addEventListener("click", closeEditProdModal);
+    if (editProdModal) {
+        editProdModal.addEventListener("click", (e) => {
+            if (e.target === editProdModal) closeEditProdModal();
+        });
+    }
+    if (editProdForm) {
+        editProdForm.addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const prodId = document.getElementById("sa-prod-id").value;
+            const storeId = document.getElementById("sa-prod-store-id").value;
+            const payload = {
+                nombre: document.getElementById("sa-prod-nombre").value.trim(),
+                marca: document.getElementById("sa-prod-marca").value.trim(),
+                categoria: document.getElementById("sa-prod-categoria").value.trim(),
+                unidad_medida: document.getElementById("sa-prod-unidad").value.trim() || "Unidad (Und)",
+                precio_venta: parseFloat(document.getElementById("sa-prod-precio").value),
+                stock: parseInt(document.getElementById("sa-prod-stock").value, 10)
+            };
+
+            const btn = document.getElementById("btn-submit-sa-edit-prod");
+            const prev = btn.textContent;
+            btn.disabled = true;
+            btn.textContent = "Guardando...";
+
+            try {
+                const resp = await API.updateAdminProducto(prodId, payload);
+                if (resp.status === 200) {
+                    closeEditProdModal();
+                    await openViewProductsModal(storeId);
+                    await loadSuperAdminData();
+                } else {
+                    alert(resp.data?.error || "Error al actualizar el producto.");
+                }
+            } catch (err) {
+                alert("Error de red al actualizar el producto.");
+            } finally {
+                btn.disabled = false;
+                btn.textContent = prev;
+            }
+        });
     }
 
     function closeViewProductsModal() {
@@ -543,8 +923,10 @@ document.addEventListener("DOMContentLoaded", async () => {
                 openViewProductsModal(id);
             } else if (action === "edit-store") {
                 openEditModal(id);
+            } else if (action === "toggle-freeze") {
+                openFreezeModal(id);
             } else if (action === "delete-store") {
-                handleDeleteStore(id);
+                openDeleteModal(id);
             }
         });
     }
@@ -597,6 +979,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             if (seccionKpis) seccionKpis.classList.remove("hidden");
             if (seccionMapa) seccionMapa.classList.remove("hidden");
             if (seccionTiendas) seccionTiendas.classList.remove("hidden");
+            if (seccionEliminadas) seccionEliminadas.classList.remove("hidden");
             if (viewTitle) viewTitle.textContent = "Dashboard Global: Mapa y Métricas";
             if (viewSubtitle) {
                 viewSubtitle.textContent = "Supervisión geoespacial y auditoría CRUD de todas las tiendas registradas en Cúcuta.";
@@ -615,10 +998,28 @@ document.addEventListener("DOMContentLoaded", async () => {
             if (seccionKpis) seccionKpis.classList.add("hidden");
             if (seccionMapa) seccionMapa.classList.add("hidden");
             if (seccionTiendas) seccionTiendas.classList.remove("hidden");
+            if (seccionEliminadas) seccionEliminadas.classList.add("hidden");
             if (viewTitle) viewTitle.textContent = "Gestión de Tiendas (CRUD)";
             if (viewSubtitle) {
-                viewSubtitle.textContent = "Edita la información de las tiendas registradas o elimínalas junto con su inventario en cascada.";
+                viewSubtitle.textContent = "Crea tenderos, accede a sus tiendas, edita sus productos, congela cuentas por suscripción o elimínalas con auditoría.";
             }
+            toggleMobileSidebar(true);
+        });
+    }
+
+    if (navEliminadas) {
+        navEliminadas.addEventListener("click", (e) => {
+            e.preventDefault();
+            setActiveNav(navEliminadas);
+            if (seccionKpis) seccionKpis.classList.add("hidden");
+            if (seccionMapa) seccionMapa.classList.add("hidden");
+            if (seccionTiendas) seccionTiendas.classList.add("hidden");
+            if (seccionEliminadas) seccionEliminadas.classList.remove("hidden");
+            if (viewTitle) viewTitle.textContent = "Historial de Tiendas Eliminadas";
+            if (viewSubtitle) {
+                viewSubtitle.textContent = "Auditoría histórica de todas las tiendas que estuvieron registradas y fueron dadas de baja.";
+            }
+            loadDeletedStoresHistory();
             toggleMobileSidebar(true);
         });
     }

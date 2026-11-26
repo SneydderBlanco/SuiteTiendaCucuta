@@ -342,6 +342,18 @@ window.API = {
         }
     },
 
+    createAdminTienda: async (payload) => {
+        const url = buildApiUrl("/api/admin/tiendas");
+        const response = await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "Accept": "application/json" },
+            body: JSON.stringify(payload)
+        });
+        const isJson = (response.headers.get("content-type") || "").includes("application/json");
+        const data = isJson ? await response.json() : { error: `Error HTTP ${response.status}` };
+        return { status: response.status, data };
+    },
+
     updateAdminTienda: async (id, payload) => {
         const targetId = encodeURIComponent(id);
         const url = buildApiUrl(`/api/admin/tiendas/${targetId}`);
@@ -355,12 +367,67 @@ window.API = {
         return { status: response.status, data };
     },
 
-    deleteAdminTienda: async (id) => {
+    updateAdminTiendaEstado: async (id, estado_cuenta, motivo_bloqueo = "") => {
+        const targetId = encodeURIComponent(id);
+        const url = buildApiUrl(`/api/admin/tiendas/${targetId}/estado`);
+        const response = await fetch(url, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json", "Accept": "application/json" },
+            body: JSON.stringify({ estado_cuenta, motivo_bloqueo })
+        });
+        const isJson = (response.headers.get("content-type") || "").includes("application/json");
+        const data = isJson ? await response.json() : { error: `Error HTTP ${response.status}` };
+        return { status: response.status, data };
+    },
+
+    getAdminTiendasEliminadas: async () => {
+        const url = buildApiUrl("/api/admin/tiendas/eliminadas");
+        try {
+            const response = await fetch(url, {
+                method: "GET",
+                headers: { "Accept": "application/json" }
+            });
+            const isJson = (response.headers.get("content-type") || "").includes("application/json");
+            const data = isJson ? await response.json() : { historial: [] };
+            return { status: response.status, data };
+        } catch (error) {
+            console.error("Error en API getAdminTiendasEliminadas:", error);
+            return { status: 500, data: { historial: [] } };
+        }
+    },
+
+    updateAdminProducto: async (idProducto, payload) => {
+        const targetId = encodeURIComponent(idProducto);
+        const url = buildApiUrl(`/api/admin/productos/${targetId}`);
+        const response = await fetch(url, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json", "Accept": "application/json" },
+            body: JSON.stringify(payload)
+        });
+        const isJson = (response.headers.get("content-type") || "").includes("application/json");
+        const data = isJson ? await response.json() : { error: `Error HTTP ${response.status}` };
+        return { status: response.status, data };
+    },
+
+    deleteAdminProducto: async (idProducto) => {
+        const targetId = encodeURIComponent(idProducto);
+        const url = buildApiUrl(`/api/admin/productos/${targetId}`);
+        const response = await fetch(url, {
+            method: "DELETE",
+            headers: { "Content-Type": "application/json", "Accept": "application/json" }
+        });
+        const isJson = (response.headers.get("content-type") || "").includes("application/json");
+        const data = isJson ? await response.json() : { error: `Error HTTP ${response.status}` };
+        return { status: response.status, data };
+    },
+
+    deleteAdminTienda: async (id, payload = {}) => {
         const targetId = encodeURIComponent(id);
         const url = buildApiUrl(`/api/admin/tiendas/${targetId}`);
         const response = await fetch(url, {
             method: "DELETE",
-            headers: { "Content-Type": "application/json", "Accept": "application/json" }
+            headers: { "Content-Type": "application/json", "Accept": "application/json" },
+            body: JSON.stringify(payload)
         });
         const isJson = (response.headers.get("content-type") || "").includes("application/json");
         const data = isJson ? await response.json() : { error: `Error HTTP ${response.status}` };

@@ -1412,6 +1412,19 @@ window.fetchStoreProfile = async function() {
         const resp = await API.getStoreSettings(tenderoId);
         if (resp.status === 200 && resp.data && resp.data.data) {
             const storeData = resp.data.data;
+
+            if (storeData.estado_cuenta === 'congelado') {
+                const motivo = storeData.motivo_bloqueo || 'Falta de pago de suscripción mensual.';
+                alert(`Tu tienda ha sido congelada temporalmente.\nMotivo: ${motivo}\nComunícate con el administrador para reactivarla.`);
+                if (typeof window.logout === 'function') {
+                    window.logout();
+                } else {
+                    localStorage.removeItem('userName');
+                    localStorage.removeItem('userRole');
+                    window.location.href = 'login.html';
+                }
+                return;
+            }
             
             const inputNombre = document.getElementById("input-nombre-tienda");
             const inputDueno = document.getElementById("input-dueno-tienda");

@@ -650,6 +650,20 @@
                         bannerImg.src = store.banner_url.startsWith('http') ? store.banner_url : `${window.API_URL}${store.banner_url}`;
                         bannerImg.classList.remove('hidden');
                     }
+
+                    if (store.estado_cuenta === 'congelado') {
+                        const statusBadge = document.getElementById('store-status-badge');
+                        if (statusBadge) {
+                            statusBadge.className = 'px-3.5 py-1.5 bg-sky-100 text-sky-800 text-xs sm:text-sm font-extrabold rounded-full flex items-center gap-1.5 shadow-xs';
+                            statusBadge.innerHTML = '<span class="material-symbols-outlined text-base">ac_unit</span> Congelada';
+                        }
+                        const btnPay = document.getElementById('btn-abrir-pasarela');
+                        if (btnPay) {
+                            btnPay.disabled = true;
+                            btnPay.className = 'w-full py-4 bg-slate-200 text-slate-500 rounded-2xl font-black text-sm flex items-center justify-center gap-2 cursor-not-allowed';
+                            btnPay.innerHTML = '<span class="material-symbols-outlined">lock</span> Tienda congelada temporalmente';
+                        }
+                    }
                 } else {
                     throw new Error('No se pudo encontrar el establecimiento.');
                 }

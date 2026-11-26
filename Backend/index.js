@@ -100,12 +100,37 @@ app.use(express.urlencoded({ extended: true }));
 // BLOQUE DE RUTAS DE ADMINISTRACIÓN (SUPERADMIN)
 // Ubicado al inicio del archivo antes de cualquier middleware estático o ruta genérica
 // ==========================================
-console.log('>>> [SuperAdmin] Registrando rutas administrativas: GET/PUT/DELETE /api/admin/tiendas y GET /api/admin/tiendas/:id/productos');
+console.log('>>> [SuperAdmin] Registrando rutas administrativas: CRUD tiendas, crear tendero, congelar/reactivar, historial eliminadas y edición de productos');
+
+async function ensureAdminSchema() {
+    await db.query("ALTER TABLE tendero ADD COLUMN IF NOT EXISTS rol VARCHAR(50) DEFAULT 'tendero'");
+    await db.query("ALTER TABLE tendero ADD COLUMN IF NOT EXISTS ubicacion TEXT, ADD COLUMN IF NOT EXISTS latitud NUMERIC, ADD COLUMN IF NOT EXISTS longitud NUMERIC, ADD COLUMN IF NOT EXISTS whatsapp TEXT, ADD COLUMN IF NOT EXISTS logo_url TEXT, ADD COLUMN IF NOT EXISTS descripcion TEXT");
+    await db.query("ALTER TABLE tendero ADD COLUMN IF NOT EXISTS estado_cuenta VARCHAR(30) DEFAULT 'activo'");
+    await db.query("ALTER TABLE tendero ADD COLUMN IF NOT EXISTS motivo_bloqueo TEXT");
+    await db.query("ALTER TABLE tendero ADD COLUMN IF NOT EXISTS fecha_bloqueo TIMESTAMP");
+    await db.query(`
+        CREATE TABLE IF NOT EXISTS historial_tiendas_eliminadas (
+            id_historial SERIAL PRIMARY KEY,
+            id_tendero_original INTEGER,
+            nombre_tienda VARCHAR(150),
+            nombre_propietario VARCHAR(150),
+            email VARCHAR(255),
+            ubicacion TEXT,
+            whatsapp TEXT,
+            descripcion TEXT,
+            total_productos_eliminados INTEGER DEFAULT 0,
+            total_ventas_historicas NUMERIC(12, 2) DEFAULT 0,
+            motivo_eliminacion TEXT,
+            eliminado_por VARCHAR(120) DEFAULT 'Super Administrador',
+            fecha_registro_original TIMESTAMP,
+            fecha_eliminacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    `);
+}
 
 app.get('/api/admin/tiendas', async (req, res) => {
     try {
-        await db.query("ALTER TABLE tendero ADD COLUMN IF NOT EXISTS rol VARCHAR(50) DEFAULT 'tendero'");
-        await db.query("ALTER TABLE tendero ADD COLUMN IF NOT EXISTS ubicacion TEXT, ADD COLUMN IF NOT EXISTS latitud NUMERIC, ADD COLUMN IF NOT EXISTS longitud NUMERIC, ADD COLUMN IF NOT EXISTS whatsapp TEXT, ADD COLUMN IF NOT EXISTS logo_url TEXT, ADD COLUMN IF NOT EXISTS descripcion TEXT");
+        await ensureAdminSchema();
 
         const tiendasQuery = `
             SELECT 
@@ -120,11 +145,14 @@ app.get('/api/admin/tiendas', async (req, res) => {
                 t.whatsapp,
                 t.logo_url,
                 COALESCE(t.rol, 'tendero') AS rol,
+                COALESCE(t.estado_cuenta, 'activo') AS estado_cuenta,
+                t.motivo_bloqueo,
+                t.fecha_bloqueo,
                 COUNT(p.id_producto) AS total_productos
             FROM tendero t
             LEFT JOIN productos p ON t.id_tendero = p.id_tendero
             WHERE COALESCE(t.rol, 'tendero') != 'superadmin'
-            GROUP BY t.id_tendero, t.nombre, t.email, t.nombre_tienda, t.descripcion, t.ubicacion, t.latitud, t.longitud, t.whatsapp, t.logo_url, t.rol
+            GROUP BY t.id_tendero, t.nombre, t.email, t.nombre_tienda, t.descripcion, t.ubicacion, t.latitud, t.longitud, t.whatsapp, t.logo_url, t.rol, t.estado_cuenta, t.motivo_bloqueo, t.fecha_bloqueo
             ORDER BY t.id_tendero ASC
         `;
         const { rows: tiendas } = await db.query(tiendasQuery);
@@ -132,6 +160,7 @@ app.get('/api/admin/tiendas', async (req, res) => {
         const clientesCountRes = await db.query("SELECT COUNT(*)::INT AS total FROM cliente");
         const totalUsuarios = (clientesCountRes.rows[0]?.total || 0) + tiendas.length;
         const totalTiendas = tiendas.length;
+        const tiendasCongeladas = tiendas.filter(t => (t.estado_cuenta || 'activo') === 'congelado').length;
 
         let tiendaMasActiva = 'Variedades Torcoroma';
         if (tiendas.length > 0) {
@@ -147,12 +176,17 @@ app.get('/api/admin/tiendas', async (req, res) => {
             productoPopular = topProdRes.rows[0].nombre;
         }
 
+        const histCountRes = await db.query("SELECT COUNT(*)::INT AS total FROM historial_tiendas_eliminadas");
+        const totalEliminadas = histCountRes.rows[0]?.total || 0;
+
         res.json({
             success: true,
             tiendas,
             metricas: {
                 total_usuarios: totalUsuarios,
                 total_tiendas: totalTiendas,
+                tiendas_congeladas: tiendasCongeladas,
+                tiendas_eliminadas: totalEliminadas,
                 tienda_mas_activa: tiendaMasActiva,
                 producto_popular: productoPopular
             }
@@ -160,6 +194,115 @@ app.get('/api/admin/tiendas', async (req, res) => {
     } catch (err) {
         console.error('Error en GET /api/admin/tiendas:', err.message);
         res.status(500).json({ error: 'Error al obtener tiendas para SuperAdmin.' });
+    }
+});
+
+// SuperAdmin: Crear nuevo tendero/tienda directamente
+app.post('/api/admin/tiendas', async (req, res) => {
+    const { nombre_tienda, nombre, email, password, ubicacion, whatsapp, descripcion } = req.body || {};
+
+    if (!nombre_tienda || !nombre || !email || !password) {
+        return res.status(400).json({ error: 'Nombre de la tienda, propietario, correo y contraseña son obligatorios.' });
+    }
+
+    try {
+        await ensureAdminSchema();
+        await db.query("ALTER TABLE tendero ADD COLUMN IF NOT EXISTS codigo_verificacion VARCHAR(20)");
+        await db.query("ALTER TABLE tendero ADD COLUMN IF NOT EXISTS verificado BOOLEAN DEFAULT FALSE");
+
+        const cleanEmail = String(email).trim();
+        const existsRes = await db.query('SELECT id_tendero FROM tendero WHERE LOWER(email) = LOWER($1)', [cleanEmail]);
+        if (existsRes.rows.length > 0) {
+            return res.status(400).json({ error: 'Ya existe un tendero registrado con ese correo electrónico.' });
+        }
+
+        const hashedPassword = hashPassword(String(password));
+        const insertQuery = `
+            INSERT INTO tendero (
+                nombre, email, password, nombre_tienda, codigo_invitacion,
+                descripcion, ubicacion, whatsapp, rol, verificado, estado_cuenta
+            )
+            VALUES ($1, $2, $3, $4, 'SUPERADMIN', $5, $6, $7, 'tendero', TRUE, 'activo')
+            RETURNING id_tendero, nombre, email, nombre_tienda, descripcion, ubicacion, whatsapp, rol, estado_cuenta
+        `;
+        const { rows } = await db.query(insertQuery, [
+            String(nombre).trim(),
+            cleanEmail,
+            hashedPassword,
+            String(nombre_tienda).trim(),
+            String(descripcion || '').trim() || null,
+            String(ubicacion || '').trim() || null,
+            String(whatsapp || '').replace(/\D/g, '') || null
+        ]);
+
+        return res.status(201).json({
+            success: true,
+            message: 'Tendero y tienda creados correctamente desde SuperAdmin.',
+            tienda: rows[0]
+        });
+    } catch (err) {
+        console.error('Error en POST /api/admin/tiendas:', err.message);
+        if (err.code === '23505') {
+            return res.status(400).json({ error: 'Ese correo electrónico ya está registrado.' });
+        }
+        return res.status(500).json({ error: 'Error al crear el nuevo tendero en la base de datos.' });
+    }
+});
+
+// SuperAdmin: Obtener historial de tiendas eliminadas
+app.get('/api/admin/tiendas/eliminadas', async (req, res) => {
+    try {
+        await ensureAdminSchema();
+        const { rows } = await db.query(
+            'SELECT * FROM historial_tiendas_eliminadas ORDER BY fecha_eliminacion DESC LIMIT 100'
+        );
+        return res.status(200).json({ success: true, historial: rows });
+    } catch (err) {
+        console.error('Error en GET /api/admin/tiendas/eliminadas:', err.message);
+        return res.status(500).json({ error: 'Error al obtener el historial de tiendas eliminadas.' });
+    }
+});
+
+// SuperAdmin: Congelar / Bloquear o Reactivar una tienda (por suscripción)
+app.put('/api/admin/tiendas/:id/estado', async (req, res) => {
+    const { id } = req.params;
+    const { estado_cuenta, motivo_bloqueo } = req.body || {};
+    const nuevoEstado = String(estado_cuenta || '').trim().toLowerCase();
+
+    if (nuevoEstado !== 'activo' && nuevoEstado !== 'congelado') {
+        return res.status(400).json({ error: 'Estado inválido. Usa "activo" o "congelado".' });
+    }
+
+    try {
+        await ensureAdminSchema();
+        const motivoFinal = nuevoEstado === 'congelado'
+            ? (String(motivo_bloqueo || '').trim() || 'Falta de pago de suscripción mensual.')
+            : null;
+
+        const updateQuery = `
+            UPDATE tendero
+            SET estado_cuenta = $1,
+                motivo_bloqueo = $2,
+                fecha_bloqueo = CASE WHEN $1 = 'congelado' THEN NOW() ELSE NULL END
+            WHERE id_tendero = $3
+            RETURNING id_tendero, nombre, nombre_tienda, email, estado_cuenta, motivo_bloqueo, fecha_bloqueo
+        `;
+        const { rows } = await db.query(updateQuery, [nuevoEstado, motivoFinal, id]);
+
+        if (rows.length === 0) {
+            return res.status(404).json({ error: 'Tienda no encontrada.' });
+        }
+
+        return res.status(200).json({
+            success: true,
+            message: nuevoEstado === 'congelado'
+                ? 'Tienda congelada/bloqueada correctamente.'
+                : 'Tienda reactivada correctamente.',
+            tienda: rows[0]
+        });
+    } catch (err) {
+        console.error('Error en PUT /api/admin/tiendas/:id/estado:', err.message);
+        return res.status(500).json({ error: 'Error al cambiar el estado de la tienda.' });
     }
 });
 
@@ -174,6 +317,93 @@ app.get('/api/admin/tiendas/:id/productos', async (req, res) => {
     } catch (err) {
         console.error('Error en GET /api/admin/tiendas/:id/productos:', err.message);
         res.status(500).json({ error: 'Error al obtener los productos de la tienda.' });
+    }
+});
+
+// SuperAdmin: Editar un producto de cualquier tienda (sincronizando presentaciones)
+app.put('/api/admin/productos/:id', async (req, res) => {
+    const { id } = req.params;
+    const { nombre, marca, categoria, unidad_medida, precio_venta, stock } = req.body || {};
+
+    if (!nombre || precio_venta === undefined || stock === undefined) {
+        return res.status(400).json({ error: 'Nombre, precio de venta y stock son obligatorios.' });
+    }
+
+    const precioNum = parseFloat(precio_venta);
+    const stockNum = parseInt(stock, 10);
+    if (isNaN(precioNum) || precioNum < 0 || isNaN(stockNum) || stockNum < 0) {
+        return res.status(400).json({ error: 'El precio y el stock deben ser valores numéricos mayores o iguales a cero.' });
+    }
+
+    try {
+        await db.query("ALTER TABLE productos ADD COLUMN IF NOT EXISTS unidad_medida VARCHAR(50) DEFAULT 'Unidad (Und)'");
+        await db.query("ALTER TABLE productos ADD COLUMN IF NOT EXISTS presentaciones JSONB DEFAULT '[]'::jsonb");
+
+        const existingRes = await db.query('SELECT presentaciones FROM productos WHERE id_producto = $1', [id]);
+        if (existingRes.rows.length === 0) {
+            return res.status(404).json({ error: 'Producto no encontrado.' });
+        }
+
+        const unidadClean = String(unidad_medida || 'Unidad (Und)').trim() || 'Unidad (Und)';
+        let presArr = Array.isArray(existingRes.rows[0].presentaciones) ? [...existingRes.rows[0].presentaciones] : [];
+        if (presArr.length > 0) {
+            presArr[0] = {
+                ...presArr[0],
+                unidad: unidadClean,
+                precio: precioNum,
+                stock: stockNum
+            };
+        } else {
+            presArr = [{ unidad: unidadClean, precio: precioNum, stock: stockNum }];
+        }
+
+        const updateQuery = `
+            UPDATE productos
+            SET nombre = $1,
+                marca = $2,
+                categoria = $3,
+                unidad_medida = $4,
+                precio_venta = $5,
+                stock = $6,
+                presentaciones = $7::jsonb
+            WHERE id_producto = $8
+            RETURNING *
+        `;
+        const { rows } = await db.query(updateQuery, [
+            String(nombre).trim(),
+            String(marca || '').trim(),
+            String(categoria || '').trim(),
+            unidadClean,
+            precioNum,
+            stockNum,
+            JSON.stringify(presArr),
+            id
+        ]);
+
+        return res.status(200).json({
+            success: true,
+            message: 'Producto actualizado correctamente por SuperAdmin.',
+            producto: rows[0]
+        });
+    } catch (err) {
+        console.error('Error en PUT /api/admin/productos/:id:', err.message);
+        return res.status(500).json({ error: 'Error al actualizar el producto en la base de datos.' });
+    }
+});
+
+// SuperAdmin: Eliminar un producto puntual de una tienda
+app.delete('/api/admin/productos/:id', async (req, res) => {
+    const { id } = req.params;
+    try {
+        await db.query('DELETE FROM vitrina_digital WHERE id_producto = $1', [id]).catch(() => {});
+        const { rows } = await db.query('DELETE FROM productos WHERE id_producto = $1 RETURNING *', [id]);
+        if (rows.length === 0) {
+            return res.status(404).json({ error: 'Producto no encontrado.' });
+        }
+        return res.status(200).json({ success: true, message: 'Producto eliminado correctamente.' });
+    } catch (err) {
+        console.error('Error en DELETE /api/admin/productos/:id:', err.message);
+        return res.status(500).json({ error: 'No se pudo eliminar el producto (puede tener ventas asociadas).' });
     }
 });
 
@@ -216,39 +446,78 @@ app.put('/api/admin/tiendas/:id', async (req, res) => {
 
 app.delete('/api/admin/tiendas/:id', async (req, res) => {
     const { id } = req.params;
+    const { motivo_eliminacion, eliminado_por } = req.body || {};
     try {
-        // 1. Borrar registros en vitrina_digital vinculados al tendero o a sus productos
+        await ensureAdminSchema();
+
+        // 0. Capturar snapshot de la tienda antes de eliminarla para el historial de auditoría
+        const storeRes = await db.query(
+            'SELECT id_tendero, nombre, email, nombre_tienda, descripcion, ubicacion, whatsapp, fecha_registro FROM tendero WHERE id_tendero = $1',
+            [id]
+        );
+        if (storeRes.rows.length === 0) {
+            return res.status(404).json({ error: 'Tienda no encontrada.' });
+        }
+        const storeSnap = storeRes.rows[0];
+
+        const prodCountRes = await db.query('SELECT COUNT(*)::INT AS total FROM productos WHERE id_tendero = $1', [id]).catch(() => ({ rows: [{ total: 0 }] }));
+        const ventasSumRes = await db.query('SELECT COALESCE(SUM(total), 0) AS total FROM venta WHERE id_tienda = $1', [id]).catch(() => ({ rows: [{ total: 0 }] }));
+        const totalProdsSnap = prodCountRes.rows[0]?.total || 0;
+        const totalVentasSnap = parseFloat(ventasSumRes.rows[0]?.total) || 0;
+
+        await db.query(
+            `INSERT INTO historial_tiendas_eliminadas (
+                id_tendero_original, nombre_tienda, nombre_propietario, email, ubicacion, whatsapp,
+                descripcion, total_productos_eliminados, total_ventas_historicas,
+                motivo_eliminacion, eliminado_por, fecha_registro_original
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+            [
+                storeSnap.id_tendero,
+                storeSnap.nombre_tienda || 'Sin nombre comercial',
+                storeSnap.nombre || 'Sin propietario',
+                storeSnap.email || '',
+                storeSnap.ubicacion || null,
+                storeSnap.whatsapp || null,
+                storeSnap.descripcion || null,
+                totalProdsSnap,
+                totalVentasSnap,
+                String(motivo_eliminacion || '').trim() || 'Eliminada desde panel SuperAdmin',
+                String(eliminado_por || '').trim() || 'Super Administrador',
+                storeSnap.fecha_registro || null
+            ]
+        );
+
+        // 1. Borrar pagos online vinculados a la tienda
+        await db.query('DELETE FROM pagos_online WHERE id_tienda = $1', [id]).catch(() => {});
+
+        // 2. Borrar registros en vitrina_digital vinculados al tendero o a sus productos
         await db.query(
             'DELETE FROM vitrina_digital WHERE id_tendero = $1 OR id_producto IN (SELECT id_producto FROM productos WHERE id_tendero = $1)',
             [id]
         ).catch(() => {});
 
-        // 2. Borrar detalles de venta vinculados a los productos del tendero o a las ventas de su tienda
+        // 3. Borrar detalles de venta vinculados a los productos del tendero o a las ventas de su tienda
         await db.query(
             'DELETE FROM detalle_venta WHERE id_producto IN (SELECT id_producto FROM productos WHERE id_tendero = $1) OR id_venta IN (SELECT id_venta FROM venta WHERE id_tienda = $1)',
             [id]
         ).catch(() => {});
 
-        // 3. Borrar las ventas asociadas a la tienda (FK id_tienda -> tendero.id_tendero)
+        // 4. Borrar las ventas asociadas a la tienda (FK id_tienda -> tendero.id_tendero)
         await db.query('DELETE FROM venta WHERE id_tienda = $1', [id]).catch(() => {});
 
-        // 4. Borrar registros en tabla auxiliar tienda y desvincular clientes
+        // 5. Borrar registros en tabla auxiliar tienda y desvincular clientes
         await db.query('DELETE FROM tienda WHERE id_tendero = $1', [id]).catch(() => {});
         await db.query('UPDATE cliente SET id_tendero = NULL WHERE id_tendero = $1', [id]).catch(() => {});
 
-        // 5. Eliminar los productos del tendero (WHERE id_tendero = $1)
+        // 6. Eliminar los productos del tendero (WHERE id_tendero = $1)
         const deletedProducts = await db.query('DELETE FROM productos WHERE id_tendero = $1', [id]);
 
-        // 6. Finalmente eliminar al tendero
+        // 7. Finalmente eliminar al tendero
         const { rows } = await db.query('DELETE FROM tendero WHERE id_tendero = $1 RETURNING id_tendero, nombre_tienda', [id]);
-
-        if (rows.length === 0) {
-            return res.status(404).json({ error: 'Tienda no encontrada.' });
-        }
 
         res.json({
             success: true,
-            message: 'Tienda y todos sus productos asociados fueron eliminados en cascada.',
+            message: 'Tienda eliminada en cascada y registrada en el historial de auditoría.',
             tienda_eliminada: rows[0],
             productos_eliminados: deletedProducts.rowCount || 0
         });
@@ -273,18 +542,22 @@ app.get('/productos', async (req, res) => {
     }
 });
 
-// Endpoint público para obtener todas las tiendas registradas con su perfil
+// Endpoint público para obtener todas las tiendas registradas con su perfil (excluyendo congeladas)
 app.get('/api/tiendas', async (req, res) => {
     try {
         // Asegurarse de que las columnas necesarias existen
         await db.query('ALTER TABLE tendero ADD COLUMN IF NOT EXISTS banner_url TEXT');
         await db.query('ALTER TABLE tendero ADD COLUMN IF NOT EXISTS latitud NUMERIC, ADD COLUMN IF NOT EXISTS longitud NUMERIC');
         await db.query('ALTER TABLE tendero ADD COLUMN IF NOT EXISTS whatsapp TEXT');
+        await db.query("ALTER TABLE tendero ADD COLUMN IF NOT EXISTS estado_cuenta VARCHAR(30) DEFAULT 'activo'");
         
         const queryText = `
             SELECT id_tendero, nombre, nombre_tienda, descripcion, ubicacion, logo_url, banner_url, latitud, longitud, whatsapp 
             FROM tendero 
-            WHERE nombre_tienda IS NOT NULL AND nombre_tienda != '' AND COALESCE(rol, 'tendero') != 'superadmin'
+            WHERE nombre_tienda IS NOT NULL
+              AND nombre_tienda != ''
+              AND COALESCE(rol, 'tendero') != 'superadmin'
+              AND COALESCE(estado_cuenta, 'activo') != 'congelado'
         `;
         const { rows } = await db.query(queryText);
         res.json(rows);
@@ -294,10 +567,11 @@ app.get('/api/tiendas', async (req, res) => {
     }
 });
 
-// Endpoint para OBTENER los productos de un tendero individual
+// Endpoint para OBTENER los productos de un tendero individual (excluye tiendas congeladas en búsqueda pública)
 app.get('/api/productos/buscar', async (req, res) => {
     const { q = '' } = req.query;
     try {
+        await db.query("ALTER TABLE tendero ADD COLUMN IF NOT EXISTS estado_cuenta VARCHAR(30) DEFAULT 'activo'");
         const searchTerm = `%${q.trim()}%`;
         const queryText = `
             SELECT 
@@ -316,9 +590,10 @@ app.get('/api/productos/buscar', async (req, res) => {
                 t.logo_url
             FROM productos p
             JOIN tendero t ON p.id_tendero = t.id_tendero
-            WHERE p.nombre ILIKE $1 
+            WHERE COALESCE(t.estado_cuenta, 'activo') != 'congelado'
+              AND (p.nombre ILIKE $1 
                OR COALESCE(p.marca, '') ILIKE $1 
-               OR COALESCE(p.categoria, '') ILIKE $1
+               OR COALESCE(p.categoria, '') ILIKE $1)
             ORDER BY p.nombre ASC
         `;
         const { rows } = await db.query(queryText, [searchTerm]);
@@ -503,16 +778,19 @@ app.put('/api/productos/:id', upload.single('imagen'), async (req, res) => {
     }
 });
 
-// Endpoint: Login Real blindado
+// Endpoint: Login Real blindado (verifica si la tienda está congelada por falta de suscripción)
 const handleLogin = async (req, res) => {
     const { email, password } = req.body;
 
     try {
+        await db.query("ALTER TABLE tendero ADD COLUMN IF NOT EXISTS estado_cuenta VARCHAR(30) DEFAULT 'activo'");
+        await db.query("ALTER TABLE tendero ADD COLUMN IF NOT EXISTS motivo_bloqueo TEXT");
+
         const cleanEmail = (email || '').trim();
         const query = `
-            SELECT id_cliente AS id, nombre, email, password, COALESCE(rol, 'cliente') AS rol FROM cliente WHERE LOWER(email) = LOWER($1)
+            SELECT id_cliente AS id, nombre, email, password, COALESCE(rol, 'cliente') AS rol, 'activo' AS estado_cuenta, NULL::text AS motivo_bloqueo FROM cliente WHERE LOWER(email) = LOWER($1)
             UNION
-            SELECT id_tendero AS id, nombre, email, password, COALESCE(rol, 'tendero') AS rol FROM tendero WHERE LOWER(email) = LOWER($1)
+            SELECT id_tendero AS id, nombre, email, password, COALESCE(rol, 'tendero') AS rol, COALESCE(estado_cuenta, 'activo') AS estado_cuenta, motivo_bloqueo FROM tendero WHERE LOWER(email) = LOWER($1)
         `;
         console.log('Ejecutando login con email:', cleanEmail);
         const result = await db.query(query, [cleanEmail]);
@@ -525,6 +803,13 @@ const handleLogin = async (req, res) => {
 
         if (user.password !== hashPassword(password) && user.password !== password) {
             return res.status(401).json({ error: 'Contraseña incorrecta' });
+        }
+
+        if ((user.rol === 'tendero' || user.rol === 'merchant') && user.estado_cuenta === 'congelado') {
+            const motivo = user.motivo_bloqueo || 'Falta de pago de suscripción mensual.';
+            return res.status(403).json({
+                error: `Tu tienda está congelada y bloqueada temporalmente. Motivo: ${motivo} Comunícate con el administrador para reactivarla.`
+            });
         }
 
         // Success
@@ -936,10 +1221,10 @@ app.post('/api/actualizar-password', async (req, res) => {
 app.get('/api/tienda/configurar/:id_tendero', async (req, res) => {
     const { id_tendero } = req.params;
     try {
-        await db.query('ALTER TABLE tendero ADD COLUMN IF NOT EXISTS descripcion TEXT, ADD COLUMN IF NOT EXISTS ubicacion TEXT, ADD COLUMN IF NOT EXISTS logo_url TEXT, ADD COLUMN IF NOT EXISTS banner_url TEXT, ADD COLUMN IF NOT EXISTS latitud NUMERIC, ADD COLUMN IF NOT EXISTS longitud NUMERIC, ADD COLUMN IF NOT EXISTS whatsapp TEXT');
+        await db.query("ALTER TABLE tendero ADD COLUMN IF NOT EXISTS descripcion TEXT, ADD COLUMN IF NOT EXISTS ubicacion TEXT, ADD COLUMN IF NOT EXISTS logo_url TEXT, ADD COLUMN IF NOT EXISTS banner_url TEXT, ADD COLUMN IF NOT EXISTS latitud NUMERIC, ADD COLUMN IF NOT EXISTS longitud NUMERIC, ADD COLUMN IF NOT EXISTS whatsapp TEXT, ADD COLUMN IF NOT EXISTS estado_cuenta VARCHAR(30) DEFAULT 'activo', ADD COLUMN IF NOT EXISTS motivo_bloqueo TEXT");
         await db.query('ALTER TABLE cliente ADD COLUMN IF NOT EXISTS id_tendero INTEGER');
         await db.query('UPDATE cliente SET id_tendero = 1 WHERE id_tendero IS NULL');
-        const text = 'SELECT nombre, nombre_tienda, descripcion, ubicacion, logo_url, banner_url, latitud, longitud, whatsapp FROM tendero WHERE id_tendero = $1';
+        const text = "SELECT nombre, nombre_tienda, descripcion, ubicacion, logo_url, banner_url, latitud, longitud, whatsapp, COALESCE(estado_cuenta, 'activo') AS estado_cuenta, motivo_bloqueo FROM tendero WHERE id_tendero = $1";
         const { rows } = await db.query(text, [id_tendero]);
         if (rows.length > 0) {
             // Obtener el conteo de clientes registrados por este tendero
@@ -1853,7 +2138,8 @@ app.listen(port, async () => {
         await db.query("ALTER TABLE cliente ADD COLUMN IF NOT EXISTS codigo_verificacion VARCHAR(20)");
         await db.query("ALTER TABLE cliente ADD COLUMN IF NOT EXISTS verificado BOOLEAN DEFAULT FALSE");
         await ensurePagosOnlineTable();
-        console.log("Columnas 'codigo_verificacion', 'verificado' y tabla 'pagos_online' verificadas en PostgreSQL.");
+        await ensureAdminSchema();
+        console.log("Columnas 'codigo_verificacion', 'verificado', 'pagos_online' y esquema SuperAdmin verificados en PostgreSQL.");
     } catch (err) {
         console.error("Error al inicializar la tabla 'vitrina_digital':", err.message);
     }
