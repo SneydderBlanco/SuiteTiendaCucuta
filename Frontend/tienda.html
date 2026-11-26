@@ -976,11 +976,13 @@
 
             const presentaciones = getProductPresentaciones(prod);
             const selectedPres = presentaciones[idx] || presentaciones[0];
+            const activeOffer = idx === 0 ? getActiveOffer(prod.id_producto) : null;
+            const displayPrice = activeOffer ? parseFloat(activeOffer.precio_oferta) : selectedPres.precio;
 
-            // Actualizar dinámicamente el precio principal en la tarjeta
+            // Actualizar dinámicamente el precio principal en la tarjeta (respetando oferta activa en presentación principal)
             const priceEl = document.getElementById(`price-display-${productId}`);
             if (priceEl) {
-                priceEl.textContent = Utils.formatCurrency(selectedPres.precio);
+                priceEl.textContent = Utils.formatCurrency(displayPrice);
             }
 
             // Actualizar el botón de acción (+ o contador) según si esta variante ya está en el carrito
@@ -1194,6 +1196,34 @@
             filterCatalog();
         }
 
+        function resolveCartItemPrice(item) {
+            const prod = productsGlobal.find(p => Number(p.id_producto) === Number(item.id_producto));
+            const presentaciones = prod ? getProductPresentaciones(prod) : [];
+            const unidadItem = String(item.unidad || '').trim().toLowerCase();
+            const esPrincipal = presentaciones.length === 0
+                || !unidadItem
+                || unidadItem === String(presentaciones[0].unidad || '').trim().toLowerCase();
+
+            if (esPrincipal) {
+                const activeOffer = getActiveOffer(item.id_producto);
+                if (activeOffer) {
+                    return parseFloat(activeOffer.precio_oferta);
+                }
+            }
+
+            if (item.precio_regular !== undefined && item.precio_regular !== null) {
+                return parseFloat(item.precio_regular) || 0;
+            }
+            if (prod) {
+                const matchedPres = presentaciones.find(
+                    pr => String(pr.unidad || '').trim().toLowerCase() === unidadItem
+                );
+                if (matchedPres) return parseFloat(matchedPres.precio) || 0;
+                return parseFloat(prod.precio_venta) || 0;
+            }
+            return parseFloat(item.precio_venta) || 0;
+        }
+
         function agregarAlCarrito(product, customVariant = null) {
             const selectedPres = customVariant || getSelectedPresentacion(product);
             const variantStock = selectedPres.stock !== undefined ? selectedPres.stock : product.stock;
@@ -1201,7 +1231,12 @@
 
             const currentStoreId = tenderoId;
             const unidadElegida = selectedPres.unidad || product.unidad_medida || 'Unidad';
-            const precioElegido = parseFloat(selectedPres.precio ?? product.precio_venta ?? 0) || 0;
+            const presentacionesProd = getProductPresentaciones(product);
+            const esPresentacionPrincipal = presentacionesProd.length === 0
+                || String(unidadElegida).trim().toLowerCase() === String(presentacionesProd[0].unidad || '').trim().toLowerCase();
+            const activeOffer = esPresentacionPrincipal ? getActiveOffer(product.id_producto) : null;
+            const precioRegular = parseFloat(selectedPres.precio ?? product.precio_venta ?? 0) || 0;
+            const precioElegido = activeOffer ? parseFloat(activeOffer.precio_oferta) : precioRegular;
             const cartKey = getCartItemKey(product.id_producto, unidadElegida);
             
             // Guardrail Multi-tienda: verificar si hay productos de otra tienda
@@ -1214,12 +1249,15 @@
             const existing = cart.find(item => (item.cartKey || getCartItemKey(item.id_producto, item.unidad)) === cartKey);
             if (existing) {
                 existing.cantidad += 1;
+                existing.precio_regular = precioRegular;
+                existing.precio_venta = precioElegido;
             } else {
                 cart.push({
                     cartKey: cartKey,
                     id_producto: product.id_producto,
                     nombre: product.nombre,
                     unidad: unidadElegida,
+                    precio_regular: precioRegular,
                     precio_venta: precioElegido,
                     cantidad: 1,
                     imagen_url: product.imagen_url,
@@ -1280,12 +1318,17 @@
 
             cart.forEach(item => {
                 const itemKey = item.cartKey || getCartItemKey(item.id_producto, item.unidad);
-                const activePrice = parseFloat(item.precio_venta) || getActivePrice(item.id_producto, item.precio_venta);
+                const activePrice = resolveCartItemPrice(item);
+                const regularPrice = parseFloat(item.precio_regular ?? activePrice) || activePrice;
+                const hasOfferPrice = activePrice < regularPrice;
                 const itemSubtotal = activePrice * item.cantidad;
                 subtotal += itemSubtotal;
 
                 const imgUrl = resolveProductImageUrl(item);
                 const unidadLabel = item.unidad ? ` (${item.unidad})` : '';
+                const unitPriceHtml = hasOfferPrice
+                    ? `<span class="text-[10px] text-slate-400 line-through mr-1">${Utils.formatCurrency(regularPrice)}</span><span class="text-[10px] text-emerald-600 font-extrabold">${Utils.formatCurrency(activePrice)} c/u (Oferta)</span>`
+                    : `<span class="text-[10px] text-slate-400 font-bold">${Utils.formatCurrency(activePrice)} c/u</span>`;
 
                 const itemDiv = document.createElement("div");
                 itemDiv.className = "flex items-center gap-4 bg-slate-50 p-3 rounded-2xl border border-slate-100 hover:shadow-sm transition-all";
@@ -1293,7 +1336,7 @@
                     <img src="${imgUrl}" onerror="this.onerror=null;this.src=window.DEFAULT_PRODUCT_PLACEHOLDER;" class="w-14 h-14 rounded-xl object-cover bg-white shadow-sm shrink-0" alt="${item.nombre}">
                     <div class="flex-grow min-w-0">
                         <h4 class="font-bold text-xs text-slate-800 truncate leading-tight">${item.nombre}${unidadLabel}</h4>
-                        <span class="text-[10px] text-slate-400 font-bold block mt-0.5">${Utils.formatCurrency(activePrice)} c/u</span>
+                        <div class="mt-0.5">${unitPriceHtml}</div>
                         <span class="text-xs font-extrabold text-emerald-600 mt-1 block">${Utils.formatCurrency(itemSubtotal)}</span>
                     </div>
                     <div class="flex flex-col items-end justify-between self-stretch shrink-0">
@@ -1392,12 +1435,12 @@
                 if (cart.length === 0) return;
                 
                 const itemsText = cart.map(item => {
-                    const price = parseFloat(item.precio_venta) || getActivePrice(item.id_producto, item.precio_venta);
+                    const price = resolveCartItemPrice(item);
                     const unidadTxt = item.unidad ? ` - ${item.unidad}` : '';
                     return `• ${item.cantidad}x *${item.nombre}${unidadTxt}* (${Utils.formatCurrency(price)}) = *${Utils.formatCurrency(price * item.cantidad)}*`;
                 }).join('\n');
                 
-                const subtotal = cart.reduce((sum, item) => sum + ((parseFloat(item.precio_venta) || getActivePrice(item.id_producto, item.precio_venta)) * item.cantidad), 0);
+                const subtotal = cart.reduce((sum, item) => sum + (resolveCartItemPrice(item) * item.cantidad), 0);
                 const totalText = Utils.formatCurrency(subtotal);
                 
                 const message = `¡Hola! Vengo de la Vitrina Local SuiteTiendaCúcuta. Me gustaría realizar el siguiente pedido a tu tienda *${storeDataGlobal.nombre_tienda}*:\n\n${itemsText}\n\n*Total Estimado: ${totalText}*\n\n¿Me podrías confirmar la disponibilidad y el proceso de entrega?`;
@@ -1418,7 +1461,7 @@
 
         function getCartTotalAmount() {
             return cart.reduce((sum, item) => {
-                const price = parseFloat(item.precio_venta) || getActivePrice(item.id_producto, item.precio_venta);
+                const price = resolveCartItemPrice(item);
                 return sum + (price * item.cantidad);
             }, 0);
         }
@@ -1572,7 +1615,7 @@
                             id_producto: item.id_producto,
                             unidad: item.unidad || 'Unidad',
                             cantidad: item.cantidad,
-                            precio_unitario: parseFloat(item.precio_venta) || getActivePrice(item.id_producto, item.precio_venta)
+                            precio_unitario: resolveCartItemPrice(item)
                         }))
                     };
 
